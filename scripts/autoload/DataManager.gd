@@ -12,8 +12,17 @@ var tile_types: Dictionary = {}  # id -> TileTypeData
 # The 3 crops generated for the current session, in slot order.
 var procedural_crops: Array[CropData] = []
 
+# Crop ids the player has actually grown & harvested at least once. Gates
+# what shows up as purchasable in the Shop - see UpgradeManager's rare seed
+# unlock tier and Shop.gd. Mutations only enter here once discovered, which
+# is what makes finding one in the field feel worth chasing.
+var discovered_crop_ids: Dictionary = {}
+
+signal crop_discovered(crop_id: String)
+
 func _ready() -> void:
 	_register_default_tile_types()
+	_register_default_items()
 	_register_default_crops()
 
 # ---------------------------------------------------------------------------
@@ -47,6 +56,27 @@ func get_all_tile_types() -> Array:
 
 func get_procedural_crops() -> Array[CropData]:
 	return procedural_crops
+
+## Marks a crop as discovered (grown + harvested at least once). Returns
+## true only the first time - useful for triggering a "New crop discovered!"
+## style notification.
+func mark_discovered(crop_id: String) -> bool:
+	if crop_id == "" or discovered_crop_ids.has(crop_id):
+		return false
+	discovered_crop_ids[crop_id] = true
+	crop_discovered.emit(crop_id)
+	return true
+
+func is_discovered(crop_id: String) -> bool:
+	return discovered_crop_ids.has(crop_id)
+
+func get_discovered_crops() -> Array[CropData]:
+	var result: Array[CropData] = []
+	for id in discovered_crop_ids.keys():
+		var crop := get_crop(id)
+		if crop:
+			result.append(crop)
+	return result
 
 # ---------------------------------------------------------------------------
 # Default placeholder content.
@@ -124,6 +154,17 @@ func _register_default_tile_types() -> void:
 	watered_tilled.tillable = false
 	register_tile_type(watered_tilled)
 
+func _register_default_items() -> void:
+	var stone := ItemData.new()
+	stone.id = "stone"
+	stone.display_name = "Stone"
+	stone.category = "resource"
+	stone.stack_size = 99
+	stone.sell_price = 2
+	stone.buy_price = 0
+	stone.description = "A chunk of rock, gathered from outcrops around the island. Sells for a little, useful in bulk."
+	register_item(stone)
+
 func _register_default_crops() -> void:
 	## Uses ProceduralCropGenerator to generate 3 unique crops each session.
 	## The RNG is seeded from OS time so every launch is different.
@@ -131,3 +172,8 @@ func _register_default_crops() -> void:
 	rng.randomize()
 	var generator := ProceduralCropGenerator.new()
 	procedural_crops = generator.generate_batch(3, rng)
+
+	# The starter crops are always available in the shop from the very
+	# start - there'd be no way to earn the money to unlock them otherwise.
+	for crop in procedural_crops:
+		mark_discovered(crop.id)

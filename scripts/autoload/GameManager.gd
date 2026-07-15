@@ -52,6 +52,16 @@ func add_money(amount: int) -> void:
 func can_afford(amount: int) -> bool:
 	return money >= amount
 
+## Convenience wrapper for purchases: only deducts if affordable.
+## Returns true if the purchase went through.
+func spend_money(amount: int) -> bool:
+	if amount <= 0:
+		return true
+	if not can_afford(amount):
+		return false
+	add_money(-amount)
+	return true
+
 func set_paused(paused: bool) -> void:
 	is_paused = paused
 	game_paused.emit(is_paused)

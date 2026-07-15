@@ -5,7 +5,7 @@ extends Node2D
 ## WorldGenerator so this script only deals with the scene tree.
 
 const TILE_SIZE: int = 16
-const OBJECT_SCENE: PackedScene = preload("res://scenes/objects/Interactable.tscn")
+const RESOURCE_NODE_SCENE: PackedScene = preload("res://scenes/objects/ResourceNode.tscn")
 const CROP_SCENE: PackedScene = preload("res://scenes/world/Crop.tscn")
 
 @export var world_width: int = 40
@@ -56,7 +56,7 @@ func _scatter_objects() -> void:
 	rng.seed = world_seed + 1
 	var positions: Array = _generator.pick_object_positions(_tile_grid, object_count, rng)
 	for pos in positions:
-		var obj := OBJECT_SCENE.instantiate()
+		var obj := RESOURCE_NODE_SCENE.instantiate()
 		objects_root.add_child(obj)
 		obj.global_position = cell_to_world(pos)
 
@@ -75,7 +75,14 @@ func world_to_cell(world_pos: Vector2) -> Vector2i:
 # ---------------------------------------------------------------------------
 
 func till_tile(world_pos: Vector2) -> bool:
-	var cell := world_to_cell(world_pos)
+	var cells := UpgradeManager.get_tool_area_cells(world_to_cell(world_pos))
+	var tilled_any := false
+	for cell in cells:
+		if _till_cell(cell):
+			tilled_any = true
+	return tilled_any
+
+func _till_cell(cell: Vector2i) -> bool:
 	if not _is_in_bounds(cell):
 		return false
 	var tile_id: String = _tile_grid[cell.y][cell.x]
@@ -96,7 +103,14 @@ func till_tile(world_pos: Vector2) -> bool:
 	return true
 
 func water_tile(world_pos: Vector2) -> bool:
-	var cell := world_to_cell(world_pos)
+	var cells := UpgradeManager.get_tool_area_cells(world_to_cell(world_pos))
+	var watered_any := false
+	for cell in cells:
+		if _water_cell(cell):
+			watered_any = true
+	return watered_any
+
+func _water_cell(cell: Vector2i) -> bool:
 	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled or _soil_data[cell].is_watered:
 		return false
 	_soil_data[cell].is_watered = true
@@ -107,6 +121,12 @@ func water_tile(world_pos: Vector2) -> bool:
 func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
 	var cell := world_to_cell(world_pos)
 	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled or _soil_data[cell].crop_id != "":
+		return false
+
+	var crop_data := DataManager.get_crop(crop_id)
+	if not crop_data or crop_data.seed_item_id == "":
+		return false
+	if not InventoryManager.remove_item(crop_data.seed_item_id, 1):
 		return false
 	
 	_soil_data[cell].crop_id = crop_id
@@ -129,10 +149,14 @@ func harvest_crop(world_pos: Vector2) -> bool:
 		return false
 	
 	var crop_data := DataManager.get_crop(crop.crop_id)
-	if crop_data:
-		var yield_item := DataManager.get_item(crop_data.yield_item_id)
-		if yield_item:
-			GameManager.add_money(yield_item.sell_price * crop_data.yield_amount)
+	if not crop_data:
+		return false
+
+	if not InventoryManager.can_fit(crop_data.yield_item_id, crop_data.yield_amount):
+		return false  # inventory full - leave the crop growing rather than losing the harvest
+
+	InventoryManager.add_item(crop_data.yield_item_id, crop_data.yield_amount)
+	DataManager.mark_discovered(crop_data.id)
 	
 	if crop_data.regrows:
 		crop.harvest()

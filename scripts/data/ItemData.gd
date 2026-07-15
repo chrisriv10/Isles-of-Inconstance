@@ -9,4 +9,6 @@ class_name ItemData
 @export var icon: Texture2D
 @export var stack_size: int = 99
 @export var sell_price: int = 0
+@export var buy_price: int = 0   # 0 = not purchasable in the shop
+@export var category: String = "misc"   # "seed" | "crop" | "resource" | "misc" - drives inventory/shop grouping
 @export_multiline var description: String = ""

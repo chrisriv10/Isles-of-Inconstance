@@ -209,6 +209,7 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	var yield_item := ItemData.new()
 	yield_item.id = crop_id + "_yield"
 	yield_item.display_name = crop_name
+	yield_item.category = "crop"
 	yield_item.stack_size = 99
 	yield_item.sell_price = base_price
 	yield_item.description = _build_description(crop)
@@ -217,8 +218,10 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	var seed_item := ItemData.new()
 	seed_item.id = crop_id + "_seed"
 	seed_item.display_name = crop_name + " Seed"
+	seed_item.category = "seed"
 	seed_item.stack_size = 99
-	seed_item.sell_price = maxi(1, base_price / 4)
+	seed_item.sell_price = maxi(1, base_price / 6)
+	seed_item.buy_price = maxi(2, int(round(base_price * 0.6)))
 	seed_item.description = "Plant on tilled soil."
 
 	DataManager.register_crop(crop)

@@ -159,6 +159,7 @@ func create_mutated_crop(base_crop: CropData, mutation: MutationDefinition,
 	var yield_item := ItemData.new()
 	yield_item.id = child.yield_item_id
 	yield_item.display_name = new_name
+	yield_item.category = "crop"
 	yield_item.stack_size = 99
 	yield_item.sell_price = maxi(1, int(round(base_value)))
 	yield_item.description = "%s | %s | Gen %d" % [mutation.description, child.rarity, child_genetics.generation]
@@ -166,8 +167,10 @@ func create_mutated_crop(base_crop: CropData, mutation: MutationDefinition,
 	var seed_item := ItemData.new()
 	seed_item.id = child.seed_item_id
 	seed_item.display_name = new_name + " Seed"
+	seed_item.category = "seed"
 	seed_item.stack_size = 99
-	seed_item.sell_price = maxi(1, yield_item.sell_price / 4)
+	seed_item.sell_price = maxi(1, yield_item.sell_price / 6)
+	seed_item.buy_price = maxi(2, int(round(yield_item.sell_price * 0.6)))
 	seed_item.description = "Plant on tilled soil. Carries the " + mutation.mutation_name + " mutation."
 
 	DataManager.register_crop(child)
