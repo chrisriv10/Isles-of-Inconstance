@@ -14,11 +14,15 @@ signal regenerate_world_requested(seed: int)
 @onready var random_button: Button = %RandomButton
 @onready var regenerate_button: Button = %RegenerateButton
 @onready var tool_label: Label = %ToolLabel
+@onready var mutation_label: Label = %MutationLabel
+@onready var mutation_toast_timer: Timer = %MutationToastTimer
 
 func _ready() -> void:
 	GameManager.day_changed.connect(_on_day_changed)
 	GameManager.time_changed.connect(_on_time_changed)
 	GameManager.money_changed.connect(_on_money_changed)
+	GameManager.crop_mutated.connect(_on_crop_mutated)
+	mutation_toast_timer.timeout.connect(_on_mutation_toast_timeout)
 
 	_on_day_changed(GameManager.current_day)
 	_on_time_changed(GameManager.get_hour(), GameManager.get_minute())
@@ -69,3 +73,11 @@ func _on_interactable_in_range(interactable: Interactable) -> void:
 
 func _on_interactable_out_of_range() -> void:
 	interaction_prompt.visible = false
+
+func _on_crop_mutated(old_name: String, new_name: String, mutation_name: String) -> void:
+	mutation_label.text = "✨ %s mutated into %s! (%s mutation)" % [old_name, new_name, mutation_name]
+	mutation_label.visible = true
+	mutation_toast_timer.start()
+
+func _on_mutation_toast_timeout() -> void:
+	mutation_label.visible = false

@@ -8,6 +8,7 @@ signal day_changed(day: int)
 signal time_changed(hour: int, minute: int)
 signal money_changed(amount: int)
 signal game_paused(is_paused: bool)
+signal crop_mutated(old_name: String, new_name: String, mutation_name: String)
 
 @export var minutes_per_day: int = 24 * 60
 @export var real_seconds_per_game_minute: float = 0.5

@@ -192,6 +192,19 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	crop.special_effect = prefix.special_effect
 	crop.growth_stage_textures = stages
 
+	# -- Genetics: the baseline profile every future seed of this crop
+	# germinates from, and the starting point for its first mutation --
+	var genetics := CropGenetics.new()
+	genetics.color_hue = prefix.modulate_color.h
+	genetics.color_saturation = prefix.modulate_color.s
+	genetics.color_value = prefix.modulate_color.v
+	genetics.size_factor = _size_label_to_factor(crop.size_trait)
+	genetics.growth_speed_factor = 1.0
+	genetics.value_factor = value_mult
+	genetics.rarity_tier = _rarity_to_tier(rarity)
+	genetics.mutation_chance = _base_mutation_chance(min_weight)
+	crop.genetics = genetics
+
 	# -- Yield item --
 	var yield_item := ItemData.new()
 	yield_item.id = crop_id + "_yield"
@@ -240,6 +253,45 @@ func _weight_to_rarity(weight: int) -> String:
 	elif weight >= 3:
 		return "Epic"
 	return "Legendary"
+
+
+func _size_label_to_factor(label: String) -> float:
+	match label:
+		"tiny":
+			return 0.6
+		"small":
+			return 0.85
+		"medium":
+			return 1.0
+		"large":
+			return 1.3
+		"massive":
+			return 1.7
+		_:
+			return 1.0
+
+
+func _rarity_to_tier(rarity_name: String) -> int:
+	match rarity_name:
+		"Common":
+			return 0
+		"Uncommon":
+			return 1
+		"Rare":
+			return 2
+		"Epic":
+			return 3
+		"Legendary":
+			return 4
+		_:
+			return 0
+
+
+## Rarer base crops (lower minimum trait weight) start out a little more
+## "unstable" and so have a slightly higher baseline mutation chance.
+func _base_mutation_chance(min_weight: float) -> float:
+	var instability: float = clampf(1.0 - (min_weight / 45.0), 0.0, 1.0)
+	return clampf(0.04 + instability * 0.08, 0.04, 0.14)
 
 
 func _days_to_size(days: int) -> String:

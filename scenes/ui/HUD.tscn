@@ -58,6 +58,26 @@ grow_vertical = 0
 horizontal_alignment = 1
 text = "[E] Interact"
 
+[node name="MutationLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -160.0
+offset_top = 48.0
+offset_right = 160.0
+offset_bottom = 72.0
+grow_horizontal = 2
+horizontal_alignment = 1
+text = ""
+
+[node name="MutationToastTimer" type="Timer" parent="Root"]
+unique_name_in_owner = true
+wait_time = 3.5
+one_shot = true
+
 [node name="GenBox" type="HBoxContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 1

@@ -116,6 +116,7 @@ func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
 	objects_root.add_child(crop)
 	crop.global_position = cell_to_world(cell)
 	crop.setup(crop_id, 0)
+	crop.mutated.connect(_on_crop_mutated.bind(cell))
 	_crop_nodes[cell] = crop
 	return true
 
@@ -142,6 +143,18 @@ func harvest_crop(world_pos: Vector2) -> bool:
 		_soil_data[cell].crop_id = ""
 		_soil_data[cell].days_grown = 0
 	return true
+
+## Keeps SoilData in sync when a Crop mutates into a new crop id mid-growth,
+## and forwards a notification for the UI to display.
+func _on_crop_mutated(crop: Crop, old_crop_id: String, new_crop_id: String, mutation_name: String, cell: Vector2i) -> void:
+	if _soil_data.has(cell):
+		_soil_data[cell].crop_id = new_crop_id
+
+	var old_crop_data := DataManager.get_crop(old_crop_id)
+	var new_crop_data := DataManager.get_crop(new_crop_id)
+	var old_name := old_crop_data.display_name if old_crop_data else old_crop_id
+	var new_name := new_crop_data.display_name if new_crop_data else new_crop_id
+	GameManager.crop_mutated.emit(old_name, new_name, mutation_name)
 
 func _on_day_changed(_day: int) -> void:
 	for cell in _soil_data.keys():

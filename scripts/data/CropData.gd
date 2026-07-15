@@ -23,6 +23,15 @@ class_name CropData
 @export var special_effect: String = ""
 @export var seed_item_id: String = ""     # ID of the matching seed item
 
+# Genetics & mutation lineage – populated by ProceduralCropGenerator and,
+# for mutated variants, by MutationSystem. `genetics` is the canonical
+# profile a fresh seed of this exact crop id will germinate from; see
+# CropGenetics.gd and MutationSystem.gd for how mutation/inheritance works.
+@export var genetics: CropGenetics = null
+@export var base_crop_id: String = ""     # non-mutated crop this line came from, "" if original
+@export var mutation_name: String = ""    # name of the mutation that produced this crop, "" if none
+@export var mutation_generation: int = 0  # how many mutations deep this line is
+
 func get_stage_count() -> int:
 	return growth_stage_textures.size()
 
