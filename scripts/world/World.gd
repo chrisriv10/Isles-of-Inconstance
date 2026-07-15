@@ -102,7 +102,7 @@ func _till_cell(cell: Vector2i) -> bool:
 	ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
 	
 	# Effects
-	# EffectSpawner.spawn_dirt_puff(cell_to_world(cell))
+	EffectSpawner.spawn_dirt_puff(cell_to_world(cell))
 	AudioManager.play(AudioManager.Sound.TILL)
 	
 	return true
@@ -123,7 +123,7 @@ func _water_cell(cell: Vector2i) -> bool:
 	ground_layer.set_cell(cell, 0, watered_type.atlas_coords)
 	
 	# Effects
-	# EffectSpawner.spawn_water_droplets(cell_to_world(cell))
+	EffectSpawner.spawn_water_droplets(cell_to_world(cell))
 	AudioManager.play(AudioManager.Sound.WATER)
 	
 	return true
@@ -173,7 +173,10 @@ func harvest_crop(world_pos: Vector2) -> bool:
 	DataManager.mark_discovered(crop_data.id)
 	
 	# Effects
-	# EffectSpawner.spawn_harvest_effect(crop.global_position, crop_data.display_name, harvest_color)
+	var harvest_color := crop_data.modulate_color
+	if crop.genetics:
+		harvest_color = crop.genetics.to_color()
+	EffectSpawner.spawn_harvest_effect(crop.global_position, crop_data.display_name, harvest_color)
 	AudioManager.play(AudioManager.Sound.HARVEST)
 	
 	# Camera punch toward player (disabled - requires Camera2D with punch method)

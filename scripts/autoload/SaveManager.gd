@@ -2,15 +2,23 @@ extends Node
 
 ## Manages saving and loading game state using JSON serialization.
 ## Saves include: world seed, player position, inventory, crops, genetics, money, upgrades.
+## Handles versioning, missing fields, malformed saves gracefully.
 
 const SAVE_FILE_PATH: String = "user://savegame.json"
+const SAVE_VERSION: int = 2
 
 signal save_completed(success: bool)
 signal load_completed(success: bool)
 
 ## Save all game state to file
 func save_game() -> void:
+	# Ensure save directory exists
+	_ensure_save_directory()
+	
 	var save_data := _collect_save_data()
+	save_data["save_version"] = SAVE_VERSION
+	save_data["save_timestamp"] = Time.get_unix_time_from_system()
+	
 	var json_string := JSON.stringify(save_data)
 	
 	var file := FileAccess.open(SAVE_FILE_PATH, FileAccess.WRITE)
@@ -27,6 +35,9 @@ func save_game() -> void:
 
 ## Load all game state from file
 func load_game() -> void:
+	# Ensure save directory exists
+	_ensure_save_directory()
+	
 	if not FileAccess.file_exists(SAVE_FILE_PATH):
 		print("No save file found at: ", SAVE_FILE_PATH)
 		load_completed.emit(false)
@@ -41,14 +52,27 @@ func load_game() -> void:
 	var json_string := file.get_as_text()
 	file.close()
 	
+	if json_string.is_empty():
+		printerr("Save file is empty")
+		load_completed.emit(false)
+		return
+	
 	var json := JSON.new()
 	var parse_result := json.parse(json_string)
 	if parse_result != OK:
 		printerr("Failed to parse save file JSON: ", json.get_error_message())
+		# Attempt recovery by deleting corrupted save
+		_delete_corrupted_save()
 		load_completed.emit(false)
 		return
 	
 	var save_data: Dictionary = json.data
+	if not save_data:
+		printerr("Save file contains no data")
+		load_completed.emit(false)
+		return
+	
+	# Handle version migration
 	_apply_save_data(save_data)
 	
 	print("Game loaded successfully from: ", SAVE_FILE_PATH)
@@ -63,6 +87,18 @@ func delete_save() -> void:
 	if FileAccess.file_exists(SAVE_FILE_PATH):
 		DirAccess.remove_absolute(SAVE_FILE_PATH)
 		print("Save file deleted")
+
+## Ensure save directory exists
+func _ensure_save_directory() -> void:
+	var dir := DirAccess.open("user://")
+	if dir:
+		dir.make_dir_recursive(".")
+
+## Delete corrupted save file
+func _delete_corrupted_save() -> void:
+	if FileAccess.file_exists(SAVE_FILE_PATH):
+		DirAccess.remove_absolute(SAVE_FILE_PATH)
+		print("Deleted corrupted save file")
 
 ## Collect all game state into a serializable dictionary
 func _collect_save_data() -> Dictionary:
@@ -107,6 +143,12 @@ func _collect_save_data() -> Dictionary:
 
 ## Apply loaded save data to game state
 func _apply_save_data(save_data: Dictionary) -> void:
+	# Handle version migration
+	var version := save_data.get("save_version", 1)
+	if version < SAVE_VERSION:
+		print("Migrating save from version %d to %d" % [version, SAVE_VERSION])
+		save_data = _migrate_save(save_data, version)
+	
 	# World data
 	var world := get_tree().get_first_node_in_group("world")
 	if world and save_data.has("world_seed"):
@@ -120,40 +162,72 @@ func _apply_save_data(save_data: Dictionary) -> void:
 	var player := get_tree().get_first_node_in_group("player")
 	if player and save_data.has("player_position"):
 		var pos_data: Dictionary = save_data["player_position"]
-		player.global_position = Vector2(pos_data["x"], pos_data["y"])
+		player.global_position = Vector2(
+			pos_data.get("x", 0.0),
+			pos_data.get("y", 0.0)
+		)
 	
 	# Inventory
 	if save_data.has("inventory"):
 		InventoryManager.clear()
 		var inventory: Dictionary = save_data["inventory"]
 		for item_id in inventory:
-			InventoryManager.add_item(item_id, inventory[item_id])
+			var amount := inventory[item_id]
+			if amount is int and amount > 0:
+				InventoryManager.add_item(item_id, amount)
 	
 	# Money
 	if save_data.has("money"):
-		GameManager.money = save_data["money"]
+		var money_val := save_data["money"]
+		if money_val is int:
+			GameManager.money = money_val
 	
 	# Day/time
 	if save_data.has("current_day"):
-		GameManager.current_day = save_data["current_day"]
+		var day_val := save_data["current_day"]
+		if day_val is int:
+			GameManager.current_day = day_val
 	if save_data.has("current_hour"):
-		GameManager.set_time(save_data["current_hour"], save_data.get("current_minute", 0))
+		var hour_val := save_data["current_hour"]
+		var minute_val := save_data.get("current_minute", 0)
+		if hour_val is int and minute_val is int:
+			GameManager.set_time(hour_val, minute_val)
 	
 	# Upgrades
 	if save_data.has("upgrades"):
 		var upgrades: Dictionary = save_data["upgrades"]
 		for upgrade_id in upgrades:
-			UpgradeManager.set_upgrade_level(upgrade_id, upgrades[upgrade_id])
+			var level_val := upgrades[upgrade_id]
+			if level_val is int:
+				UpgradeManager.set_upgrade_level(upgrade_id, level_val)
 	
 	# Discovered crops
 	if save_data.has("discovered_crops"):
 		var discovered: Array = save_data["discovered_crops"]
 		for crop_id in discovered:
-			DataManager.mark_discovered(crop_id)
+			if crop_id is String:
+				DataManager.mark_discovered(crop_id)
 	
 	# Selected seed
 	if player and save_data.has("selected_seed_crop_id"):
-		player.selected_seed_crop_id = save_data["selected_seed_crop_id"]
+		var seed_id := save_data["selected_seed_crop_id"]
+		if seed_id is String:
+			player.selected_seed_crop_id = seed_id
+
+## Migrate save data from older versions
+func _migrate_save(save_data: Dictionary, from_version: int) -> Dictionary:
+	var migrated := save_data.duplicate()
+	
+	if from_version < 2:
+		# Version 2 adds: save_version, save_timestamp
+		# No data transformation needed, just ensure new fields exist
+		pass
+	
+	# Future migrations would go here
+	# if from_version < 3:
+	#     ...
+	
+	return migrated
 
 ## Serialize soil data (crops and their genetics)
 func _serialize_soil_data(soil_data: Dictionary) -> Dictionary:
@@ -185,17 +259,22 @@ func _deserialize_soil_data(serialized: Dictionary, world: Node2D) -> void:
 		
 		# Parse cell key (Vector2i string format)
 		var parts: PackedStringArray = cell_key.split(",")
-		var cell := Vector2i(int(parts[0].substr(1)), int(parts[1].rstrip(")")))
+		if parts.size() < 2:
+			continue
+		var cell := Vector2i(
+			int(parts[0].substr(1)),
+			int(parts[1].rstrip(")"))
+		)
 		
 		# Restore soil state
 		if not world._soil_data.has(cell):
 			world._soil_data[cell] = SoilData.new()
 		
 		var soil: SoilData = world._soil_data[cell]
-		soil.is_tilled = cell_data["is_tilled"]
-		soil.is_watered = cell_data["is_watered"]
-		soil.crop_id = cell_data["crop_id"]
-		soil.days_grown = cell_data["days_grown"]
+		soil.is_tilled = cell_data.get("is_tilled", false)
+		soil.is_watered = cell_data.get("is_watered", false)
+		soil.crop_id = cell_data.get("crop_id", "")
+		soil.days_grown = cell_data.get("days_grown", 0)
 		
 		# Update tile appearance
 		if soil.is_tilled:
