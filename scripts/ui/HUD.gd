@@ -13,6 +13,7 @@ signal regenerate_world_requested(seed: int)
 @onready var seed_input: LineEdit = %SeedInput
 @onready var random_button: Button = %RandomButton
 @onready var regenerate_button: Button = %RegenerateButton
+@onready var tool_label: Label = %ToolLabel
 
 func _ready() -> void:
 	GameManager.day_changed.connect(_on_day_changed)
@@ -30,10 +31,16 @@ func _ready() -> void:
 
 	var player := get_tree().get_first_node_in_group("player")
 	if player:
+		if player.has_signal("active_tool_changed"):
+			player.active_tool_changed.connect(_on_active_tool_changed)
+		
 		var interactor: Area2D = player.get_node_or_null("Interactor")
 		if interactor:
 			interactor.interactable_in_range.connect(_on_interactable_in_range)
 			interactor.interactable_out_of_range.connect(_on_interactable_out_of_range)
+
+func _on_active_tool_changed(tool_name: String) -> void:
+	tool_label.text = "Tool: " + tool_name
 
 func set_seed_display(seed_value: int) -> void:
 	seed_input.text = str(seed_value)

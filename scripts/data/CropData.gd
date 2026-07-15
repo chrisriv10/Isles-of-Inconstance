@@ -12,6 +12,16 @@ class_name CropData
 @export var yield_amount: int = 1
 @export var regrows: bool = false
 @export var regrow_days: int = 2
+@export var requires_water: bool = true
+@export var modulate_color: Color = Color.WHITE
+
+# Procedural identity – populated by ProceduralCropGenerator
+@export var rarity: String = "Common"
+@export var color_trait: String = ""
+@export var shape_trait: String = ""
+@export var size_trait: String = ""
+@export var special_effect: String = ""
+@export var seed_item_id: String = ""     # ID of the matching seed item
 
 func get_stage_count() -> int:
 	return growth_stage_textures.size()

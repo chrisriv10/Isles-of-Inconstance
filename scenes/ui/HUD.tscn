@@ -36,6 +36,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "$500"
 
+[node name="ToolLabel" type="Label" parent="Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Tool: Hoe"
+
 [node name="InteractionPrompt" type="Label" parent="Root"]
 unique_name_in_owner = true
 layout_mode = 1

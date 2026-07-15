@@ -1,0 +1,268 @@
+class_name ProceduralCropGenerator
+extends RefCounted
+
+## Generates unique CropData instances by combining PREFIX and ROOT CropTraits.
+## Adding new traits here alone is enough to expand the combinatorial space –
+## no other script needs to change.
+##
+## Rarity is determined by the *lowest* weight among the two chosen traits:
+##   weight >= 40  -> Common
+##   weight >= 20  -> Uncommon
+##   weight >= 8   -> Rare
+##   weight >= 3   -> Epic
+##   weight <  3   -> Legendary
+
+# ---------------------------------------------------------------------------
+# Trait Library
+# ---------------------------------------------------------------------------
+
+var _prefixes: Array[CropTrait] = []
+var _roots: Array[CropTrait] = []
+
+func _init() -> void:
+	_build_prefix_library()
+	_build_root_library()
+
+
+func _build_prefix_library() -> void:
+	# ---- Colors / Themes ----
+	_add_prefix("Azure",    Color(0.3, 0.6, 1.0),  "blue",    "",        "",       0,   0, 1.2, 40)
+	_add_prefix("Crimson",  Color(0.9, 0.2, 0.2),  "red",     "",        "",       0,   0, 1.3, 35)
+	_add_prefix("Golden",   Color(1.0, 0.85, 0.2), "gold",    "",        "",       0,   1, 1.6, 20)
+	_add_prefix("Pale",     Color(0.9, 0.9, 0.8),  "white",   "",        "",       1,   0, 0.9, 40)
+	_add_prefix("Void",     Color(0.15,0.05,0.25), "black",   "",        "",       2,  -1, 2.5, 3)
+	_add_prefix("Ember",    Color(1.0, 0.5, 0.1),  "orange",  "",        "",       0,   0, 1.4, 25)
+	_add_prefix("Verdant",  Color(0.2, 0.8, 0.3),  "green",   "",        "",      -1,   1, 1.1, 45)
+	_add_prefix("Violet",   Color(0.7, 0.3, 0.9),  "purple",  "",        "",       0,   0, 1.35,30)
+	_add_prefix("Ivory",    Color(1.0, 0.95, 0.85),"white",   "",        "lustrous",1,  1, 1.5, 15)
+	_add_prefix("Obsidian", Color(0.1, 0.1, 0.15), "black",   "",        "heavy",  3,  -1, 2.0,  5)
+	_add_prefix("Rose",     Color(1.0, 0.6, 0.7),  "pink",    "",        "",       0,   1, 1.25,35)
+	_add_prefix("Gilded",   Color(1.0, 0.9, 0.3),  "gold",    "",        "shining",0,   2, 2.2,  8)
+	_add_prefix("Ashen",    Color(0.6, 0.6, 0.6),  "gray",    "",        "",       2,  -1, 1.1, 40)
+	_add_prefix("Cobalt",   Color(0.2, 0.35, 0.9), "blue",    "",        "",       1,   0, 1.45,18)
+	_add_prefix("Thorn",    Color(0.45,0.6, 0.3),  "green",   "spiky",   "barbed",-1,   0, 1.55,12)
+	_add_prefix("Twisted",  Color(0.55,0.4, 0.2),  "brown",   "gnarled", "cursed", 3,  -2, 1.8,  8)
+	_add_prefix("Luminous", Color(0.95,0.95,0.5),  "yellow",  "",        "glowing",-2,  0, 1.9,  6)
+	_add_prefix("Shadow",   Color(0.2, 0.1, 0.3),  "dark",    "",        "shadowed",1, -1, 1.7,  9)
+	_add_prefix("Crystal",  Color(0.7, 0.95, 1.0), "clear",   "faceted", "brittle",-3,  0, 3.0,  2)
+	_add_prefix("Fungal",   Color(0.5, 0.7, 0.45), "mottled", "bumpy",   "sporing", 0,  0, 1.15,42, false)
+
+
+func _build_root_library() -> void:
+	# ---- Base Plant Forms ----
+	_add_root("Melon",     2, -1, 1.0, 40, true)
+	_add_root("Berry",     1,  1, 0.9, 45, true,  true, 2)
+	_add_root("Root",      3,  0, 0.85,38, true)
+	_add_root("Vine",      3,  1, 1.0, 35, true)
+	_add_root("Bulb",      2,  0, 0.9, 30, true)
+	_add_root("Stalk",     4, -1, 0.8, 42, true)
+	_add_root("Pod",       2,  1, 1.0, 40, true)
+	_add_root("Bloom",     2,  2, 1.2, 22, true)
+	_add_root("Cactus",    4,  0, 1.1, 38, false)
+	_add_root("Fungus",    3,  0, 0.95,35, false)
+	_add_root("Tuber",     3,  0, 1.0, 40, true)
+	_add_root("Frond",     2,  1, 0.9, 28, true)
+	_add_root("Knob",      2,  0, 0.8, 45, true)
+	_add_root("Cap",       2,  1, 1.05,30, false)
+	_add_root("Sprig",     1,  2, 1.15,20, true,  true, 3)
+	_add_root("Clump",     3, -1, 0.75,45, true)
+	_add_root("Shard",     2,  0, 1.3, 10, false)
+	_add_root("Husk",      4, -2, 0.7, 48, false)
+	_add_root("Plume",     1,  2, 1.4, 15, true)
+	_add_root("Tendril",   3,  1, 1.0, 38, true,  true, 4)
+
+
+# ---------------------------------------------------------------------------
+# Builder Helpers
+# ---------------------------------------------------------------------------
+
+func _add_prefix(name_part: String, color: Color, color_trait: String,
+		shape_trait: String, special_effect: String,
+		days_mod: int, yield_mod: int, value_mult: float,
+		weight: int, requires_water_bool: bool = true) -> void:
+	var t := CropTrait.new()
+	t.type = CropTrait.TraitType.PREFIX
+	t.name_part = name_part
+	t.modulate_color = color
+	t.color_trait = color_trait
+	t.shape_trait = shape_trait
+	t.special_effect = special_effect
+	t.days_to_grow_mod = days_mod
+	t.yield_amount_mod = yield_mod
+	t.value_multiplier = value_mult
+	t.rarity_weight = weight
+	t.requires_water_override = 1 if requires_water_bool else 0
+	_prefixes.append(t)
+
+
+func _add_root(name_part: String, base_days: int, yield_mod: int,
+		value_mult: float, weight: int, requires_water_bool: bool,
+		regrows_bool: bool = false, regrow_days_val: int = 2) -> void:
+	var t := CropTrait.new()
+	t.type = CropTrait.TraitType.ROOT
+	t.name_part = name_part
+	t.days_to_grow_mod = base_days   # ROOT days_mod is the BASE days to grow
+	t.yield_amount_mod = yield_mod
+	t.value_multiplier = value_mult
+	t.rarity_weight = weight
+	t.requires_water_override = 1 if requires_water_bool else 0
+	t.regrows_override = 1 if regrows_bool else 0
+	t.regrow_days_override = regrow_days_val
+	_roots.append(t)
+
+
+# ---------------------------------------------------------------------------
+# Generation
+# ---------------------------------------------------------------------------
+
+## Generates [count] unique CropData+ItemData pairs, registers them with
+## DataManager, and returns the list of generated CropData resources.
+func generate_batch(count: int, rng: RandomNumberGenerator) -> Array[CropData]:
+	var results: Array[CropData] = []
+	var used_names: Dictionary = {}
+
+	var attempts := 0
+	while results.size() < count and attempts < count * 30:
+		attempts += 1
+		var crop := _generate_one(rng)
+		if crop == null or used_names.has(crop.display_name):
+			continue
+		used_names[crop.display_name] = true
+		results.append(crop)
+
+	return results
+
+
+func _generate_one(rng: RandomNumberGenerator) -> CropData:
+	var prefix := _pick_weighted(rng, _prefixes)
+	var root   := _pick_weighted(rng, _roots)
+	if prefix == null or root == null:
+		return null
+
+	var crop_name := prefix.name_part + " " + root.name_part
+	var crop_id   := crop_name.to_lower().replace(" ", "_")
+
+	# -- Build stats --
+	var base_days   := 3 + root.days_to_grow_mod + prefix.days_to_grow_mod
+	var days_final  := clampi(base_days, 1, 14)
+	var yield_final := clampi(1 + root.yield_amount_mod + prefix.yield_amount_mod, 1, 5)
+	var value_mult  := root.value_multiplier * prefix.value_multiplier
+	var base_price  := int(10.0 * value_mult)
+	var requires_water := true
+	if prefix.requires_water_override != -1:
+		requires_water = prefix.requires_water_override == 1
+	if root.requires_water_override != -1 and root.requires_water_override == 0:
+		requires_water = false
+
+	var regrows := false
+	var regrow_days := 2
+	if root.regrows_override == 1:
+		regrows = true
+		regrow_days = root.regrow_days_override
+
+	var min_weight: float = min(prefix.rarity_weight, root.rarity_weight)
+	var rarity := _weight_to_rarity(min_weight)
+
+	# -- Build the grow stages textures array --
+	var stages: Array[Texture2D] = []
+	var sheet := load("res://assets/sprites/crop_stages.png")
+	if sheet:
+		for i in range(4):
+			var atlas := AtlasTexture.new()
+			atlas.atlas = sheet
+			atlas.region = Rect2(i * 16, 0, 16, 16)
+			stages.append(atlas)
+
+	# -- Assemble CropData --
+	var crop := CropData.new()
+	crop.id = crop_id
+	crop.display_name = crop_name
+	crop.days_to_grow = days_final
+	crop.yield_item_id = crop_id + "_yield"
+	crop.seed_item_id  = crop_id + "_seed"
+	crop.yield_amount  = yield_final
+	crop.regrows       = regrows
+	crop.regrow_days   = regrow_days
+	crop.requires_water = requires_water
+	crop.modulate_color = prefix.modulate_color
+	crop.rarity        = rarity
+	crop.color_trait   = prefix.color_trait
+	crop.shape_trait   = prefix.shape_trait if prefix.shape_trait != "" else root.name_part.to_lower()
+	crop.size_trait    = _days_to_size(days_final)
+	crop.special_effect = prefix.special_effect
+	crop.growth_stage_textures = stages
+
+	# -- Yield item --
+	var yield_item := ItemData.new()
+	yield_item.id = crop_id + "_yield"
+	yield_item.display_name = crop_name
+	yield_item.stack_size = 99
+	yield_item.sell_price = base_price
+	yield_item.description = _build_description(crop)
+
+	# -- Seed item --
+	var seed_item := ItemData.new()
+	seed_item.id = crop_id + "_seed"
+	seed_item.display_name = crop_name + " Seed"
+	seed_item.stack_size = 99
+	seed_item.sell_price = maxi(1, base_price / 4)
+	seed_item.description = "Plant on tilled soil."
+
+	DataManager.register_crop(crop)
+	DataManager.register_item(yield_item)
+	DataManager.register_item(seed_item)
+
+	return crop
+
+
+func _pick_weighted(rng: RandomNumberGenerator, pool: Array) -> CropTrait:
+	if pool.is_empty():
+		return null
+	var total := 0
+	for t in pool:
+		total += t.rarity_weight
+	var roll := rng.randi_range(0, total - 1)
+	var running := 0
+	for t in pool:
+		running += t.rarity_weight
+		if roll < running:
+			return t
+	return pool[-1]
+
+
+func _weight_to_rarity(weight: int) -> String:
+	if weight >= 40:
+		return "Common"
+	elif weight >= 20:
+		return "Uncommon"
+	elif weight >= 8:
+		return "Rare"
+	elif weight >= 3:
+		return "Epic"
+	return "Legendary"
+
+
+func _days_to_size(days: int) -> String:
+	if days <= 2:
+		return "tiny"
+	elif days <= 4:
+		return "small"
+	elif days <= 7:
+		return "medium"
+	elif days <= 10:
+		return "large"
+	return "massive"
+
+
+func _build_description(crop: CropData) -> String:
+	var parts: Array[String] = []
+	if crop.color_trait != "":
+		parts.append(crop.color_trait.capitalize())
+	if crop.shape_trait != "":
+		parts.append(crop.shape_trait)
+	if crop.size_trait != "":
+		parts.append(crop.size_trait)
+	if crop.special_effect != "":
+		parts.append("— " + crop.special_effect)
+	parts.append("| %d days | Rarity: %s" % [crop.days_to_grow, crop.rarity])
+	return " ".join(parts)

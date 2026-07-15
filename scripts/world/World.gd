@@ -6,6 +6,7 @@ extends Node2D
 
 const TILE_SIZE: int = 16
 const OBJECT_SCENE: PackedScene = preload("res://scenes/objects/Interactable.tscn")
+const CROP_SCENE: PackedScene = preload("res://scenes/world/Crop.tscn")
 
 @export var world_width: int = 40
 @export var world_height: int = 40
@@ -17,8 +18,11 @@ const OBJECT_SCENE: PackedScene = preload("res://scenes/objects/Interactable.tsc
 
 var _tile_grid: Array = []
 var _generator: WorldGenerator
+var _soil_data: Dictionary = {}
+var _crop_nodes: Dictionary = {}
 
 func _ready() -> void:
+	GameManager.day_changed.connect(_on_day_changed)
 	generate_world()
 
 func generate_world() -> void:
@@ -36,6 +40,8 @@ func _clear_world() -> void:
 	ground_layer.clear()
 	for child in objects_root.get_children():
 		child.queue_free()
+	_soil_data.clear()
+	_crop_nodes.clear()
 
 func _paint_ground() -> void:
 	for y in range(world_height):
@@ -65,8 +71,7 @@ func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return Vector2i(floori(world_pos.x / TILE_SIZE), floori(world_pos.y / TILE_SIZE))
 
 # ---------------------------------------------------------------------------
-# Farming actions - simple prototype implementation, safe to extend later
-# (e.g. plant_crop, water_tile, harvest_tile).
+# Farming actions
 # ---------------------------------------------------------------------------
 
 func till_tile(world_pos: Vector2) -> bool:
@@ -77,10 +82,81 @@ func till_tile(world_pos: Vector2) -> bool:
 	var tile_type: TileTypeData = DataManager.get_tile_type(tile_id)
 	if tile_type == null or not tile_type.tillable:
 		return false
+	if _soil_data.has(cell) and _soil_data[cell].is_tilled:
+		return false
+	
 	_tile_grid[cell.y][cell.x] = "tilled"
+	
+	var soil := SoilData.new()
+	soil.is_tilled = true
+	_soil_data[cell] = soil
+	
 	var tilled_type: TileTypeData = DataManager.get_tile_type("tilled")
 	ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
 	return true
+
+func water_tile(world_pos: Vector2) -> bool:
+	var cell := world_to_cell(world_pos)
+	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled or _soil_data[cell].is_watered:
+		return false
+	_soil_data[cell].is_watered = true
+	var watered_type: TileTypeData = DataManager.get_tile_type("watered_tilled")
+	ground_layer.set_cell(cell, 0, watered_type.atlas_coords)
+	return true
+
+func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
+	var cell := world_to_cell(world_pos)
+	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled or _soil_data[cell].crop_id != "":
+		return false
+	
+	_soil_data[cell].crop_id = crop_id
+	_soil_data[cell].days_grown = 0
+	
+	var crop: Crop = CROP_SCENE.instantiate()
+	objects_root.add_child(crop)
+	crop.global_position = cell_to_world(cell)
+	crop.setup(crop_id, 0)
+	_crop_nodes[cell] = crop
+	return true
+
+func harvest_crop(world_pos: Vector2) -> bool:
+	var cell := world_to_cell(world_pos)
+	if not _crop_nodes.has(cell):
+		return false
+	var crop: Crop = _crop_nodes[cell]
+	if not crop.is_mature():
+		return false
+	
+	var crop_data := DataManager.get_crop(crop.crop_id)
+	if crop_data:
+		var yield_item := DataManager.get_item(crop_data.yield_item_id)
+		if yield_item:
+			GameManager.add_money(yield_item.sell_price * crop_data.yield_amount)
+	
+	if crop_data.regrows:
+		crop.harvest()
+		_soil_data[cell].days_grown = crop_data.regrow_days
+	else:
+		crop.queue_free()
+		_crop_nodes.erase(cell)
+		_soil_data[cell].crop_id = ""
+		_soil_data[cell].days_grown = 0
+	return true
+
+func _on_day_changed(_day: int) -> void:
+	for cell in _soil_data.keys():
+		var soil: SoilData = _soil_data[cell]
+		if soil.crop_id != "":
+			var crop_data := DataManager.get_crop(soil.crop_id)
+			if crop_data and (not crop_data.requires_water or soil.is_watered):
+				soil.days_grown += 1
+				if _crop_nodes.has(cell):
+					_crop_nodes[cell].grow()
+		
+		# Soil dries out every day
+		soil.is_watered = false
+		var tilled_type: TileTypeData = DataManager.get_tile_type("tilled")
+		ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
 
 func _is_in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < world_width and cell.y < world_height

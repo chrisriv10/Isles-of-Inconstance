@@ -38,10 +38,12 @@ func get_nearest() -> Interactable:
 			nearest_dist = dist
 	return nearest
 
-func interact_with_nearest() -> void:
+func interact_with_nearest() -> bool:
 	var target := get_nearest()
 	if target and target.can_interact():
 		target.interact(get_owner())
 		if target.single_use:
 			_nearby.erase(target)
 			interactable_out_of_range.emit()
+		return true
+	return false

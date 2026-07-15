@@ -9,9 +9,11 @@ var items: Dictionary = {}       # id -> ItemData
 var crops: Dictionary = {}       # id -> CropData
 var tile_types: Dictionary = {}  # id -> TileTypeData
 
+# The 3 crops generated for the current session, in slot order.
+var procedural_crops: Array[CropData] = []
+
 func _ready() -> void:
 	_register_default_tile_types()
-	_register_default_items()
 	_register_default_crops()
 
 # ---------------------------------------------------------------------------
@@ -42,6 +44,9 @@ func get_tile_type(id: String) -> TileTypeData:
 
 func get_all_tile_types() -> Array:
 	return tile_types.values()
+
+func get_procedural_crops() -> Array[CropData]:
+	return procedural_crops
 
 # ---------------------------------------------------------------------------
 # Default placeholder content.
@@ -112,34 +117,17 @@ func _register_default_tile_types() -> void:
 	# Tilled soil doesn't spawn naturally, so it has no noise range.
 	register_tile_type(tilled)
 
-func _register_default_items() -> void:
-	var seed_item := ItemData.new()
-	seed_item.id = "basic_seed"
-	seed_item.display_name = "Basic Seed"
-	seed_item.stack_size = 99
-	seed_item.sell_price = 2
-	register_item(seed_item)
-
-	var crop_yield := ItemData.new()
-	crop_yield.id = "basic_crop"
-	crop_yield.display_name = "Basic Crop"
-	crop_yield.stack_size = 99
-	crop_yield.sell_price = 10
-	register_item(crop_yield)
+	var watered_tilled := TileTypeData.new()
+	watered_tilled.id = "watered_tilled"
+	watered_tilled.atlas_coords = Vector2i(7, 0)
+	watered_tilled.walkable = true
+	watered_tilled.tillable = false
+	register_tile_type(watered_tilled)
 
 func _register_default_crops() -> void:
-	var crop := CropData.new()
-	crop.id = "basic_crop"
-	crop.display_name = "Basic Crop"
-	crop.days_to_grow = 4
-	crop.yield_item_id = "basic_crop"
-	crop.yield_amount = 1
-	var sheet := load("res://assets/sprites/crop_stages.png")
-	if sheet:
-		# Split the 64x16 sheet into 4 16x16 stage textures.
-		for i in range(4):
-			var atlas := AtlasTexture.new()
-			atlas.atlas = sheet
-			atlas.region = Rect2(i * 16, 0, 16, 16)
-			crop.growth_stage_textures.append(atlas)
-	register_crop(crop)
+	## Uses ProceduralCropGenerator to generate 3 unique crops each session.
+	## The RNG is seeded from OS time so every launch is different.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var generator := ProceduralCropGenerator.new()
+	procedural_crops = generator.generate_batch(3, rng)
