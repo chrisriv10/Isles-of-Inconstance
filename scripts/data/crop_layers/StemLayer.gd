@@ -43,7 +43,7 @@ func _draw_curved_stem(image: Image, x: int, start_y: int, end_y: int, center_x:
 			PixelArtUtils.set_pixel(image, transformed.x, transformed.y, color)
 
 func _draw_vine_stem(image: Image, x: int, start_y: int, end_y: int, center_x: int, center_y: int) -> void:
-	var half_width := max(width / 2, 1)
+	var half_width: int = max(width / 2, 1)
 	for y in range(end_y, start_y + 1):
 		var progress := float(y - end_y) / float(max(start_y - end_y, 1))
 		var wave_offset := int(2.0 * sin(progress * PI * 4))

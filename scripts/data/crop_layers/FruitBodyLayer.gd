@@ -47,8 +47,8 @@ func _draw_diamond(image: Image, x: int, y: int, center_x: int, center_y: int) -
 	# Fill
 	for py in range(y - half_size, y + half_size + 1):
 		for px in range(x - half_size, x + half_size + 1):
-			var dx := abs(px - x)
-			var dy := abs(py - y)
+			var dx: int := abs(px - x)
+			var dy: int := abs(py - y)
 			if dx + dy <= half_size:
 				var transformed := apply_transforms(px, py, center_x, center_y)
 				PixelArtUtils.set_pixel(image, transformed.x, transformed.y, color)

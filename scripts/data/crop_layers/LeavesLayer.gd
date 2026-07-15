@@ -51,7 +51,7 @@ func _draw_pointed_leaf(image: Image, x: int, y: int, angle: float, center_x: in
 			var transformed := apply_transforms(draw_x, draw_y, center_x, center_y)
 			PixelArtUtils.set_pixel(image, transformed.x, transformed.y, color)
 
-func _draw_rounded_leaf(image: Image, x: int, y: int, angle: float) -> void:
+func _draw_rounded_leaf(image: Image, x: int, y: int, angle: float, center_x: int, center_y: int) -> void:
 	var radius := leaf_size / 2
 	PixelArtUtils.draw_circle(image, x, y, radius, color)
 
