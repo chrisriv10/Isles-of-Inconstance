@@ -1,0 +1,85 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="TopBar" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+theme_override_constants/separation = 24
+
+[node name="DayLabel" type="Label" parent="Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Day 1"
+
+[node name="TimeLabel" type="Label" parent="Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "06:00"
+
+[node name="MoneyLabel" type="Label" parent="Root/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "$500"
+
+[node name="InteractionPrompt" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -80.0
+offset_top = -48.0
+offset_right = 80.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+horizontal_alignment = 1
+text = "[E] Interact"
+
+[node name="GenBox" type="HBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -300.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 43.0
+grow_horizontal = 0
+
+[node name="SeedLabel" type="Label" parent="Root/GenBox"]
+layout_mode = 2
+text = "Seed:"
+
+[node name="SeedInput" type="LineEdit" parent="Root/GenBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0"
+
+[node name="RandomButton" type="Button" parent="Root/GenBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Rand"
+
+[node name="RegenerateButton" type="Button" parent="Root/GenBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Gen"
