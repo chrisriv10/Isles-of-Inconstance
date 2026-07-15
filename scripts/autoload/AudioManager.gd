@@ -36,7 +36,7 @@ func _load_or_create_streams() -> void:
 	}
 	
 	for sound_type in sound_config:
-		var config := sound_config[sound_type]
+		var config: Dictionary = sound_config[sound_type]
 		var stream := load(config["path"])
 		if stream:
 			_sound_streams[sound_type] = stream
