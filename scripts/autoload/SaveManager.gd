@@ -144,7 +144,7 @@ func _collect_save_data() -> Dictionary:
 ## Apply loaded save data to game state
 func _apply_save_data(save_data: Dictionary) -> void:
 	# Handle version migration
-	var version := save_data.get("save_version", 1)
+	var version: int = save_data.get("save_version", 1)
 	if version < SAVE_VERSION:
 		print("Migrating save from version %d to %d" % [version, SAVE_VERSION])
 		save_data = _migrate_save(save_data, version)
@@ -172,24 +172,24 @@ func _apply_save_data(save_data: Dictionary) -> void:
 		InventoryManager.clear()
 		var inventory: Dictionary = save_data["inventory"]
 		for item_id in inventory:
-			var amount := inventory[item_id]
+			var amount: int = inventory[item_id]
 			if amount is int and amount > 0:
 				InventoryManager.add_item(item_id, amount)
 	
 	# Money
 	if save_data.has("money"):
-		var money_val := save_data["money"]
+		var money_val: int = save_data["money"]
 		if money_val is int:
 			GameManager.money = money_val
 	
 	# Day/time
 	if save_data.has("current_day"):
-		var day_val := save_data["current_day"]
+		var day_val: int = save_data["current_day"]
 		if day_val is int:
 			GameManager.current_day = day_val
 	if save_data.has("current_hour"):
-		var hour_val := save_data["current_hour"]
-		var minute_val := save_data.get("current_minute", 0)
+		var hour_val: int = save_data["current_hour"]
+		var minute_val: int = save_data.get("current_minute", 0)
 		if hour_val is int and minute_val is int:
 			GameManager.set_time(hour_val, minute_val)
 	
@@ -197,7 +197,7 @@ func _apply_save_data(save_data: Dictionary) -> void:
 	if save_data.has("upgrades"):
 		var upgrades: Dictionary = save_data["upgrades"]
 		for upgrade_id in upgrades:
-			var level_val := upgrades[upgrade_id]
+			var level_val: int = upgrades[upgrade_id]
 			if level_val is int:
 				UpgradeManager.set_upgrade_level(upgrade_id, level_val)
 	
@@ -210,7 +210,7 @@ func _apply_save_data(save_data: Dictionary) -> void:
 	
 	# Selected seed
 	if player and save_data.has("selected_seed_crop_id"):
-		var seed_id := save_data["selected_seed_crop_id"]
+		var seed_id: String = save_data["selected_seed_crop_id"]
 		if seed_id is String:
 			player.selected_seed_crop_id = seed_id
 
