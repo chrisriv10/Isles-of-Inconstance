@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Isles of Inconstance"
-run/main_scene="res://scenes/Bootstrap.tscn"
+run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/sprites/player.png"
 

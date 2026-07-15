@@ -185,7 +185,7 @@ func _deserialize_soil_data(serialized: Dictionary, world: Node2D) -> void:
 		
 		# Parse cell key (Vector2i string format)
 		var parts: PackedStringArray = cell_key.split(",")
-		var cell := Vector2i(int(parts[0].substr(1)), int(parts[1].rstrip(")")))
+		var cell := Vector2i(int(parts[0].substr(1)), int(parts[1].rstrip(")"))
 		
 		# Restore soil state
 		if not world._soil_data.has(cell):
