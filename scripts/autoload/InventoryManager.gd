@@ -137,3 +137,13 @@ func get_counts_by_category(category: String) -> Dictionary:
 		if item and item.category == category:
 			filtered[item_id] = totals[item_id]
 	return filtered
+
+## Get all items as {item_id: count} dictionary (for save/load)
+func get_all_items() -> Dictionary:
+	return get_all_counts()
+
+## Clear all inventory slots (for save/load)
+func clear() -> void:
+	for i in range(slots.size()):
+		slots[i] = null
+	changed.emit()

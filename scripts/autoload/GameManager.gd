@@ -34,6 +34,8 @@ func _advance_minute() -> void:
 		current_minute_of_day = 0
 		current_day += 1
 		day_changed.emit(current_day)
+		# Auto-save on day change
+		SaveManager.save_game()
 	time_changed.emit(get_hour(), get_minute())
 
 func get_hour() -> int:
@@ -44,6 +46,11 @@ func get_minute() -> int:
 
 func get_time_string() -> String:
 	return "%02d:%02d" % [get_hour(), get_minute()]
+
+## Set time directly (for save/load)
+func set_time(hour: int, minute: int) -> void:
+	current_minute_of_day = hour * 60 + minute
+	time_changed.emit(get_hour(), get_minute())
 
 func add_money(amount: int) -> void:
 	money = max(0, money + amount)

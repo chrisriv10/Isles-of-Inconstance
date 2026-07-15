@@ -14,7 +14,7 @@ extends CanvasLayer
 ##               and upgrading their tier *is* buying a better tool).
 
 @onready var dim: ColorRect = $Dim
-@onready var panel: Panel = $Panel
+@onready var panel: PanelContainer = $Panel
 @onready var coins_label: Label = %CoinsLabel
 @onready var seeds_list: VBoxContainer = %SeedsList
 @onready var sell_list: VBoxContainer = %SellList

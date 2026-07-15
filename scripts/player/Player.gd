@@ -25,6 +25,9 @@ var active_tool: Tool = Tool.HOE
 var selected_seed_crop_id: String = ""
 
 var _tool_cooldown_remaining: float = 0.0
+var _walk_tween: Tween
+var _tool_swing_tween: Tween
+var _bob_phase: float = 0.0
 
 func _ready() -> void:
 	call_deferred("_emit_initial_tool")
@@ -44,6 +47,10 @@ func _physics_process(delta: float) -> void:
 		facing_direction = input_direction
 		facing_changed.emit(facing_direction)
 		_update_interactor_position()
+		_update_sprite_facing()
+		_walk_bob(delta)
+	else:
+		_reset_walk_bob()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact"):
@@ -150,4 +157,46 @@ func _try_use_tool() -> void:
 					_update_tool_ui()  # refresh the remaining seed count
 
 	if used:
+		_play_tool_swing()
 		_tool_cooldown_remaining = base_tool_cooldown * UpgradeManager.get_farming_speed_multiplier()
+
+func _update_sprite_facing() -> void:
+	if facing_direction.x < 0:
+		sprite.flip_h = true
+	elif facing_direction.x > 0:
+		sprite.flip_h = false
+
+func _walk_bob(delta: float) -> void:
+	_bob_phase += delta * 10.0
+	var bob_offset := sin(_bob_phase) * 2.0
+	sprite.position.y = bob_offset
+
+func _reset_walk_bob() -> void:
+	if _walk_tween and _walk_tween.is_valid():
+		_walk_tween.kill()
+	
+	_walk_tween = create_tween()
+	_walk_tween.set_ease(Tween.EASE_OUT)
+	_walk_tween.tween_property(sprite, "position:y", 0.0, 0.2)
+	_bob_phase = 0.0
+
+func _play_tool_swing() -> void:
+	if _tool_swing_tween and _tool_swing_tween.is_valid():
+		_tool_swing_tween.kill()
+	
+	var swing_direction := facing_direction
+	var rotation_amount := 15.0 if swing_direction.x != 0 else 10.0
+	
+	# Rotate sprite slightly in swing direction
+	var target_rotation := rotation_amount if swing_direction.x > 0 or swing_direction.y > 0 else -rotation_amount
+	
+	_tool_swing_tween = create_tween()
+	_tool_swing_tween.set_parallel(true)
+	_tool_swing_tween.set_ease(Tween.EASE_OUT)
+	_tool_swing_tween.set_trans(Tween.TRANS_QUART)
+	
+	_tool_swing_tween.tween_property(sprite, "rotation_degrees", target_rotation, 0.1)
+	_tool_swing_tween.tween_property(sprite, "scale", Vector2(1.1, 0.9), 0.1)
+	_tool_swing_tween.tween_interval(0.05)
+	_tool_swing_tween.tween_property(sprite, "rotation_degrees", 0.0, 0.1)
+	_tool_swing_tween.tween_property(sprite, "scale", Vector2.ONE, 0.1)

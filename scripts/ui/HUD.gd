@@ -9,13 +9,22 @@ signal regenerate_world_requested(seed: int)
 @onready var day_label: Label = %DayLabel
 @onready var time_label: Label = %TimeLabel
 @onready var money_label: Label = %MoneyLabel
-@onready var interaction_prompt: Label = %InteractionPrompt
+@onready var interaction_prompt: Label = %InteractionPrompt/Label
+@onready var interaction_prompt_panel: PanelContainer = %InteractionPrompt
 @onready var seed_input: LineEdit = %SeedInput
 @onready var random_button: Button = %RandomButton
 @onready var regenerate_button: Button = %RegenerateButton
 @onready var tool_label: Label = %ToolLabel
-@onready var mutation_label: Label = %MutationLabel
+@onready var mutation_label: Label = %MutationLabel/Label
+@onready var mutation_label_panel: PanelContainer = %MutationLabel
 @onready var mutation_toast_timer: Timer = %MutationToastTimer
+@onready var fade_overlay: ColorRect = %FadeOverlay
+@onready var tutorial_hint: Label = %TutorialHint/Label
+@onready var tutorial_hint_panel: PanelContainer = %TutorialHint
+@onready var tutorial_hint_timer: Timer = %TutorialHintTimer
+
+var _fade_tween: Tween
+var _shown_hints: Array[String] = []
 
 func _ready() -> void:
 	GameManager.day_changed.connect(_on_day_changed)
@@ -28,7 +37,24 @@ func _ready() -> void:
 	_on_time_changed(GameManager.get_hour(), GameManager.get_minute())
 	_on_money_changed(GameManager.money)
 
-	interaction_prompt.visible = false
+	interaction_prompt_panel.visible = false
+	
+	# Initialize fade overlay
+	if fade_overlay:
+		fade_overlay.color = Color.BLACK
+		fade_overlay.visible = false
+	
+	# Initialize tutorial hints
+	if tutorial_hint:
+		tutorial_hint.visible = false
+	if tutorial_hint_panel:
+		tutorial_hint_panel.visible = false
+	if tutorial_hint_timer:
+		tutorial_hint_timer.timeout.connect(_on_tutorial_hint_timeout)
+		tutorial_hint_timer.one_shot = true
+	
+	# Show first tutorial hint after a delay
+	get_tree().create_timer(2.0).timeout.connect(_show_first_hint)
 
 	random_button.pressed.connect(_on_random_seed_pressed)
 	regenerate_button.pressed.connect(_on_regenerate_pressed)
@@ -70,14 +96,76 @@ func _on_interactable_in_range(interactable: Interactable) -> void:
 	if interactable:
 		interaction_prompt.text = "[E] %s" % interactable.interaction_prompt
 		interaction_prompt.visible = true
+		interaction_prompt_panel.visible = true
 
 func _on_interactable_out_of_range() -> void:
-	interaction_prompt.visible = false
+	interaction_prompt_panel.visible = false
 
 func _on_crop_mutated(old_name: String, new_name: String, mutation_name: String) -> void:
 	mutation_label.text = "✨ %s mutated into %s! (%s mutation)" % [old_name, new_name, mutation_name]
 	mutation_label.visible = true
+	mutation_label_panel.visible = true
 	mutation_toast_timer.start()
 
 func _on_mutation_toast_timeout() -> void:
-	mutation_label.visible = false
+	mutation_label_panel.visible = false
+
+## Fade screen to black, call callback, then fade back in
+func fade_to_black(duration: float = 0.5, callback: Callable = Callable()) -> void:
+	if not fade_overlay:
+		if callback.is_valid():
+			callback.call()
+		return
+	
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()
+	
+	fade_overlay.visible = true
+	fade_overlay.modulate.a = 0.0
+	
+	_fade_tween = create_tween()
+	_fade_tween.set_parallel(false)
+	_fade_tween.tween_property(fade_overlay, "modulate:a", 1.0, duration)
+	
+	if callback.is_valid():
+		_fade_tween.tween_callback(callback.call)
+	
+	_fade_tween.tween_property(fade_overlay, "modulate:a", 0.0, duration)
+	_fade_tween.tween_callback(func(): fade_overlay.visible = false)
+
+## Quick flash effect (for day changes, etc.)
+func flash_screen(color: Color = Color.WHITE, duration: float = 0.3) -> void:
+	if not fade_overlay:
+		return
+	
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()
+	
+	fade_overlay.visible = true
+	fade_overlay.color = color
+	fade_overlay.modulate.a = 0.5
+	
+	var flash_tween := create_tween()
+	flash_tween.tween_property(fade_overlay, "modulate:a", 0.0, duration)
+	flash_tween.tween_callback(func(): fade_overlay.visible = false)
+
+# ---------------------------------------------------------------------------
+# Tutorial hints
+# ---------------------------------------------------------------------------
+
+func _show_first_hint() -> void:
+	show_tutorial_hint("Use WASD to move, F or SPACE to till soil")
+
+func show_tutorial_hint(text: String) -> void:
+	if not tutorial_hint:
+		return
+	
+	tutorial_hint.text = text
+	tutorial_hint.visible = true
+	tutorial_hint_panel.visible = true
+	
+	if tutorial_hint_timer:
+		tutorial_hint_timer.start(5.0)
+
+func _on_tutorial_hint_timeout() -> void:
+	tutorial_hint_panel.visible = false

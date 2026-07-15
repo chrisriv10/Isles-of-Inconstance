@@ -88,3 +88,37 @@ static func _merge_unique(a: Array[String], b: Array[String]) -> Array[String]:
 		if not result.has(tag):
 			result.append(tag)
 	return result
+
+## Serialize genetics to dictionary for JSON save/load
+func serialize() -> Dictionary:
+	return {
+		"color_hue": color_hue,
+		"color_saturation": color_saturation,
+		"color_value": color_value,
+		"size_factor": size_factor,
+		"growth_speed_factor": growth_speed_factor,
+		"value_factor": value_factor,
+		"rarity_tier": rarity_tier,
+		"mutation_chance": mutation_chance,
+		"appearance_tags": appearance_tags,
+		"special_abilities": special_abilities,
+		"lineage": lineage,
+		"generation": generation
+	}
+
+## Deserialize genetics from dictionary for JSON save/load
+static func deserialize(data: Dictionary) -> CropGenetics:
+	var genetics := CropGenetics.new()
+	genetics.color_hue = data.get("color_hue", 0.0)
+	genetics.color_saturation = data.get("color_saturation", 0.65)
+	genetics.color_value = data.get("color_value", 0.9)
+	genetics.size_factor = data.get("size_factor", 1.0)
+	genetics.growth_speed_factor = data.get("growth_speed_factor", 1.0)
+	genetics.value_factor = data.get("value_factor", 1.0)
+	genetics.rarity_tier = data.get("rarity_tier", 0)
+	genetics.mutation_chance = data.get("mutation_chance", 0.06)
+	genetics.appearance_tags = data.get("appearance_tags", [])
+	genetics.special_abilities = data.get("special_abilities", [])
+	genetics.lineage = data.get("lineage", [])
+	genetics.generation = data.get("generation", 0)
+	return genetics

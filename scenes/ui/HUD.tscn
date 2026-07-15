@@ -12,41 +12,46 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="TopBar" type="HBoxContainer" parent="Root"]
+[node name="TopBar" type="PanelContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 12.0
 offset_top = 12.0
 offset_right = -12.0
+offset_bottom = 48.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Root/TopBar"]
+layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="DayLabel" type="Label" parent="Root/TopBar"]
+[node name="DayLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Day 1"
 
-[node name="TimeLabel" type="Label" parent="Root/TopBar"]
+[node name="TimeLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "06:00"
 
-[node name="MoneyLabel" type="Label" parent="Root/TopBar"]
+[node name="MoneyLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "$500"
 
-[node name="ToolLabel" type="Label" parent="Root/TopBar"]
+[node name="ToolLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Tool: Hoe"
 
-[node name="HotkeyHint" type="Label" parent="Root/TopBar"]
+[node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer"]
 layout_mode = 2
 text = "[B] Shop   [I] Inventory"
 
-[node name="InteractionPrompt" type="Label" parent="Root"]
+[node name="InteractionPrompt" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -59,10 +64,13 @@ offset_right = 80.0
 offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 0
+
+[node name="Label" type="Label" parent="Root/InteractionPrompt"]
+layout_mode = 2
 horizontal_alignment = 1
 text = "[E] Interact"
 
-[node name="MutationLabel" type="Label" parent="Root"]
+[node name="MutationLabel" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -74,6 +82,9 @@ offset_top = 48.0
 offset_right = 160.0
 offset_bottom = 72.0
 grow_horizontal = 2
+
+[node name="Label" type="Label" parent="Root/MutationLabel"]
+layout_mode = 2
 horizontal_alignment = 1
 text = ""
 
@@ -112,3 +123,38 @@ text = "Rand"
 unique_name_in_owner = true
 layout_mode = 2
 text = "Gen"
+
+[node name="FadeOverlay" type="ColorRect" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+
+[node name="TutorialHint" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = 100.0
+offset_right = 200.0
+offset_bottom = 124.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Label" type="Label" parent="Root/TutorialHint"]
+layout_mode = 2
+horizontal_alignment = 1
+text = ""
+
+[node name="TutorialHintTimer" type="Timer" parent="Root"]
+unique_name_in_owner = true
+wait_time = 5.0
+one_shot = true

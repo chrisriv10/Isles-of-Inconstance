@@ -78,6 +78,10 @@ func get_discovered_crops() -> Array[CropData]:
 			result.append(crop)
 	return result
 
+## Get all discovered crop IDs as array (for save/load)
+func get_discovered_crop_ids() -> Array[String]:
+	return discovered_crop_ids.keys()
+
 # ---------------------------------------------------------------------------
 # Default placeholder content.
 # Replace these with .tres resources loaded from disk as the project grows -

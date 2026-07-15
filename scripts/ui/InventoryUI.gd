@@ -8,7 +8,7 @@ extends CanvasLayer
 ## fixed hotbar slot) become plantable via the "Selected Seed" tool.
 
 @onready var dim: ColorRect = $Dim
-@onready var panel: Panel = $Panel
+@onready var panel: PanelContainer = $Panel
 @onready var capacity_label: Label = %CapacityLabel
 @onready var seeds_list: VBoxContainer = %SeedsList
 @onready var crops_list: VBoxContainer = %CropsList

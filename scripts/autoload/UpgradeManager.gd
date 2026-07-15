@@ -117,3 +117,14 @@ func get_farming_speed_multiplier() -> float:
 ## seeds for (0 Common .. 4 Legendary). Level 0 = Common only.
 func get_max_purchasable_rarity_tier() -> int:
 	return get_level(Upgrade.RARE_SEEDS)
+
+## Get all upgrade levels as dictionary (for save/load)
+func get_upgrade_levels() -> Dictionary:
+	return levels.duplicate()
+
+## Set upgrade level directly (for save/load)
+func set_upgrade_level(upgrade: Upgrade, level: int) -> void:
+	var old_level := get_level(upgrade)
+	levels[upgrade] = clampi(level, 0, MAX_LEVEL)
+	if old_level != levels[upgrade]:
+		_apply_effects(upgrade)

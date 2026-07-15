@@ -22,6 +22,10 @@ var genetics: CropGenetics = null
 # built once.
 static var _mutation_system: MutationSystem = null
 
+var _growth_tween: Tween
+var _sway_tween: Tween
+var _sway_offset: float = 0.0
+
 func setup(p_crop_id: String, p_days_grown: int = 0, p_genetics: CropGenetics = null) -> void:
 	crop_id = p_crop_id
 	days_grown = p_days_grown
@@ -36,9 +40,11 @@ func setup(p_crop_id: String, p_days_grown: int = 0, p_genetics: CropGenetics = 
 		else:
 			genetics = CropGenetics.new()
 	_update_visuals()
+	_start_idle_sway()
 
 func grow() -> void:
 	days_grown += 1
+	_play_growth_pop()
 	_try_mutate()
 	_update_visuals()
 
@@ -81,6 +87,7 @@ func _try_mutate() -> void:
 	var old_id := crop_id
 	crop_id = new_crop.id
 	genetics = new_crop.genetics
+	_play_mutation_effect()
 	mutated.emit(self, old_id, crop_id, mutation.mutation_name)
 
 func _update_visuals() -> void:
@@ -90,3 +97,48 @@ func _update_visuals() -> void:
 		sprite.modulate = crop_data.modulate_color
 		if genetics:
 			sprite.scale = Vector2.ONE * clampf(genetics.size_factor, 0.5, 2.0)
+
+func _play_growth_pop() -> void:
+	if _growth_tween and _growth_tween.is_valid():
+		_growth_tween.kill()
+	
+	var crop_data := DataManager.get_crop(crop_id)
+	var base_scale := 1.0
+	if genetics:
+		base_scale = clampf(genetics.size_factor, 0.5, 2.0)
+	
+	sprite.scale = Vector2.ONE * base_scale * 0.8
+	_growth_tween = create_tween()
+	_growth_tween.set_ease(Tween.EASE_OUT)
+	_growth_tween.set_trans(Tween.TRANS_BACK)
+	_growth_tween.tween_property(sprite, "scale", Vector2.ONE * base_scale, 0.3)
+
+func _play_mutation_effect() -> void:
+	var crop_data := DataManager.get_crop(crop_id)
+	var effect_color := Color.GOLD
+	if genetics:
+		effect_color = genetics.to_color()
+	
+	EffectSpawner.spawn_sparkle(global_position, effect_color)
+	AudioManager.play(AudioManager.Sound.MUTATION)
+	
+	# Flash the sprite
+	var original_modulate := sprite.modulate
+	sprite.modulate = Color.WHITE
+	var flash_tween := create_tween()
+	flash_tween.tween_property(sprite, "modulate", original_modulate, 0.4)
+
+func _start_idle_sway() -> void:
+	if _sway_tween and _sway_tween.is_valid():
+		_sway_tween.kill()
+	
+	_sway_tween = create_tween()
+	_sway_tween.set_loops(true)
+	_sway_tween.set_parallel(false)
+	
+	var sway_amount := 0.05
+	var sway_duration := 2.0 + randf() * 1.0
+	
+	_sway_tween.tween_property(sprite, "rotation_degrees", sway_amount, sway_duration * 0.5)
+	_sway_tween.tween_property(sprite, "rotation_degrees", -sway_amount, sway_duration)
+	_sway_tween.tween_property(sprite, "rotation_degrees", 0.0, sway_duration * 0.5)

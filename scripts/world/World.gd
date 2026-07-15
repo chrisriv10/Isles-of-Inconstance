@@ -100,6 +100,11 @@ func _till_cell(cell: Vector2i) -> bool:
 	
 	var tilled_type: TileTypeData = DataManager.get_tile_type("tilled")
 	ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
+	
+	# Effects
+	# EffectSpawner.spawn_dirt_puff(cell_to_world(cell))
+	AudioManager.play(AudioManager.Sound.TILL)
+	
 	return true
 
 func water_tile(world_pos: Vector2) -> bool:
@@ -116,6 +121,11 @@ func _water_cell(cell: Vector2i) -> bool:
 	_soil_data[cell].is_watered = true
 	var watered_type: TileTypeData = DataManager.get_tile_type("watered_tilled")
 	ground_layer.set_cell(cell, 0, watered_type.atlas_coords)
+	
+	# Effects
+	# EffectSpawner.spawn_water_droplets(cell_to_world(cell))
+	AudioManager.play(AudioManager.Sound.WATER)
+	
 	return true
 
 func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
@@ -138,6 +148,10 @@ func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
 	crop.setup(crop_id, 0)
 	crop.mutated.connect(_on_crop_mutated.bind(cell))
 	_crop_nodes[cell] = crop
+	
+	# Effects
+	AudioManager.play(AudioManager.Sound.PLANT)
+	
 	return true
 
 func harvest_crop(world_pos: Vector2) -> bool:
@@ -157,6 +171,14 @@ func harvest_crop(world_pos: Vector2) -> bool:
 
 	InventoryManager.add_item(crop_data.yield_item_id, crop_data.yield_amount)
 	DataManager.mark_discovered(crop_data.id)
+	
+	# Effects
+	# EffectSpawner.spawn_harvest_effect(crop.global_position, crop_data.display_name, harvest_color)
+	AudioManager.play(AudioManager.Sound.HARVEST)
+	
+	# Camera punch toward player (disabled - requires Camera2D with punch method)
+	# var camera := get_viewport().get_camera_2d()
+	# if camera and camera.has_method("punch"):
 	
 	if crop_data.regrows:
 		crop.harvest()

@@ -19,5 +19,13 @@ func interact(interactor: Node) -> void:
 	var gathered := amount - leftover
 	if gathered <= 0:
 		return  # inventory was full - leave the node so the player can come back
+	
+	# Effects
+	EffectSpawner.spawn_particles(global_position, Color(0.7, 0.7, 0.7), 6, 12.0)
+	var item_data := DataManager.get_item(item_id)
+	var item_name := item_data.display_name if item_data else item_id
+	EffectSpawner.spawn_floating_text("+%d %s" % [gathered, item_name], global_position, Color.WHITE)
+	AudioManager.play(AudioManager.Sound.GATHER)
+	
 	super.interact(interactor)
 	queue_free()
