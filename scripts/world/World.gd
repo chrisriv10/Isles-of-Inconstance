@@ -27,7 +27,7 @@ func _ready() -> void:
 
 func generate_world() -> void:
 	_clear_world()
-	_generator = WorldGenerator.new(world_width, world_height, world_seed)
+	_generator = WorldGenerator.create(world_width, world_height, world_seed)
 	_tile_grid = _generator.generate_tile_grid()
 	_paint_ground()
 	_scatter_objects()
@@ -170,6 +170,7 @@ func harvest_crop(world_pos: Vector2) -> bool:
 
 ## Keeps SoilData in sync when a Crop mutates into a new crop id mid-growth,
 ## and forwards a notification for the UI to display.
+@warning_ignore("unused_parameter")
 func _on_crop_mutated(crop: Crop, old_crop_id: String, new_crop_id: String, mutation_name: String, cell: Vector2i) -> void:
 	if _soil_data.has(cell):
 		_soil_data[cell].crop_id = new_crop_id

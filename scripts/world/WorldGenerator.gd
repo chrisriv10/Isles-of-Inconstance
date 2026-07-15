@@ -9,13 +9,24 @@ var noise: FastNoiseLite
 var width: int
 var height: int
 
-func _init(p_width: int, p_height: int, p_seed: int = 0) -> void:
+static func create(p_width: int, p_height: int, p_seed: int = 0) -> WorldGenerator:
+	var generator := WorldGenerator.new()
+	generator.width = p_width
+	generator.height = p_height
+	generator.noise = FastNoiseLite.new()
+	generator.noise.seed = p_seed
+	generator.noise.noise_type = FastNoiseLite.TYPE_PERLIN
+	generator.noise.frequency = 0.08
+	return generator
+
+func _init(p_width: int = 0, p_height: int = 0, p_seed: int = 0) -> void:
 	width = p_width
 	height = p_height
-	noise = FastNoiseLite.new()
-	noise.seed = p_seed
-	noise.noise_type = FastNoiseLite.TYPE_PERLIN
-	noise.frequency = 0.08
+	if p_width > 0 and p_height > 0:
+		noise = FastNoiseLite.new()
+		noise.seed = p_seed
+		noise.noise_type = FastNoiseLite.TYPE_PERLIN
+		noise.frequency = 0.08
 
 ## Returns a 2D array (Array of Array) of TileTypeData ids, one per cell,
 ## chosen by feeding noise values through the tile types registered in

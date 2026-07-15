@@ -68,34 +68,34 @@ func create_crop_from_pieces(stem_key: String, leaves_key: String, fruit_key: St
 	
 	# Add stem
 	if stem_key != "":
-		var stem := library.get_stem_pieces()[stem_key].duplicate()
+		var stem: StemLayer = library.get_stem_pieces()[stem_key].duplicate()
 		generator.add_layer(stem)
 	
 	# Add leaves
 	if leaves_key != "":
-		var leaves := library.get_leaf_pieces()[leaves_key].duplicate()
+		var leaves: LeavesLayer = library.get_leaf_pieces()[leaves_key].duplicate()
 		generator.add_layer(leaves)
 	
 	# Add fruit/body
 	if fruit_key != "":
-		var fruit := library.get_fruit_pieces()[fruit_key].duplicate()
+		var fruit: FruitBodyLayer = library.get_fruit_pieces()[fruit_key].duplicate()
 		fruit.color = fruit_color
 		generator.add_layer(fruit)
 	
 	# Add flower
 	if flower_key != "":
-		var flower := library.get_flower_pieces()[flower_key].duplicate()
+		var flower: FlowerLayer = library.get_flower_pieces()[flower_key].duplicate()
 		flower.color = flower_color
 		generator.add_layer(flower)
 	
 	# Add pattern
 	if pattern_key != "":
-		var pattern := library.get_pattern_pieces()[pattern_key].duplicate()
+		var pattern: PatternLayer = library.get_pattern_pieces()[pattern_key].duplicate()
 		generator.add_layer(pattern)
 	
 	# Add effect
 	if effect_key != "":
-		var effect := library.get_effect_pieces()[effect_key].duplicate()
+		var effect: SpecialEffectsLayer = library.get_effect_pieces()[effect_key].duplicate()
 		generator.add_layer(effect)
 	
 	return generator
@@ -105,24 +105,24 @@ func create_random_crop() -> CropSpriteGenerator:
 	generator.set_sprite_size(sprite_size)
 	
 	var library := SpritePieceLibrary
-	var stem_keys := library.get_stem_pieces().keys()
-	var leaf_keys := library.get_leaf_pieces().keys()
-	var fruit_keys := library.get_fruit_pieces().keys()
-	var flower_keys := library.get_flower_pieces().keys()
-	var pattern_keys := library.get_pattern_pieces().keys()
-	var effect_keys := library.get_effect_pieces().keys()
+	var stem_keys: PackedStringArray = library.get_stem_pieces().keys()
+	var leaf_keys: PackedStringArray = library.get_leaf_pieces().keys()
+	var fruit_keys: PackedStringArray = library.get_fruit_pieces().keys()
+	var flower_keys: PackedStringArray = library.get_flower_pieces().keys()
+	var pattern_keys: PackedStringArray = library.get_pattern_pieces().keys()
+	var effect_keys: PackedStringArray = library.get_effect_pieces().keys()
 	
 	# Randomly select pieces
-	var stem_key := stem_keys.pick_random() if randf() > 0.2 else ""
-	var leaf_key := leaf_keys.pick_random() if randf() > 0.3 else ""
-	var fruit_key := fruit_keys.pick_random() if randf() > 0.1 else ""
-	var flower_key = flower_keys.pick_random() if randf() > 0.5 else ""
-	var pattern_key := pattern_keys.pick_random() if randf() > 0.6 else ""
-	var effect_key := effect_keys.pick_random() if randf() > 0.7 else ""
+	var stem_key: String = stem_keys.pick_random() if randf() > 0.2 else ""
+	var leaf_key: String = leaf_keys.pick_random() if randf() > 0.3 else ""
+	var fruit_key: String = fruit_keys.pick_random() if randf() > 0.1 else ""
+	var flower_key: String = flower_keys.pick_random() if randf() > 0.5 else ""
+	var pattern_key: String = pattern_keys.pick_random() if randf() > 0.6 else ""
+	var effect_key: String = effect_keys.pick_random() if randf() > 0.7 else ""
 	
 	# Random colors
-	var fruit_color := Color.from_hsv(randf(), 0.7 + randf() * 0.3, 0.8 + randf() * 0.2)
-	var flower_color := Color.from_hsv(randf(), 0.6 + randf() * 0.4, 0.8 + randf() * 0.2)
+	var fruit_color: Color = Color.from_hsv(randf(), 0.7 + randf() * 0.3, 0.8 + randf() * 0.2)
+	var flower_color: Color = Color.from_hsv(randf(), 0.6 + randf() * 0.4, 0.8 + randf() * 0.2)
 	
 	return create_crop_from_pieces(stem_key, leaf_key, fruit_key, flower_key, 
 			pattern_key, effect_key, fruit_color, flower_color)

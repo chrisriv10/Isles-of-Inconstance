@@ -20,7 +20,7 @@ func render(image: Image, center_x: int, center_y: int) -> void:
 			var pixel := PixelArtUtils.get_pixel(image, x, y)
 			if pixel.a > 0.1:
 				if _should_draw_pattern(x, y):
-					var transformed := apply_transforms(x, y)
+					var transformed := apply_transforms(x, y, center_x, center_y)
 					PixelArtUtils.blend_pixels(image, transformed.x, transformed.y, pattern_color)
 
 func _should_draw_pattern(x: int, y: int) -> bool:
@@ -39,7 +39,7 @@ func _should_draw_pattern(x: int, y: int) -> bool:
 			var dy := y - offset_y
 			var dist := sqrt(float(dx * dx + dy * dy))
 			var angle := atan2(float(dy), float(dx))
-			var spiral := (dist / pattern_scale + angle / PI) % 1.0
+			var spiral: float = fmod(dist / pattern_scale + angle / PI, 1.0)
 			return spiral < density
 		_:
 			return false

@@ -13,7 +13,7 @@ class_name CropLayer
 func render(image: Image, center_x: int, center_y: int) -> void:
 	pass
 
-func apply_transforms(x: int, y: int) -> Vector2i:
+func apply_transforms(x: int, y: int, center_x: int, center_y: int) -> Vector2i:
 	var transformed := Vector2i(x, y)
 	transformed.x += offset_x
 	transformed.y += offset_y

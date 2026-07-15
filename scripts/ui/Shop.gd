@@ -165,7 +165,7 @@ func _refresh_upgrades() -> void:
 	for upgrade in UpgradeManager.Upgrade.values():
 		var level := UpgradeManager.get_level(upgrade)
 		var maxed := UpgradeManager.is_maxed(upgrade)
-		var name_text := "%s (Lv %d/%d)" % [UpgradeManager.get_name(upgrade), level, UpgradeManager.MAX_LEVEL]
+		var name_text := "%s (Lv %d/%d)" % [UpgradeManager.get_upgrade_name(upgrade), level, UpgradeManager.MAX_LEVEL]
 		var cost_text := "MAXED" if maxed else "$%d" % UpgradeManager.get_cost(upgrade)
 
 		var row := _build_row(name_text, cost_text, "Buy", func(): _buy_upgrade(upgrade))
