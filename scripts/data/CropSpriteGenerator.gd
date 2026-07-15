@@ -105,12 +105,12 @@ func create_random_crop() -> CropSpriteGenerator:
 	generator.set_sprite_size(sprite_size)
 	
 	var library := SpritePieceLibrary
-	var stem_keys: PackedStringArray = library.get_stem_pieces().keys()
-	var leaf_keys: PackedStringArray = library.get_leaf_pieces().keys()
-	var fruit_keys: PackedStringArray = library.get_fruit_pieces().keys()
-	var flower_keys: PackedStringArray = library.get_flower_pieces().keys()
-	var pattern_keys: PackedStringArray = library.get_pattern_pieces().keys()
-	var effect_keys: PackedStringArray = library.get_effect_pieces().keys()
+	var stem_keys: Array = library.get_stem_pieces().keys()
+	var leaf_keys: Array = library.get_leaf_pieces().keys()
+	var fruit_keys: Array = library.get_fruit_pieces().keys()
+	var flower_keys: Array = library.get_flower_pieces().keys()
+	var pattern_keys: Array = library.get_pattern_pieces().keys()
+	var effect_keys: Array = library.get_effect_pieces().keys()
 	
 	# Randomly select pieces
 	var stem_key: String = stem_keys.pick_random() if randf() > 0.2 else ""
