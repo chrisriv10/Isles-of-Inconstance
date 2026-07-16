@@ -51,7 +51,7 @@ text = "Tool: Hoe"
 
 [node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=901312833]
 layout_mode = 2
-text = "[B] Shop   [C] Craft   [I] Inventory"
+text = "[C] Craft   [I] Inventory"
 
 [node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=2035179578]
 unique_name_in_owner = true

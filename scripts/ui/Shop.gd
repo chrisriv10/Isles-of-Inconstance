@@ -1,10 +1,9 @@
 extends CanvasLayer
 
-## Simple always-available shop overlay (toggle with [B]). Not tied to a
-## physical shopkeeper yet - see the summary notes for how to turn this into
-## an NPC-triggered panel later if desired.
+## NPC shop overlay opened by interacting with the Merchant ShopStand in the
+## world. Requires proximity to the shop NPC to open.
 ##
-## Three sections, matching the requested Shop features:
+## Three sections:
 ##   Seeds     - buy seed_item(s) for any discovered crop within the
 ##               player's current "Seed Vault Access" rarity tier.
 ##   Sell      - sell any harvested crop or gathered resource for coins.
@@ -29,10 +28,7 @@ func _ready() -> void:
 	UpgradeManager.upgrade_purchased.connect(_on_upgrade_purchased)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("open_shop"):
-		toggle()
-		get_viewport().set_input_as_handled()
-	elif is_open and event.is_action_pressed("close_menu"):
+	if is_open and event.is_action_pressed("close_menu"):
 		close()
 		get_viewport().set_input_as_handled()
 

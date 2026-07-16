@@ -37,11 +37,12 @@ func _load_or_create_streams() -> void:
 	
 	for sound_type in sound_config:
 		var config: Dictionary = sound_config[sound_type]
-		var stream := load(config["path"])
-		if stream:
-			_sound_streams[sound_type] = stream
-		else:
-			_sound_streams[sound_type] = _create_placeholder_sound(config["freq"], config["dur"], config["wave"])
+		if ResourceLoader.exists(config["path"]):
+			var stream := load(config["path"])
+			if stream:
+				_sound_streams[sound_type] = stream
+				continue
+		_sound_streams[sound_type] = _create_placeholder_sound(config["freq"], config["dur"], config["wave"])
 	
 	# Pre-create the audio streams as resources for efficiency
 	# Note: In Godot 4, AudioStreamGenerator must be instantiated at runtime

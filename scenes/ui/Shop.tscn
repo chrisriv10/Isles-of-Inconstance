@@ -1,6 +1,7 @@
 [gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/Shop.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/generated/merchant_npc_frame_0.png" id="2"]
 
 [node name="ShopUI" type="CanvasLayer" groups=["shop_ui"]]
 layer = 5
@@ -41,13 +42,28 @@ theme_override_constants/margin_bottom = 10
 layout_mode = 2
 theme_override_constants/separation = 6
 
+[node name="NpcHeader" type="HBoxContainer" parent="Panel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="NpcSprite" type="TextureRect" parent="Panel/Margin/Layout/NpcHeader"]
+layout_mode = 2
+custom_minimum_size = Vector2(32, 32)
+size_flags_horizontal = 0
+texture = ExtResource("2")
+
+[node name="NpcLabel" type="Label" parent="Panel/Margin/Layout/NpcHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Merchant's Wares"
+
 [node name="TitleRow" type="HBoxContainer" parent="Panel/Margin/Layout"]
 layout_mode = 2
 
 [node name="TitleLabel" type="Label" parent="Panel/Margin/Layout/TitleRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Shop  [B to close]"
+text = "Shop"
 
 [node name="CoinsLabel" type="Label" parent="Panel/Margin/Layout/TitleRow"]
 unique_name_in_owner = true

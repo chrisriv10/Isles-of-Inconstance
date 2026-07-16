@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/Tree.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(20, 20)
+
+[node name="Tree" type="Area2D" groups=["resources"]]
+script = ExtResource("1")
+interaction_prompt = "Chop"
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+centered = true
+position = Vector2(0, -4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
