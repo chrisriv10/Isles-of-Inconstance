@@ -201,7 +201,12 @@ func flash_screen(color: Color = Color.WHITE, duration: float = 0.3) -> void:
 # ---------------------------------------------------------------------------
 
 func _show_first_hint() -> void:
-	show_tutorial_hint("Use WASD to move, F or SPACE to till soil")
+	show_tutorial_hint("Use WASD to move | F/SPACE: till/water | E: interact/harvest | C: craft | I: inventory")
+	# Schedule a second hint after the first one fades
+	get_tree().create_timer(7.0).timeout.connect(_show_second_hint)
+
+func _show_second_hint() -> void:
+	show_tutorial_hint("Till soil (F), water it (press 2 for Watering Can, then F), plant seeds (3-5), and wait for crops to grow!")
 
 func show_tutorial_hint(text: String) -> void:
 	if not tutorial_hint:

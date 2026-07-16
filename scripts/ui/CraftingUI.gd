@@ -33,6 +33,7 @@ func _build_default_recipes() -> void:
 	tool_kit.result_amount = 1
 	tool_kit.ingredients = [
 		{"item_id": "stone", "amount": 5},
+		{"item_id": "wood", "amount": 3},
 	]
 	_recipes.append(tool_kit)
 
@@ -41,21 +42,21 @@ func _build_default_recipes() -> void:
 	compost.recipe_name = "Compost"
 	compost.result_item_id = "compost"
 	compost.result_display_name = "Compost"
-	compost.result_amount = 1
-	# Any crop yield works — we check generically
+	compost.result_amount = 2
+	# Wood and plant matter break down into nutrient-rich compost
 	compost.ingredients = [
-		{"item_id": "stone", "amount": 3},
+		{"item_id": "wood", "amount": 3},
 	]
 	_recipes.append(compost)
 
-	# --- Crafting Table (placeholder for future expansion) ---
+	# --- Wooden Planks ---
 	var planks := CraftingRecipe.new()
 	planks.recipe_name = "Wooden Planks"
 	planks.result_item_id = "wooden_planks"
 	planks.result_display_name = "Wooden Planks"
 	planks.result_amount = 4
 	planks.ingredients = [
-		{"item_id": "stone", "amount": 2},
+		{"item_id": "wood", "amount": 2},
 	]
 	_recipes.append(planks)
 

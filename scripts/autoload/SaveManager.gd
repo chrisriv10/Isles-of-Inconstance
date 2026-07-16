@@ -237,8 +237,10 @@ func _serialize_soil_data(soil_data: Dictionary) -> Dictionary:
 		var cell_data := {
 			"is_tilled": soil.is_tilled,
 			"is_watered": soil.is_watered,
+			"is_composted": soil.is_composted,
 			"crop_id": soil.crop_id,
-			"days_grown": soil.days_grown
+			"days_grown": soil.days_grown,
+			"unwatered_days": soil.unwatered_days
 		}
 		
 		# Serialize crop genetics if present
@@ -273,8 +275,10 @@ func _deserialize_soil_data(serialized: Dictionary, world: Node2D) -> void:
 		var soil: SoilData = world._soil_data[cell]
 		soil.is_tilled = cell_data.get("is_tilled", false)
 		soil.is_watered = cell_data.get("is_watered", false)
+		soil.is_composted = cell_data.get("is_composted", false)
 		soil.crop_id = cell_data.get("crop_id", "")
 		soil.days_grown = cell_data.get("days_grown", 0)
+		soil.unwatered_days = cell_data.get("unwatered_days", 0)
 		
 		# Update tile appearance
 		if soil.is_tilled:

@@ -177,6 +177,11 @@ func harvest_crop(world_pos: Vector2) -> bool:
 	InventoryManager.add_item(crop_data.yield_item_id, crop_data.yield_amount)
 	DataManager.mark_discovered(crop_data.id)
 	
+	# Also drop 1-2 seeds back so the farming loop is self-sustaining
+	var seed_to_drop: int = 1 if randi() % 3 == 0 else 2  # 2/3 chance of 2 seeds
+	if crop_data.seed_item_id != "":
+		InventoryManager.add_item(crop_data.seed_item_id, seed_to_drop)
+	
 	# Effects
 	var harvest_color := crop_data.modulate_color
 	if crop.genetics:
@@ -211,20 +216,68 @@ func _on_crop_mutated(crop: Crop, old_crop_id: String, new_crop_id: String, muta
 	var new_name := new_crop_data.display_name if new_crop_data else new_crop_id
 	GameManager.crop_mutated.emit(old_name, new_name, mutation_name)
 
+## Apply compost to a tilled tile with a growing crop. Boosts growth by 1
+## day immediately (composted crops grow 2 days on the next day change).
+## Returns true if compost was used.
+func apply_compost(world_pos: Vector2) -> bool:
+	var cell := world_to_cell(world_pos)
+	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled:
+		return false
+	var soil: SoilData = _soil_data[cell]
+	if soil.crop_id == "" or soil.is_composted:
+		return false
+	if not InventoryManager.has_item("compost", 1):
+		return false
+	
+	InventoryManager.remove_item("compost", 1)
+	soil.is_composted = true
+	
+	# Immediate visual feedback: slight green tint
+	if _crop_nodes.has(cell):
+		_crop_nodes[cell].modulate = Color(0.8, 1.0, 0.8)
+	
+	EffectSpawner.spawn_particles(cell_to_world(cell), Color(0.3, 0.7, 0.3), 6, 12.0)
+	ToastNotification.show_toast("Compost applied! Growth boosted.", ToastNotification.ToastType.SUCCESS, 2.0)
+	AudioManager.play(AudioManager.Sound.PLANT)
+	return true
+
 func _on_day_changed(_day: int) -> void:
 	for cell in _soil_data.keys():
 		var soil: SoilData = _soil_data[cell]
 		if soil.crop_id != "":
 			var crop_data := DataManager.get_crop(soil.crop_id)
 			if crop_data and (not crop_data.requires_water or soil.is_watered):
+				# Crop got water (or doesn't need it) — grows normally
+				soil.unwatered_days = 0
+				if soil.is_composted:
+					# Compost boosts growth: grow 2 days instead of 1
+					soil.days_grown += 1
+					soil.is_composted = false  # one-time boost consumed
 				soil.days_grown += 1
 				if _crop_nodes.has(cell):
 					_crop_nodes[cell].grow()
+			elif crop_data and crop_data.requires_water:
+				# Crop needs water but wasn't watered — track stress
+				soil.unwatered_days += 1
+				if _crop_nodes.has(cell):
+					if soil.unwatered_days >= 3:
+						# Crop dies after 3 days without water
+						_crop_nodes[cell].queue_free()
+						_crop_nodes.erase(cell)
+						soil.crop_id = ""
+						soil.days_grown = 0
+						soil.unwatered_days = 0
+						EffectSpawner.spawn_particles(cell_to_world(cell), Color(0.6, 0.3, 0.1), 4, 8.0)
+						ToastNotification.show_toast("Crop wilted from thirst!", ToastNotification.ToastType.WARNING, 3.0)
+					else:
+						# Show wilted visual (brownish tint)
+						_crop_nodes[cell].modulate = Color(0.7, 0.6, 0.4)
 		
 		# Soil dries out every day
 		soil.is_watered = false
-		var tilled_type: TileTypeData = DataManager.get_tile_type("tilled")
-		ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
+		if soil.crop_id == "" or soil.unwatered_days > 0:
+			var tilled_type: TileTypeData = DataManager.get_tile_type("tilled")
+			ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
 
 # ---------------------------------------------------------------------------
 # Terrain collision

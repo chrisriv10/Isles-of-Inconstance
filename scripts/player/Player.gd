@@ -132,8 +132,18 @@ func _try_interact() -> void:
 		var interacted: bool = interactor.interact_with_nearest()
 		if not interacted:
 			var world := get_tree().get_first_node_in_group("world")
-			if world and world.has_method("harvest_crop"):
-				var target_pos: Vector2 = global_position + facing_direction * 16.0
+			if not world:
+				return
+			var target_pos: Vector2 = global_position + facing_direction * 16.0
+			
+			# If holding compost (tool is any seed slot with compost in inventory),
+			# try compost on the tile first
+			if InventoryManager.has_item("compost", 1):
+				if world.has_method("apply_compost") and world.apply_compost(target_pos):
+					return
+			
+			# Otherwise try to harvest
+			if world.has_method("harvest_crop"):
 				world.harvest_crop(target_pos)
 
 func _try_use_tool() -> void:

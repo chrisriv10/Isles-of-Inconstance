@@ -6,6 +6,8 @@
 size = Vector2(20, 20)
 
 [node name="Tree" type="Area2D" groups=["resources"]]
+collision_layer = 4
+collision_mask = 0
 script = ExtResource("1")
 interaction_prompt = "Chop"
 

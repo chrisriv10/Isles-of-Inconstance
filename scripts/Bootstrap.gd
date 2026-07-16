@@ -54,6 +54,9 @@ func _start_new_game(p_seed: int) -> void:
 		if not hud.exit_to_menu_requested.is_connected(_on_exit_to_menu):
 			hud.exit_to_menu_requested.connect(_on_exit_to_menu)
 	
+	# Re-show all UI CanvasLayers (they were hidden on exit to menu)
+	_show_ui_canvas_layers()
+	
 	# Reset game state
 	SaveManager.delete_save()
 	
@@ -79,6 +82,17 @@ func _start_new_game(p_seed: int) -> void:
 	GameManager.current_minute_of_day = 6 * 60
 	GameManager.money = 500
 	InventoryManager.clear()
+	# Give the player starter seeds for each procedural crop so they can
+	# begin farming immediately without first finding the shop.
+	var starter_crops := DataManager.get_procedural_crops()
+	for starter_crop in starter_crops:
+		if starter_crop.seed_item_id != "":
+			InventoryManager.add_item(starter_crop.seed_item_id, 5)
+	# Also give a few compost to get started
+	InventoryManager.add_item("compost", 3)
+	# Give some stone for crafting
+	InventoryManager.add_item("stone", 10)
+	InventoryManager.add_item("wood", 5)
 	UpgradeManager.levels = {
 		UpgradeManager.Upgrade.INVENTORY: 0,
 		UpgradeManager.Upgrade.TOOLS: 0,
@@ -114,6 +128,9 @@ func _load_game() -> void:
 		if not hud.exit_to_menu_requested.is_connected(_on_exit_to_menu):
 			hud.exit_to_menu_requested.connect(_on_exit_to_menu)
 	
+	# Re-show all UI CanvasLayers (they were hidden on exit to menu)
+	_show_ui_canvas_layers()
+	
 	# Load the save file
 	SaveManager.load_game()
 	
@@ -127,6 +144,16 @@ func _load_game() -> void:
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
 
+## Helper to re-show all CanvasLayer UIs after returning from the main menu.
+## They are explicitly hidden in _on_exit_to_menu() because CanvasLayer renders
+## independently of its parent Node2D's visibility.
+func _show_ui_canvas_layers() -> void:
+	if not game:
+		return
+	for child in game.get_children():
+		if child is CanvasLayer:
+			child.visible = true
+
 func _on_exit_to_menu() -> void:
 	# Save current game state before exiting
 	SaveManager.save_game()
@@ -135,6 +162,12 @@ func _on_exit_to_menu() -> void:
 	if game:
 		game.visible = false
 		game.process_mode = Node.PROCESS_MODE_DISABLED
+		# Explicitly hide all CanvasLayer children (HUD, Shop, Inventory, Crafting)
+		# CanvasLayer renders independently of parent visibility, so hiding the
+		# parent Node2D does NOT hide them.
+		for child in game.get_children():
+			if child is CanvasLayer:
+				child.visible = false
 	
 	# Show main menu
 	if main_menu:
