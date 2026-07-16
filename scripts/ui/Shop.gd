@@ -46,12 +46,20 @@ func open() -> void:
 	is_open = true
 	dim.visible = true
 	panel.visible = true
+	
+	# Add smooth slide + fade animation with sound
+	UITweenHelper.animate_open(panel, 0.25, 20.0)
+	
 	refresh()
 
 func close() -> void:
 	is_open = false
-	dim.visible = false
-	panel.visible = false
+	
+	# Animate out before hiding
+	UITweenHelper.animate_close(panel, 0.2, 20.0, func(): 
+		dim.visible = false
+		panel.visible = false
+	)
 
 func _on_close_pressed() -> void:
 	close()
@@ -119,7 +127,10 @@ func _refresh_seeds() -> void:
 func _buy_seed(seed_item: ItemData) -> void:
 	if GameManager.spend_money(seed_item.buy_price):
 		InventoryManager.add_item(seed_item.id, 1)
+		ToastNotification.show_toast("Bought %s!" % seed_item.display_name, ToastNotification.ToastType.SUCCESS)
 		refresh()
+	else:
+		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
 
 # ---------------------------------------------------------------------------
 # Sell
@@ -154,6 +165,7 @@ func _sell_item(item_id: String, count: int) -> void:
 		return
 	if InventoryManager.remove_item(item_id, count):
 		GameManager.add_money(item.sell_price * count)
+		ToastNotification.show_toast("Sold %d %s for $%d!" % [count, item.display_name, item.sell_price * count], ToastNotification.ToastType.SUCCESS)
 		refresh()
 
 # ---------------------------------------------------------------------------
@@ -182,6 +194,12 @@ func _refresh_upgrades() -> void:
 
 func _buy_upgrade(upgrade: int) -> void:
 	UpgradeManager.purchase(upgrade)
+	var upgrade_name := UpgradeManager.get_upgrade_name(upgrade)
+	var level := UpgradeManager.get_level(upgrade)
+	if level > 0:
+		ToastNotification.show_toast("%s upgraded to Lv %d!" % [upgrade_name, level], ToastNotification.ToastType.SUCCESS)
+	else:
+		ToastNotification.show_toast("Already at max level!", ToastNotification.ToastType.INFO)
 	refresh()
 
 # ---------------------------------------------------------------------------

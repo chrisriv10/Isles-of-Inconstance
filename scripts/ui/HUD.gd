@@ -99,6 +99,9 @@ func _on_crop_mutated(old_name: String, new_name: String, mutation_name: String)
 	mutation_label.visible = true
 	mutation_label_panel.visible = true
 	mutation_toast_timer.start()
+	
+	# Show toast notification for extra polish
+	ToastNotification.show_toast("%s → %s!" % [old_name, new_name], ToastNotification.ToastType.SUCCESS, 4.0)
 
 func _on_mutation_toast_timeout() -> void:
 	mutation_label_panel.visible = false

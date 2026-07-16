@@ -38,12 +38,20 @@ func open() -> void:
 	is_open = true
 	dim.visible = true
 	panel.visible = true
+	
+	# Add smooth slide + fade animation with sound
+	UITweenHelper.animate_open(panel, 0.25, 20.0)
+	
 	refresh()
 
 func close() -> void:
 	is_open = false
-	dim.visible = false
-	panel.visible = false
+	
+	# Animate out before hiding
+	UITweenHelper.animate_close(panel, 0.2, 20.0, func(): 
+		dim.visible = false
+		panel.visible = false
+	)
 
 func _on_close_pressed() -> void:
 	close()
@@ -97,6 +105,9 @@ func _select_seed(crop_id: String) -> void:
 	var player := get_tree().get_first_node_in_group("player")
 	if player and player.has_method("select_seed"):
 		player.select_seed(crop_id)
+		var crop = DataManager.get_crop(crop_id)
+		if crop:
+			ToastNotification.show_toast("Selected %s seeds for planting" % crop.display_name, ToastNotification.ToastType.INFO)
 	close()
 
 func _refresh_category(container: VBoxContainer, category: String) -> void:
