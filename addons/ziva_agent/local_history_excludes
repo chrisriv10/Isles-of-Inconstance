@@ -1,8 +1,0 @@
-# LocalHistory exclude list — keep build artifacts out of snapshots.
-# Passed to every bundled-git invocation via -c core.excludesFile.
-# Edit this file to change the exclusion rules; no rebuild needed.
-.godot/
-addons/ziva_agent/
-.ziva/
-.DS_Store
-node_modules/
