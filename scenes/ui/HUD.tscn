@@ -49,6 +49,16 @@ text = "Tool: Hoe"
 layout_mode = 2
 text = "[B] Shop   [I] Inventory"
 
+[node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Seed: 0"
+
+[node name="MenuButton" type="Button" parent="Root/TopBar/HBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Menu"
+
 [node name="InteractionPrompt" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true
 visible = false
@@ -92,37 +102,6 @@ text = ""
 unique_name_in_owner = true
 wait_time = 3.5
 one_shot = true
-
-[node name="GenBox" type="HBoxContainer" parent="Root"]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -300.0
-offset_top = 12.0
-offset_right = -12.0
-offset_bottom = 43.0
-grow_horizontal = 0
-
-[node name="SeedLabel" type="Label" parent="Root/GenBox"]
-layout_mode = 2
-text = "Seed:"
-
-[node name="SeedInput" type="LineEdit" parent="Root/GenBox"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "0"
-
-[node name="RandomButton" type="Button" parent="Root/GenBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Rand"
-
-[node name="RegenerateButton" type="Button" parent="Root/GenBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Gen"
 
 [node name="FadeOverlay" type="ColorRect" parent="Root"]
 unique_name_in_owner = true

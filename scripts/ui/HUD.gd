@@ -4,16 +4,15 @@ extends CanvasLayer
 ## signals and updates labels - contains no game logic of its own so new UI
 ## panels can be added without risk of coupling gameplay to display code.
 
-signal regenerate_world_requested(seed: int)
+signal exit_to_menu_requested()
 
 @onready var day_label: Label = %DayLabel
 @onready var time_label: Label = %TimeLabel
 @onready var money_label: Label = %MoneyLabel
 @onready var interaction_prompt: Label = %InteractionPrompt/Label
 @onready var interaction_prompt_panel: PanelContainer = %InteractionPrompt
-@onready var seed_input: LineEdit = %SeedInput
-@onready var random_button: Button = %RandomButton
-@onready var regenerate_button: Button = %RegenerateButton
+@onready var seed_display_label: Label = %SeedDisplayLabel
+@onready var menu_button: Button = %MenuButton
 @onready var tool_label: Label = %ToolLabel
 @onready var mutation_label: Label = %MutationLabel/Label
 @onready var mutation_label_panel: PanelContainer = %MutationLabel
@@ -56,8 +55,7 @@ func _ready() -> void:
 	# Show first tutorial hint after a delay
 	get_tree().create_timer(2.0).timeout.connect(_show_first_hint)
 
-	random_button.pressed.connect(_on_random_seed_pressed)
-	regenerate_button.pressed.connect(_on_regenerate_pressed)
+	menu_button.pressed.connect(_on_menu_pressed)
 
 	var player := get_tree().get_first_node_in_group("player")
 	if player:
@@ -73,15 +71,10 @@ func _on_active_tool_changed(tool_name: String) -> void:
 	tool_label.text = "Tool: " + tool_name
 
 func set_seed_display(seed_value: int) -> void:
-	seed_input.text = str(seed_value)
+	seed_display_label.text = "Seed: %d" % seed_value
 
-func _on_random_seed_pressed() -> void:
-	var new_seed := randi()
-	seed_input.text = str(new_seed)
-
-func _on_regenerate_pressed() -> void:
-	var seed_value := seed_input.text.to_int()
-	regenerate_world_requested.emit(seed_value)
+func _on_menu_pressed() -> void:
+	exit_to_menu_requested.emit()
 
 func _on_day_changed(day: int) -> void:
 	day_label.text = "Day %d" % day

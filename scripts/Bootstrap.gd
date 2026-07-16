@@ -18,12 +18,12 @@ func _connect_signals() -> void:
 		main_menu.continue_requested.connect(_on_continue)
 		main_menu.quit_requested.connect(_on_quit)
 
-func _on_new_game() -> void:
-	print("New Game requested") # Debug print
+func _on_new_game(p_seed: int) -> void:
+	print("New Game requested with seed: ", p_seed) # Debug print
 	# Fade to black (optional visual feedback)
 	var tween := create_tween()
 	tween.tween_interval(0.2)
-	tween.tween_callback(_start_new_game)
+	tween.tween_callback(_start_new_game.bind(p_seed))
 
 func _on_continue() -> void:
 	print("Continue requested") # Debug print
@@ -35,7 +35,7 @@ func _on_continue() -> void:
 func _on_quit() -> void:
 	get_tree().quit()
 
-func _start_new_game() -> void:
+func _start_new_game(p_seed: int) -> void:
 	# CRITICAL FIX: Explicitly hide and disable the menu first
 	if main_menu:
 		main_menu.visible = false
@@ -50,15 +50,22 @@ func _start_new_game() -> void:
 	if game and game.has_node("HUD"):
 		hud = game.get_node("HUD") as CanvasLayer
 		hud.visible = true
+		# Connect exit-to-menu signal if not already connected
+		if not hud.exit_to_menu_requested.is_connected(_on_exit_to_menu):
+			hud.exit_to_menu_requested.connect(_on_exit_to_menu)
 	
 	# Reset game state
 	SaveManager.delete_save()
 	
-	# Reinitialize the game
+	# Reinitialize the game with the chosen seed
 	var world: Node2D = null
 	if game and game.has_node("World"):
 		world = game.get_node("World")
+		world.world_seed = p_seed
 		world.generate_world()
+		
+		if hud and hud.has_method("set_seed_display"):
+			hud.set_seed_display(p_seed)
 		
 		var player: CharacterBody2D = null
 		if game and game.has_node("Player"):
@@ -103,10 +110,37 @@ func _load_game() -> void:
 	if game and game.has_node("HUD"):
 		hud = game.get_node("HUD") as CanvasLayer
 		hud.visible = true
+		# Connect exit-to-menu signal if not already connected
+		if not hud.exit_to_menu_requested.is_connected(_on_exit_to_menu):
+			hud.exit_to_menu_requested.connect(_on_exit_to_menu)
 	
 	# Load the save file
 	SaveManager.load_game()
 	
+	# Show the loaded seed in the HUD
+	if hud and hud.has_method("set_seed_display"):
+		var world_node: Node2D = game.get_node_or_null("World")
+		if world_node:
+			hud.set_seed_display(world_node.world_seed)
+	
 	# Fade in (re-use the 'hud' variable defined above)
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
+
+func _on_exit_to_menu() -> void:
+	# Save current game state before exiting
+	SaveManager.save_game()
+	
+	# Hide game and HUD
+	if game:
+		game.visible = false
+		game.process_mode = Node.PROCESS_MODE_DISABLED
+	
+	# Show main menu
+	if main_menu:
+		main_menu.visible = true
+		main_menu.process_mode = Node.PROCESS_MODE_INHERIT
+		# Update continue button state (now that we just saved)
+		if main_menu.has_node("TitleContainer/ButtonContainer/ContinueButton"):
+			var continue_btn: Button = main_menu.get_node("TitleContainer/ButtonContainer/ContinueButton")
+			continue_btn.disabled = not SaveManager.has_save_file()

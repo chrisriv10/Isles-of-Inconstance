@@ -57,6 +57,25 @@ text = "Continue"
 layout_mode = 2
 text = "Quit"
 
+[node name="SeedBox" type="HBoxContainer" parent="TitleContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="SeedLabel" type="Label" parent="TitleContainer/SeedBox"]
+layout_mode = 2
+text = "Seed:"
+
+[node name="SeedInput" type="LineEdit" parent="TitleContainer/SeedBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0"
+placeholder_text = "Enter seed..."
+
+[node name="RandomSeedButton" type="Button" parent="TitleContainer/SeedBox"]
+layout_mode = 2
+text = "Random"
+
 [node name="VersionLabel" type="Label" parent="."]
 layout_mode = 1
 anchors_preset = 3
