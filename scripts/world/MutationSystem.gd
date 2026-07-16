@@ -137,7 +137,7 @@ func create_mutated_crop(base_crop: CropData, mutation: MutationDefinition,
 	child.id = new_id
 	child.display_name = new_name
 	child.growth_stage_textures = base_crop.growth_stage_textures
-	child.days_to_grow = clampi(int(round(base_crop.days_to_grow * mutation.growth_speed_multiplier)), 1, 20)
+	child.days_to_grow = clampi(roundi(base_crop.days_to_grow * mutation.growth_speed_multiplier), 1, 20)
 	child.yield_item_id = new_id + "_yield"
 	child.seed_item_id = new_id + "_seed"
 	child.yield_amount = clampi(base_crop.yield_amount + (1 if mutation.special_ability == "bonus_yield" else 0), 1, 10)
@@ -161,7 +161,7 @@ func create_mutated_crop(base_crop: CropData, mutation: MutationDefinition,
 	yield_item.display_name = new_name
 	yield_item.category = "crop"
 	yield_item.stack_size = 99
-	yield_item.sell_price = maxi(1, int(round(base_value)))
+	yield_item.sell_price = maxi(1, roundi(base_value))
 	yield_item.description = "%s | %s | Gen %d" % [mutation.description, child.rarity, child_genetics.generation]
 
 	var seed_item := ItemData.new()
@@ -169,8 +169,8 @@ func create_mutated_crop(base_crop: CropData, mutation: MutationDefinition,
 	seed_item.display_name = new_name + " Seed"
 	seed_item.category = "seed"
 	seed_item.stack_size = 99
-	seed_item.sell_price = maxi(1, yield_item.sell_price / 6)
-	seed_item.buy_price = maxi(2, int(round(yield_item.sell_price * 0.6)))
+	seed_item.sell_price = maxi(1, floori(yield_item.sell_price / 6.0))
+	seed_item.buy_price = maxi(2, roundi(yield_item.sell_price * 0.6))
 	seed_item.description = "Plant on tilled soil. Carries the " + mutation.mutation_name + " mutation."
 
 	DataManager.register_crop(child)

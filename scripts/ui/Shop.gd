@@ -1,23 +1,21 @@
 extends CanvasLayer
 
-## Simple always-available shop overlay (toggle with [B]). Not tied to a
-## physical shopkeeper yet - see the summary notes for how to turn this into
-## an NPC-triggered panel later if desired.
+## NPC shop overlay opened by interacting with the Merchant ShopStand in the
+## world. Requires proximity to the shop NPC to open.
 ##
-## Three sections, matching the requested Shop features:
+## Three sections:
 ##   Seeds     - buy seed_item(s) for any discovered crop within the
 ##               player's current "Seed Vault Access" rarity tier.
-##   Sell      - sell any harvested crop or gathered resource for coins.
 ##   Upgrades  - buy the next level of Storage Satchel / Tool Forge /
 ##               Green Thumb / Seed Vault Access (this doubles as "buy
 ##               tools", since this project only has the hoe & watering can
 ##               and upgrading their tier *is* buying a better tool).
+## NOTE: Selling is done at the Boat, not here.
 
 @onready var dim: ColorRect = $Dim
 @onready var panel: PanelContainer = $Panel
 @onready var coins_label: Label = %CoinsLabel
 @onready var seeds_list: VBoxContainer = %SeedsList
-@onready var sell_list: VBoxContainer = %SellList
 @onready var upgrades_list: VBoxContainer = %UpgradesList
 
 var is_open: bool = false
@@ -29,10 +27,7 @@ func _ready() -> void:
 	UpgradeManager.upgrade_purchased.connect(_on_upgrade_purchased)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("open_shop"):
-		toggle()
-		get_viewport().set_input_as_handled()
-	elif is_open and event.is_action_pressed("close_menu"):
+	if is_open and event.is_action_pressed("close_menu"):
 		close()
 		get_viewport().set_input_as_handled()
 
@@ -46,12 +41,20 @@ func open() -> void:
 	is_open = true
 	dim.visible = true
 	panel.visible = true
+	
+	# Add smooth slide + fade animation with sound
+	UITweenHelper.animate_open(panel, 0.25, 20.0)
+	
 	refresh()
 
 func close() -> void:
 	is_open = false
-	dim.visible = false
-	panel.visible = false
+	
+	# Animate out before hiding
+	UITweenHelper.animate_close(panel, 0.2, 20.0, func(): 
+		dim.visible = false
+		panel.visible = false
+	)
 
 func _on_close_pressed() -> void:
 	close()
@@ -75,7 +78,6 @@ func _on_upgrade_purchased(_upgrade: int, _level: int) -> void:
 func refresh() -> void:
 	coins_label.text = "$%d" % GameManager.money
 	_refresh_seeds()
-	_refresh_sell()
 	_refresh_upgrades()
 
 func _clear(container: Node) -> void:
@@ -119,42 +121,10 @@ func _refresh_seeds() -> void:
 func _buy_seed(seed_item: ItemData) -> void:
 	if GameManager.spend_money(seed_item.buy_price):
 		InventoryManager.add_item(seed_item.id, 1)
+		ToastNotification.show_toast("Bought %s!" % seed_item.display_name, ToastNotification.ToastType.SUCCESS)
 		refresh()
-
-# ---------------------------------------------------------------------------
-# Sell
-# ---------------------------------------------------------------------------
-
-func _refresh_sell() -> void:
-	_clear(sell_list)
-	var counts := InventoryManager.get_all_counts()
-	var ids := counts.keys()
-	ids.sort()
-
-	var shown := false
-	for item_id in ids:
-		var item := DataManager.get_item(item_id)
-		if not item or item.category == "seed" or item.sell_price <= 0:
-			continue
-		var count: int = counts[item_id]
-		shown = true
-		sell_list.add_child(_build_row(
-			"%s x%d" % [item.display_name, count],
-			"$%d each" % item.sell_price,
-			"Sell All",
-			func(): _sell_item(item_id, count)
-		))
-
-	if not shown:
-		sell_list.add_child(_hint_label("Nothing to sell yet - go harvest or gather something!"))
-
-func _sell_item(item_id: String, count: int) -> void:
-	var item := DataManager.get_item(item_id)
-	if not item:
-		return
-	if InventoryManager.remove_item(item_id, count):
-		GameManager.add_money(item.sell_price * count)
-		refresh()
+	else:
+		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
 
 # ---------------------------------------------------------------------------
 # Upgrades (also where tool purchases live - see class doc comment above)
@@ -182,6 +152,12 @@ func _refresh_upgrades() -> void:
 
 func _buy_upgrade(upgrade: int) -> void:
 	UpgradeManager.purchase(upgrade)
+	var upgrade_name := UpgradeManager.get_upgrade_name(upgrade)
+	var level := UpgradeManager.get_level(upgrade)
+	if level > 0:
+		ToastNotification.show_toast("%s upgraded to Lv %d!" % [upgrade_name, level], ToastNotification.ToastType.SUCCESS)
+	else:
+		ToastNotification.show_toast("Already at max level!", ToastNotification.ToastType.INFO)
 	refresh()
 
 # ---------------------------------------------------------------------------

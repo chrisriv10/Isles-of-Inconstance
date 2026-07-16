@@ -12,10 +12,8 @@ extends Node2D
 func _ready() -> void:
 	_position_player_at_spawn()
 	
-	if hud and hud.has_signal("regenerate_world_requested"):
-		hud.regenerate_world_requested.connect(world.generate_world_with_seed)
-		if hud.has_method("set_seed_display"):
-			hud.set_seed_display(world.world_seed)
+	if hud and hud.has_method("set_seed_display"):
+		hud.set_seed_display(world.world_seed)
 
 func _position_player_at_spawn() -> void:
 	if world and world.has_method("cell_to_world"):

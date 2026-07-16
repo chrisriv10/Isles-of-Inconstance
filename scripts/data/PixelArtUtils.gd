@@ -98,7 +98,7 @@ static func draw_triangle(image: Image, x0: int, y0: int, x1: int, y1: int, x2: 
 				
 				if (ay <= y and by > y) or (by <= y and ay > y):
 					var t := float(y - ay) / float(by - ay)
-					var x := int(float(ax) + t * float(bx - ax))
+					var x := floori(float(ax) + t * float(bx - ax))
 					intersections.append(x)
 			
 			intersections.sort()

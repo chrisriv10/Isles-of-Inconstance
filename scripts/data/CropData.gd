@@ -39,5 +39,5 @@ func get_texture_for_growth(days_growing: int) -> Texture2D:
 	if growth_stage_textures.is_empty():
 		return null
 	var stage_length: float = float(days_to_grow) / float(growth_stage_textures.size())
-	var stage_index: int = clampi(int(float(days_growing) / max(stage_length, 0.01)), 0, growth_stage_textures.size() - 1)
+	var stage_index: int = clampi(floori(float(days_growing) / max(stage_length, 0.01)), 0, growth_stage_textures.size() - 1)
 	return growth_stage_textures[stage_index]

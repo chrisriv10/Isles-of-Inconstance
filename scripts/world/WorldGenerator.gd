@@ -30,20 +30,61 @@ func _init(p_width: int = 0, p_height: int = 0, p_seed: int = 0) -> void:
 
 ## Returns a 2D array (Array of Array) of TileTypeData ids, one per cell,
 ## chosen by feeding noise values through the tile types registered in
-## DataManager. Keeping the tile catalogue in DataManager means new biomes
-## or tile types can be added without changing this function.
+## DataManager. Applies an island-falloff mask so the world has a ragged,
+## organic shape surrounded by water.
 func generate_tile_grid() -> Array:
 	var tile_types: Array = DataManager.get_all_tile_types()
 	var grid: Array = []
 	grid.resize(height)
+
+	# Pre-compute the island mask using a separate noise field at a
+	# lower frequency so coastlines are ragged but not micro-pixelated.
+	var island_noise := FastNoiseLite.new()
+	island_noise.seed = noise.seed + 9999
+	island_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+	island_noise.frequency = 0.03
+
 	for y in range(height):
 		var row: Array = []
 		row.resize(width)
 		for x in range(width):
-			var n: float = noise.get_noise_2d(x, y)
-			row[x] = _pick_tile_type_id(n, tile_types)
+			if _is_island_cell(x, y, island_noise):
+				var n: float = noise.get_noise_2d(x, y)
+				row[x] = _pick_tile_type_id(n, tile_types)
+			else:
+				row[x] = "water"
 		grid[y] = row
 	return grid
+
+## Returns true if the cell (x, y) should be land rather than water.
+## Combines a distance-based falloff from centre with Perlin noise
+## perturbation so the coastline is ragged and natural-looking.
+func _is_island_cell(x: int, y: int, island_noise: FastNoiseLite) -> bool:
+	# Normalise coords so that (0,0) is the centre and
+	# (-1,-1) .. (1,1) spans the whole grid.
+	var nx := (x / float(width)) * 2.0 - 1.0
+	var ny := (y / float(height)) * 2.0 - 1.0
+
+	# Base distance from centre (0 = centre, 1 ≈ corner).
+	var dist := sqrt(nx * nx + ny * ny)
+
+	# Perturb the falloff with noise so the coastline varies
+	# organically instead of being a perfect circle.
+	var perturb := island_noise.get_noise_2d(x, y) * 0.25
+
+	# Stretch the island slightly along the 45° diagonal for
+	# a more organic overall shape (less perfectly round).
+	var stretch_nx := nx * 0.85 + ny * 0.15
+	var stretch_ny := ny * 0.85 + nx * 0.15
+	var stretch_dist := sqrt(stretch_nx * stretch_nx + stretch_ny * stretch_ny)
+	dist = lerpf(dist, stretch_dist, 0.25)
+
+	# Scale island radius so the island occupies roughly 55% of the grid,
+	# leaving a generous water buffer around the edge (no gray void).
+	var island_radius := 0.58
+	var modified_dist := dist + perturb
+
+	return modified_dist < island_radius
 
 func _pick_tile_type_id(noise_value: float, tile_types: Array) -> String:
 	for tile_type in tile_types:

@@ -47,7 +47,7 @@ func is_maxed(upgrade: Upgrade) -> bool:
 
 func get_cost(upgrade: Upgrade) -> int:
 	var level := get_level(upgrade)
-	return int(round(BASE_COSTS[upgrade] * pow(1.6, level)))
+	return roundi(BASE_COSTS[upgrade] * pow(1.6, level))
 
 func get_upgrade_name(upgrade: Upgrade) -> String:
 	return NAMES[upgrade]
@@ -78,33 +78,22 @@ func _apply_effects(upgrade: Upgrade) -> void:
 # ---------------------------------------------------------------------------
 
 ## The set of tile-grid offsets the hoe/watering can affect around the
-## targeted tile, based on the Tool Forge level (0 = single tile,
-## 4 = a full 5x5 block).
+## targeted tile, based on the Tool Forge level. Every tier produces a clean
+## SQUARE shape (no cross or diamond patterns): 1×1 → 3×3 → 5×5 → 7×7.
 func get_tool_area_cells(center: Vector2i) -> Array[Vector2i]:
 	var tier := get_level(Upgrade.TOOLS)
-	var cells: Array[Vector2i] = [center]
-	if tier >= 1:
-		for offset in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
-			cells.append(center + offset)
-	if tier >= 2:
-		for dx in range(-1, 2):
-			for dy in range(-1, 2):
-				var c := center + Vector2i(dx, dy)
-				if not cells.has(c):
-					cells.append(c)
-	if tier >= 3:
-		for dx in range(-2, 3):
-			for dy in range(-2, 3):
-				if absi(dx) + absi(dy) <= 2:
-					var c := center + Vector2i(dx, dy)
-					if not cells.has(c):
-						cells.append(c)
-	if tier >= 4:
-		for dx in range(-2, 3):
-			for dy in range(-2, 3):
-				var c := center + Vector2i(dx, dy)
-				if not cells.has(c):
-					cells.append(c)
+	var radius: int
+	match tier:
+		0: radius = 0   # 1 × 1  (single tile)
+		1: radius = 1   # 3 × 3
+		2: radius = 1   # 3 × 3 (for now — more tiers could expand further)
+		3: radius = 2   # 5 × 5
+		4: radius = 3   # 7 × 7
+		_: radius = 0
+	var cells: Array[Vector2i] = []
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			cells.append(center + Vector2i(dx, dy))
 	return cells
 
 ## Multiplier applied to the base tool-use cooldown; higher Green Thumb
