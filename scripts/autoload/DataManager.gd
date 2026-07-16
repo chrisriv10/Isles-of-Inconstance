@@ -159,6 +159,16 @@ func _register_default_tile_types() -> void:
 	register_tile_type(watered_tilled)
 
 func _register_default_items() -> void:
+	var wood := ItemData.new()
+	wood.id = "wood"
+	wood.display_name = "Wood"
+	wood.category = "resource"
+	wood.stack_size = 99
+	wood.sell_price = 3
+	wood.buy_price = 0
+	wood.description = "Sturdy timber from the island's trees. Useful for crafting."
+	register_item(wood)
+
 	var stone := ItemData.new()
 	stone.id = "stone"
 	stone.display_name = "Stone"
@@ -168,6 +178,34 @@ func _register_default_items() -> void:
 	stone.buy_price = 0
 	stone.description = "A chunk of rock, gathered from outcrops around the island. Sells for a little, useful in bulk."
 	register_item(stone)
+
+	# Crafting materials
+	var tool_kit := ItemData.new()
+	tool_kit.id = "tool_upgrade_kit"
+	tool_kit.display_name = "Tool Upgrade Kit"
+	tool_kit.category = "misc"
+	tool_kit.stack_size = 10
+	tool_kit.sell_price = 50
+	tool_kit.description = "Upgrades your farming tools. Crafted from stone."
+	register_item(tool_kit)
+
+	var compost := ItemData.new()
+	compost.id = "compost"
+	compost.display_name = "Compost"
+	compost.category = "misc"
+	compost.stack_size = 20
+	compost.sell_price = 10
+	compost.description = "Nutrient-rich compost. Speeds crop growth when applied to tilled soil."
+	register_item(compost)
+
+	var wooden_planks := ItemData.new()
+	wooden_planks.id = "wooden_planks"
+	wooden_planks.display_name = "Wooden Planks"
+	wooden_planks.category = "resource"
+	wooden_planks.stack_size = 99
+	wooden_planks.sell_price = 5
+	wooden_planks.description = "Sturdy wooden planks, useful for building and crafting."
+	register_item(wooden_planks)
 
 func _register_default_crops() -> void:
 	## Uses ProceduralCropGenerator to generate 3 unique crops each session.

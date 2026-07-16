@@ -51,7 +51,7 @@ text = "Tool: Hoe"
 
 [node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=901312833]
 layout_mode = 2
-text = "[B] Shop   [I] Inventory"
+text = "[B] Shop   [C] Craft   [I] Inventory"
 
 [node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=2035179578]
 unique_name_in_owner = true
@@ -141,6 +141,17 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 wait_time = 5.0
 one_shot = true
+
+[node name="DayNightOverlay" type="ColorRect" parent="Root" unique_id=1987654321]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0.1, 0)
+mouse_filter = 2
 
 [node name="Hotbar" type="Control" parent="Root" unique_id=1583035416]
 layout_mode = 1

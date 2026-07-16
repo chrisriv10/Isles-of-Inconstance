@@ -16,6 +16,8 @@ static func get_all_biomes() -> Array[BiomeDefinition]:
 		_create_forest(),
 		_create_swamp(),
 		_create_mountain(),
+		_create_beach(),
+		_create_meadow(),
 	]
 
 
@@ -213,6 +215,52 @@ static func _mountain_special_seeds() -> ResourceSpawnEntry:
 	entry.scene_path = "res://scenes/world/resources/special_seed_cache.tscn"
 	entry.harvestable = true
 	return entry
+
+
+# --- Beach ---------------------------------------------------------------
+## Sandy shoreline between water and land. Nutrient-poor but easy to traverse.
+
+static func _create_beach() -> BiomeDefinition:
+	var biome := BiomeDefinition.new()
+	biome.type = BiomeType.Type.BEACH
+	biome.display_name = "Beach"
+	biome.ground_tile_id = "dirt"
+	biome.elevation_range = Vector2(0.25, 0.45)
+	biome.moisture_range = Vector2(0.5, 0.85)
+	biome.terrain_roughness = 0.2
+	biome.elevation_offset = -0.05
+	biome.movement_speed_multiplier = 1.0
+	biome.resource_density = 0.5
+	biome.crop_trait_tags = ["salty", "sand_dweller"]
+	biome.crop_growth_multiplier = 0.9
+	biome.crop_yield_multiplier = 1.0
+	biome.crop_color_tint = Color(0.9, 0.85, 0.7)
+	biome.unique_crop_chance = 0.05
+	biome.resources = []
+	return biome
+
+
+# --- Meadow --------------------------------------------------------------
+## Fertile, flower-filled grassland. Excellent for farming.
+
+static func _create_meadow() -> BiomeDefinition:
+	var biome := BiomeDefinition.new()
+	biome.type = BiomeType.Type.MEADOW
+	biome.display_name = "Meadow"
+	biome.ground_tile_id = "fertile_soil"
+	biome.elevation_range = Vector2(0.4, 0.6)
+	biome.moisture_range = Vector2(0.3, 0.65)
+	biome.terrain_roughness = 0.3
+	biome.elevation_offset = 0.0
+	biome.movement_speed_multiplier = 1.0
+	biome.resource_density = 2.0
+	biome.crop_trait_tags = ["rich", "blooming"]
+	biome.crop_growth_multiplier = 1.15
+	biome.crop_yield_multiplier = 1.2
+	biome.crop_color_tint = Color(0.9, 1.0, 0.8)
+	biome.unique_crop_chance = 0.08
+	biome.resources = [_wildflowers()]
+	return biome
 
 
 static func _wildflowers() -> ResourceSpawnEntry:

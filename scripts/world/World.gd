@@ -7,9 +7,11 @@ extends Node2D
 const TILE_SIZE: int = 16
 const RESOURCE_NODE_SCENE: PackedScene = preload("res://scenes/objects/ResourceNode.tscn")
 const CROP_SCENE: PackedScene = preload("res://scenes/world/Crop.tscn")
+const SHOP_STAND_SCENE: PackedScene = preload("res://scenes/objects/ShopStand.tscn")
+const TREE_SCENE: PackedScene = preload("res://scenes/objects/Tree.tscn")
 
-@export var world_width: int = 40
-@export var world_height: int = 40
+@export var world_width: int = 60
+@export var world_height: int = 60
 @export var world_seed: int = 0
 @export var object_count: int = 12
 
@@ -24,6 +26,7 @@ var _crop_nodes: Dictionary = {}
 func _ready() -> void:
 	GameManager.day_changed.connect(_on_day_changed)
 	generate_world()
+	_setup_water_collision()
 
 func generate_world() -> void:
 	_clear_world()
@@ -31,6 +34,8 @@ func generate_world() -> void:
 	_tile_grid = _generator.generate_tile_grid()
 	_paint_ground()
 	_scatter_objects()
+	_scatter_trees()
+	_spawn_shop_stand()
 
 func generate_world_with_seed(new_seed: int) -> void:
 	world_seed = new_seed
@@ -221,5 +226,123 @@ func _on_day_changed(_day: int) -> void:
 		var tilled_type: TileTypeData = DataManager.get_tile_type("tilled")
 		ground_layer.set_cell(cell, 0, tilled_type.atlas_coords)
 
+# ---------------------------------------------------------------------------
+# Terrain collision
+# ---------------------------------------------------------------------------
+
+## Adds collision shapes to non-walkable tiles in the TileSet so the player
+## (CharacterBody2D with collision_mask layer 1) cannot walk into water,
+## trees, or rocks.
+func _setup_water_collision() -> void:
+	var tileset: TileSet = ground_layer.tile_set
+	if not tileset:
+		return
+
+	# Ensure the TileSet has at least one physics layer.
+	while tileset.get_physics_layers_count() < 1:
+		tileset.add_physics_layer()
+
+	var source: TileSetAtlasSource = tileset.get_source(0)
+	if not source:
+		return
+
+	# Apply full-tile collision to all non-walkable tile types.
+	var non_walkable_coords := [Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0)]
+	for coords in non_walkable_coords:
+		var tile_data: TileData = source.get_tile_data(coords, 0)
+		if tile_data:
+			if tile_data.get_collision_polygons_count(0) == 0:
+				var polygon := PackedVector2Array([
+					Vector2(0, 0),
+					Vector2(16, 0),
+					Vector2(16, 16),
+					Vector2(0, 16),
+				])
+				tile_data.add_collision_polygon(0)
+				tile_data.set_collision_polygon_points(0, 0, polygon)
+
+	# Enable collision on the TileMapLayer.
+	ground_layer.collision_enabled = true
+
+	# Tell the TileSet's physics layer which collision layer to use.
+	# Layer 1 matches the Player's collision_mask (default).
+	tileset.set_physics_layer_collision_layer(0, 1)
+
+## Places tree objects across the "trees" tile regions so the forest
+## areas have 3D-looking tree sprites instead of flat tile textures.
+func _scatter_trees() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = world_seed + 3333
+
+	for y in range(world_height):
+		for x in range(world_width):
+			var tile_id: String = _tile_grid[y][x]
+			if tile_id != "trees":
+				continue
+			# Place a tree on ~60% of trees tiles for a natural look
+			if rng.randf() > 0.6:
+				continue
+
+			var cell := Vector2i(x, y)
+			# Skip if there's already something here
+			var blocked := false
+			for child in objects_root.get_children():
+				if child.global_position.distance_squared_to(cell_to_world(cell)) < 100.0:
+					blocked = true
+					break
+			if blocked:
+				continue
+
+			var tree: Area2D = TREE_SCENE.instantiate()
+			objects_root.add_child(tree)
+			tree.global_position = cell_to_world(cell)
+
+
 func _is_in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < world_width and cell.y < world_height
+
+
+# ---------------------------------------------------------------------------
+# Shop Stand spawning
+# ---------------------------------------------------------------------------
+
+## Places the NPC shop stand at a random walkable position near-ish the
+## centre so the player almost always finds it within the first minute.
+func _spawn_shop_stand() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = world_seed + 7777
+
+	# Pick a walkable cell within the inner ~60% of the island
+	var centre_x := world_width / 2
+	var centre_y := world_height / 2
+	var radius := mini(world_width, world_height) / 5
+
+	for attempt in 100:
+		var cell := Vector2i(
+			centre_x + rng.randi_range(-radius, radius),
+			centre_y + rng.randi_range(-radius, radius)
+		)
+		if not _is_in_bounds(cell):
+			continue
+
+		var tile_id: String = _tile_grid[cell.y][cell.x] if cell.y < _tile_grid.size() and cell.x < _tile_grid[cell.y].size() else "water"
+		var tile_type: TileTypeData = DataManager.get_tile_type(tile_id)
+		if tile_type and tile_type.walkable and tile_type.tillable:
+			# Make sure no resource node is already here
+			var blocked := false
+			for child in objects_root.get_children():
+				if child.global_position.distance_squared_to(cell_to_world(cell)) < 64.0:
+					blocked = true
+					break
+			if blocked:
+				continue
+
+			var stand: Area2D = SHOP_STAND_SCENE.instantiate()
+			objects_root.add_child(stand)
+			stand.global_position = cell_to_world(cell)
+			return
+
+	# Fallback: place at centre
+	var fallback := SHOP_STAND_SCENE.instantiate()
+	objects_root.add_child(fallback)
+	fallback.global_position = cell_to_world(Vector2i(centre_x, centre_y))

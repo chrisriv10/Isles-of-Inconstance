@@ -163,15 +163,8 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	var min_weight: float = min(prefix.rarity_weight, root.rarity_weight)
 	var rarity := _weight_to_rarity(min_weight)
 
-	# -- Build the grow stages textures array --
-	var stages: Array[Texture2D] = []
-	var sheet := load("res://assets/sprites/crop_stages.png")
-	if sheet:
-		for i in range(4):
-			var atlas := AtlasTexture.new()
-			atlas.atlas = sheet
-			atlas.region = Rect2(i * 16, 0, 16, 16)
-			stages.append(atlas)
+	# -- Procedurally generate unique sprites for this crop --
+	var stages: Array[Texture2D] = _generate_crop_textures(prefix, crop_name, rng)
 
 	# -- Assemble CropData --
 	var crop := CropData.new()
@@ -223,6 +216,8 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	seed_item.sell_price = maxi(1, floori(base_price / 6.0))
 	seed_item.buy_price = maxi(2, roundi(base_price * 0.6))
 	seed_item.description = "Plant on tilled soil."
+	# Generate unique seed icon using the crop's prefix/colors
+	seed_item.icon = generate_seed_icon(prefix, crop_name, rng)
 
 	DataManager.register_crop(crop)
 	DataManager.register_item(yield_item)
@@ -307,6 +302,81 @@ func _days_to_size(days: int) -> String:
 	elif days <= 10:
 		return "large"
 	return "massive"
+
+
+## Generates 4 unique growth-stage textures (24x24) for a crop using
+## the procedural CropSpriteGenerator, seeded from the crop name for
+## determinism so every session with the same seed looks identical.
+func _generate_crop_textures(prefix: CropTrait, crop_name: String, rng: RandomNumberGenerator) -> Array[Texture2D]:
+	# Derive a seed from the crop name for deterministic generation
+	var seed_val := hash(crop_name + str(rng.seed))
+	var local_rng := RandomNumberGenerator.new()
+	local_rng.seed = seed_val
+
+	var pieces := _pick_crop_pieces(seed_val, local_rng)
+	var colors := _pick_crop_colors(prefix, local_rng)
+
+	var sprite_gen := CropSpriteGenerator.new().create_crop_from_pieces(
+		pieces.stem, pieces.leaf, pieces.fruit,
+		pieces.flower, pieces.pattern, pieces.effect,
+		colors.fruit, colors.flower
+	)
+	return sprite_gen.generate_growth_stages(4)
+
+
+## Generates a seed-bag icon texture (24x24) for a crop, reusing the
+## same procedural pieces so the seed icon looks like a tiny version
+## of the mature crop.
+func generate_seed_icon(prefix: CropTrait, crop_name: String, rng: RandomNumberGenerator) -> Texture2D:
+	var seed_val := hash("seed_" + crop_name + str(rng.seed))
+	var local_rng := RandomNumberGenerator.new()
+	local_rng.seed = seed_val
+
+	var pieces := _pick_crop_pieces(seed_val, local_rng)
+	var colors := _pick_crop_colors(prefix, local_rng)
+
+	var sprite_gen := CropSpriteGenerator.new().create_crop_from_pieces(
+		pieces.stem, pieces.leaf, pieces.fruit,
+		pieces.flower, "", pieces.effect,  # skip pattern for seed icon
+		colors.fruit, colors.flower
+	)
+	return sprite_gen.generate_texture()
+
+
+# Helper structs for cleaner code
+func _pick_crop_pieces(seed_val: int, local_rng: RandomNumberGenerator) -> Dictionary:
+	var lib := SpritePieceLibrary
+	var stem_keys: Array = lib.get_stem_pieces().keys()
+	var leaf_keys: Array = lib.get_leaf_pieces().keys()
+	var fruit_keys: Array = lib.get_fruit_pieces().keys()
+	var flower_keys: Array = lib.get_flower_pieces().keys()
+	var pattern_keys: Array = lib.get_pattern_pieces().keys()
+	var effect_keys: Array = lib.get_effect_pieces().keys()
+
+	return {
+		stem = stem_keys[seed_val % stem_keys.size()],
+		leaf = leaf_keys[(seed_val / 3) % leaf_keys.size()],
+		fruit = fruit_keys[(seed_val / 7) % fruit_keys.size()],
+		flower = flower_keys[(seed_val / 11) % flower_keys.size()] if local_rng.randf() > 0.5 else "",
+		pattern = pattern_keys[(seed_val / 13) % pattern_keys.size()] if local_rng.randf() > 0.6 else "",
+		effect = effect_keys[(seed_val / 17) % effect_keys.size()] if local_rng.randf() > 0.7 else "",
+	}
+
+
+func _pick_crop_colors(prefix: CropTrait, local_rng: RandomNumberGenerator) -> Dictionary:
+	var base_hue := prefix.modulate_color.h
+	return {
+		fruit = Color.from_hsv(
+			fmod(base_hue + local_rng.randf_range(-0.08, 0.08), 1.0),
+			0.7 + local_rng.randf() * 0.3,
+			0.8 + local_rng.randf() * 0.2
+		),
+		flower = Color.from_hsv(
+			fmod(base_hue + 0.15 + local_rng.randf_range(-0.05, 0.05), 1.0),
+			0.6 + local_rng.randf() * 0.4,
+			0.8 + local_rng.randf() * 0.2
+		),
+	}
 
 
 func _build_description(crop: CropData) -> String:

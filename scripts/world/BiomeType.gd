@@ -9,6 +9,8 @@ enum Type {
 	FOREST,
 	SWAMP,
 	MOUNTAIN,
+	BEACH,
+	MEADOW,
 }
 
 static func to_display_name(type: Type) -> String:
@@ -21,5 +23,9 @@ static func to_display_name(type: Type) -> String:
 			return "Swamp"
 		Type.MOUNTAIN:
 			return "Mountain"
+		Type.BEACH:
+			return "Beach"
+		Type.MEADOW:
+			return "Meadow"
 		_:
 			return "Unknown"

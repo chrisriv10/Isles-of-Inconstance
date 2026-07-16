@@ -21,6 +21,7 @@ signal exit_to_menu_requested()
 @onready var tutorial_hint: Label = %TutorialHint/Label
 @onready var tutorial_hint_panel: PanelContainer = %TutorialHint
 @onready var tutorial_hint_timer: Timer = %TutorialHintTimer
+@onready var daynight_overlay: ColorRect = %DayNightOverlay
 
 var _fade_tween: Tween
 var _menu_confirm_dialog: ConfirmationDialog
@@ -94,6 +95,7 @@ func _on_day_changed(day: int) -> void:
 
 func _on_time_changed(hour: int, minute: int) -> void:
 	time_label.text = "%02d:%02d" % [hour, minute]
+	_update_daynight_overlay(hour)
 
 func _on_money_changed(amount: int) -> void:
 	money_label.text = "$%d" % amount
@@ -118,6 +120,42 @@ func _on_crop_mutated(old_name: String, new_name: String, mutation_name: String)
 
 func _on_mutation_toast_timeout() -> void:
 	mutation_label_panel.visible = false
+
+## Updates the day/night color overlay to reflect the current hour.
+## Produces a dark blue tint at night and a warm orange glow at dawn/dusk.
+func _update_daynight_overlay(hour: int) -> void:
+	if not daynight_overlay:
+		return
+
+	# Compute darkness alpha: 0.0 during day, ramping up at night
+	var darkness: float
+	if hour >= 6 and hour < 18:
+		# Daytime — no overlay
+		darkness = 0.0
+	elif hour >= 18 and hour < 20:
+		# Sunset: ramp up from 0 to 0.35
+		darkness = lerpf(0.0, 0.35, (hour - 18) / 2.0)
+	elif hour >= 20 or hour < 5:
+		# Night: full darkness
+		darkness = 0.35
+	elif hour >= 5 and hour < 6:
+		# Sunrise: ramp down from 0.35 to 0
+		darkness = lerpf(0.35, 0.0, (hour - 5) / 1.0)
+
+	# Warm tint at dawn/dusk, cool blue at night
+	var tint_color: Color
+	if hour >= 5 and hour < 7:
+		# Dawn orange
+		tint_color = Color(0.8, 0.5, 0.2, darkness)
+	elif hour >= 17 and hour < 20:
+		# Dusk orange
+		tint_color = Color(0.7, 0.4, 0.15, darkness)
+	else:
+		# Night blue
+		tint_color = Color(0.05, 0.05, 0.15, darkness)
+
+	daynight_overlay.color = tint_color
+
 
 ## Fade screen to black, call callback, then fade back in
 func fade_to_black(duration: float = 0.5, callback: Callable = Callable()) -> void:
