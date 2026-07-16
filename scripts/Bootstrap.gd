@@ -10,7 +10,7 @@ func _ready() -> void:
 	call_deferred("_connect_signals")
 
 func _connect_signals() -> void:
-	main_menu = get_node("MainMenu")
+	main_menu = get_node("CanvasLayer/MainMenu") as Control
 	game = get_node("Game")
 	
 	if main_menu:
@@ -46,9 +46,9 @@ func _start_new_game() -> void:
 		game.visible = true
 
 	# Show HUD now that game is starting
-	var hud: Control = null
+	var hud: CanvasLayer = null
 	if game and game.has_node("HUD"):
-		hud = game.get_node("HUD")
+		hud = game.get_node("HUD") as CanvasLayer
 		hud.visible = true
 	
 	# Reset game state
@@ -99,9 +99,9 @@ func _load_game() -> void:
 		game.visible = true
 
 	# Show HUD now that game is starting
-	var hud: Control = null
+	var hud: CanvasLayer = null
 	if game and game.has_node("HUD"):
-		hud = game.get_node("HUD")
+		hud = game.get_node("HUD") as CanvasLayer
 		hud.visible = true
 	
 	# Load the save file
