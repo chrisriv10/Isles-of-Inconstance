@@ -116,4 +116,4 @@ func _too_close(tile: Vector2i, resource_id: String, min_spacing: int,
 ## origin, so re-visiting the same chunk always regenerates identical
 ## resource placement without needing to persist it.
 func _chunk_seed(origin_x: int, origin_y: int) -> int:
-	return int(hash(str(world_seed) + ":resources:" + str(origin_x) + "," + str(origin_y)))
+	return hash(str(world_seed) + ":resources:" + str(origin_x) + "," + str(origin_y))

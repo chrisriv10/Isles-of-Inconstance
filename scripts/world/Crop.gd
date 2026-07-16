@@ -24,7 +24,6 @@ static var _mutation_system: MutationSystem = null
 
 var _growth_tween: Tween
 var _sway_tween: Tween
-var _sway_offset: float = 0.0
 
 func setup(p_crop_id: String, p_days_grown: int = 0, p_genetics: CropGenetics = null) -> void:
 	crop_id = p_crop_id
@@ -102,7 +101,6 @@ func _play_growth_pop() -> void:
 	if _growth_tween and _growth_tween.is_valid():
 		_growth_tween.kill()
 	
-	var crop_data := DataManager.get_crop(crop_id)
 	var base_scale := 1.0
 	if genetics:
 		base_scale = clampf(genetics.size_factor, 0.5, 2.0)
@@ -114,7 +112,6 @@ func _play_growth_pop() -> void:
 	_growth_tween.tween_property(sprite, "scale", Vector2.ONE * base_scale, 0.3)
 
 func _play_mutation_effect() -> void:
-	var crop_data := DataManager.get_crop(crop_id)
 	var effect_color := Color.GOLD
 	if genetics:
 		effect_color = genetics.to_color()

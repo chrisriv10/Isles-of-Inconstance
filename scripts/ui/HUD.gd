@@ -23,7 +23,7 @@ signal exit_to_menu_requested()
 @onready var tutorial_hint_timer: Timer = %TutorialHintTimer
 
 var _fade_tween: Tween
-var _shown_hints: Array[String] = []
+var _menu_confirm_dialog: ConfirmationDialog
 
 func _ready() -> void:
 	GameManager.day_changed.connect(_on_day_changed)
@@ -55,6 +55,16 @@ func _ready() -> void:
 	# Show first tutorial hint after a delay
 	get_tree().create_timer(2.0).timeout.connect(_show_first_hint)
 
+	# Build confirmation dialog for returning to menu
+	_menu_confirm_dialog = ConfirmationDialog.new()
+	_menu_confirm_dialog.title = "Return to Menu"
+	_menu_confirm_dialog.dialog_text = "Return to the main menu?\nYour game will be saved first."
+	_menu_confirm_dialog.ok_button_text = "Yes, Return"
+	_menu_confirm_dialog.cancel_button_text = "Cancel"
+	_menu_confirm_dialog.exclusive = true
+	_menu_confirm_dialog.confirmed.connect(_on_menu_confirmed)
+	add_child(_menu_confirm_dialog)
+
 	menu_button.pressed.connect(_on_menu_pressed)
 
 	var player := get_tree().get_first_node_in_group("player")
@@ -74,6 +84,9 @@ func set_seed_display(seed_value: int) -> void:
 	seed_display_label.text = "Seed: %d" % seed_value
 
 func _on_menu_pressed() -> void:
+	_menu_confirm_dialog.popup_centered()
+
+func _on_menu_confirmed() -> void:
 	exit_to_menu_requested.emit()
 
 func _on_day_changed(day: int) -> void:

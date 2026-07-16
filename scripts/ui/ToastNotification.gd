@@ -71,7 +71,7 @@ func _ready() -> void:
 
 ## Static helper: Show a toast from anywhere
 static func show_toast(message: String, type: ToastType = ToastType.INFO, duration: float = 2.5) -> void:
-	var toast = get_first_node_in_group("toasts")
+	var toast: Node = Engine.get_main_loop().root.get_tree().get_first_node_in_group("toasts")
 	if not is_instance_valid(toast):
 		# Create a temporary toast if none exists
 		toast = ToastNotification.new()
@@ -120,7 +120,7 @@ func _show_next_toast() -> void:
 		return
 	
 	_is_showing = true
-	var data := _toast_queue.pop_front()
+	var data: Dictionary = _toast_queue.pop_front()
 	
 	var label = get_node_or_null("ToastLabel")
 	if not label:

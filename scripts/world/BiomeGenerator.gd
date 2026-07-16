@@ -42,7 +42,7 @@ func _init(seed_value: int) -> void:
 ## Deterministically derives a sub-seed from the world seed + a string tag,
 ## so elevation and moisture noise never accidentally share a seed.
 func _derive_seed(tag: String) -> int:
-	return int(hash(str(world_seed) + ":" + tag))
+	return hash(str(world_seed) + ":" + tag)
 
 
 ## Returns normalized [0,1] elevation at a tile coordinate.

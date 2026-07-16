@@ -1,4 +1,5 @@
 extends CharacterBody2D
+class_name Player
 
 ## Handles player input and movement only. Interaction detection lives in
 ## PlayerInteractor.gd, and world manipulation (tilling, etc.) lives in
@@ -66,6 +67,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_4: _set_tool(Tool.SEED_SLOT_2)
 			KEY_5: _set_tool(Tool.SEED_SLOT_3)
 			KEY_6: _set_tool(Tool.SEED_SLOT_SELECTED)
+
+## Public setter so external UI (hotbar, etc.) can switch the active tool.
+func set_tool(tool: Tool) -> void:
+	_set_tool(tool)
 
 ## Called by the Shop/Inventory UI when the player picks a seed to plant -
 ## covers any seed they own, not just the 3 starter crops. Immediately

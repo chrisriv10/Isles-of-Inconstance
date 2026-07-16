@@ -147,7 +147,7 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	var days_final  := clampi(base_days, 1, 14)
 	var yield_final := clampi(1 + root.yield_amount_mod + prefix.yield_amount_mod, 1, 5)
 	var value_mult  := root.value_multiplier * prefix.value_multiplier
-	var base_price  := int(10.0 * value_mult)
+	var base_price  := floori(10.0 * value_mult)
 	var requires_water := true
 	if prefix.requires_water_override != -1:
 		requires_water = prefix.requires_water_override == 1
@@ -220,8 +220,8 @@ func _generate_one(rng: RandomNumberGenerator) -> CropData:
 	seed_item.display_name = crop_name + " Seed"
 	seed_item.category = "seed"
 	seed_item.stack_size = 99
-	seed_item.sell_price = maxi(1, base_price / 6)
-	seed_item.buy_price = maxi(2, int(round(base_price * 0.6)))
+	seed_item.sell_price = maxi(1, floori(base_price / 6.0))
+	seed_item.buy_price = maxi(2, roundi(base_price * 0.6))
 	seed_item.description = "Plant on tilled soil."
 
 	DataManager.register_crop(crop)

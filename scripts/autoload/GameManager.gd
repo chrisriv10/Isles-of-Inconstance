@@ -8,6 +8,7 @@ signal day_changed(day: int)
 signal time_changed(hour: int, minute: int)
 signal money_changed(amount: int)
 signal game_paused(is_paused: bool)
+@warning_ignore("unused_signal")
 signal crop_mutated(old_name: String, new_name: String, mutation_name: String)
 
 @export var minutes_per_day: int = 24 * 60
@@ -39,7 +40,7 @@ func _advance_minute() -> void:
 	time_changed.emit(get_hour(), get_minute())
 
 func get_hour() -> int:
-	return current_minute_of_day / 60
+	return floori(current_minute_of_day / 60.0)
 
 func get_minute() -> int:
 	return current_minute_of_day % 60

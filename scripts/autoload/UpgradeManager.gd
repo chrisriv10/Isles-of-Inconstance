@@ -47,7 +47,7 @@ func is_maxed(upgrade: Upgrade) -> bool:
 
 func get_cost(upgrade: Upgrade) -> int:
 	var level := get_level(upgrade)
-	return int(round(BASE_COSTS[upgrade] * pow(1.6, level)))
+	return roundi(BASE_COSTS[upgrade] * pow(1.6, level))
 
 func get_upgrade_name(upgrade: Upgrade) -> String:
 	return NAMES[upgrade]

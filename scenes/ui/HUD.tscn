@@ -1,18 +1,21 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://cj5m1428bklbj"]
 
-[ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="1"]
+[ext_resource type="Script" uid="uid://0h54vtwosq0f" path="res://scripts/ui/HUD.gd" id="1"]
+[ext_resource type="Script" uid="uid://cl4ysjalxgnn0" path="res://scripts/ui/Hotbar.gd" id="2"]
 
-[node name="HUD" type="CanvasLayer"]
+[node name="HUD" type="CanvasLayer" unique_id=823216769]
 script = ExtResource("1")
 
-[node name="Root" type="Control" parent="."]
+[node name="Root" type="Control" parent="." unique_id=42781613]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
-[node name="TopBar" type="PanelContainer" parent="Root"]
+[node name="TopBar" type="PanelContainer" parent="Root" unique_id=2122551345]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -20,46 +23,47 @@ offset_left = 12.0
 offset_top = 12.0
 offset_right = -12.0
 offset_bottom = 48.0
+grow_horizontal = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="Root/TopBar"]
+[node name="HBoxContainer" type="HBoxContainer" parent="Root/TopBar" unique_id=193603416]
 layout_mode = 2
 theme_override_constants/separation = 24
 
-[node name="DayLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
+[node name="DayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=1079792791]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Day 1"
 
-[node name="TimeLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
+[node name="TimeLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=987869379]
 unique_name_in_owner = true
 layout_mode = 2
 text = "06:00"
 
-[node name="MoneyLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
+[node name="MoneyLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=839684048]
 unique_name_in_owner = true
 layout_mode = 2
 text = "$500"
 
-[node name="ToolLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
+[node name="ToolLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=1375047212]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Tool: Hoe"
 
-[node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer"]
+[node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=901312833]
 layout_mode = 2
 text = "[B] Shop   [I] Inventory"
 
-[node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer"]
+[node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=2035179578]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Seed: 0"
 
-[node name="MenuButton" type="Button" parent="Root/TopBar/HBoxContainer"]
+[node name="MenuButton" type="Button" parent="Root/TopBar/HBoxContainer" unique_id=1042358607]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Menu"
 
-[node name="InteractionPrompt" type="PanelContainer" parent="Root"]
+[node name="InteractionPrompt" type="PanelContainer" parent="Root" unique_id=2065995361]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -75,12 +79,12 @@ offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="Label" type="Label" parent="Root/InteractionPrompt"]
+[node name="Label" type="Label" parent="Root/InteractionPrompt" unique_id=518288779]
 layout_mode = 2
-horizontal_alignment = 1
 text = "[E] Interact"
+horizontal_alignment = 1
 
-[node name="MutationLabel" type="PanelContainer" parent="Root"]
+[node name="MutationLabel" type="PanelContainer" parent="Root" unique_id=782277737]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -93,26 +97,27 @@ offset_right = 160.0
 offset_bottom = 72.0
 grow_horizontal = 2
 
-[node name="Label" type="Label" parent="Root/MutationLabel"]
+[node name="Label" type="Label" parent="Root/MutationLabel" unique_id=1575031636]
 layout_mode = 2
 horizontal_alignment = 1
-text = ""
 
-[node name="MutationToastTimer" type="Timer" parent="Root"]
+[node name="MutationToastTimer" type="Timer" parent="Root" unique_id=184229845]
 unique_name_in_owner = true
 wait_time = 3.5
 one_shot = true
 
-[node name="FadeOverlay" type="ColorRect" parent="Root"]
+[node name="FadeOverlay" type="ColorRect" parent="Root" unique_id=46963938]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0, 0, 0, 1)
 
-[node name="TutorialHint" type="PanelContainer" parent="Root"]
+[node name="TutorialHint" type="PanelContainer" parent="Root" unique_id=1375349099]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -128,12 +133,17 @@ offset_bottom = 124.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="Label" type="Label" parent="Root/TutorialHint"]
+[node name="Label" type="Label" parent="Root/TutorialHint" unique_id=1527595559]
 layout_mode = 2
 horizontal_alignment = 1
-text = ""
 
-[node name="TutorialHintTimer" type="Timer" parent="Root"]
+[node name="TutorialHintTimer" type="Timer" parent="Root" unique_id=1174864915]
 unique_name_in_owner = true
 wait_time = 5.0
 one_shot = true
+
+[node name="Hotbar" type="Control" parent="Root" unique_id=1583035416]
+layout_mode = 1
+anchors_preset = 0
+mouse_filter = 2
+script = ExtResource("2")

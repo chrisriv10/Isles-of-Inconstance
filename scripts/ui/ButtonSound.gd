@@ -61,7 +61,7 @@ func _create_procedural_click() -> AudioStream:
 	generator.buffer_length = 0.05
 	generator.mix_rate = 44100.0
 	
-	var frames := int(0.05 * generator.mix_rate)
+	var frames := floori(0.05 * generator.mix_rate)
 	var data := PackedFloat32Array()
 	data.resize(frames)
 	
@@ -90,7 +90,7 @@ func _create_procedural_click() -> AudioStream:
 func _float_array_to_bytes(data: PackedFloat32Array) -> PackedByteArray:
 	var bytes := PackedByteArray()
 	for sample in data:
-		var int_sample := int(sample * 32767.0)
+		var int_sample := floori(sample * 32767.0)
 		bytes.append(int_sample & 0xFF)
 		bytes.append((int_sample >> 8) & 0xFF)
 	return bytes

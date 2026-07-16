@@ -26,16 +26,15 @@ func shake(strength: float = 4.0, duration: float = 0.2) -> void:
 	_shake_tween = create_tween()
 	_shake_tween.set_parallel(true)
 	
-	var shake_offset := Vector2.ZERO
-	var shake_count := int(duration * 60.0)  # 60 shakes per second
+	var shake_count := floori(duration * 60.0)  # 60 shakes per second
 	
 	for i in range(shake_count):
 		var delay := float(i) / float(shake_count) * duration
-		var offset := Vector2(
+		var shake_vector := Vector2(
 			randf_range(-strength, strength),
 			randf_range(-strength, strength)
 		)
-		_shake_tween.tween_property(self, "offset", offset, 0.016).set_delay(delay)
+		_shake_tween.tween_property(self, "offset", shake_vector, 0.016).set_delay(delay)
 	
 	_shake_tween.tween_property(self, "offset", Vector2.ZERO, 0.05).set_delay(duration)
 

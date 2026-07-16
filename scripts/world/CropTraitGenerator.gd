@@ -38,7 +38,7 @@ func apply_biome_traits(base_crop, biome: BiomeDefinition, tile_x: int, tile_y: 
 	if "growth_time" in crop and crop.growth_time != null:
 		crop.growth_time *= biome.crop_growth_multiplier
 	if "yield_amount" in crop and crop.yield_amount != null:
-		crop.yield_amount = int(round(crop.yield_amount * biome.crop_yield_multiplier))
+		crop.yield_amount = roundi(crop.yield_amount * biome.crop_yield_multiplier)
 
 	if is_unique and "display_name" in crop:
 		crop.display_name = "%s %s" % [_unique_prefix(biome, rng), crop.display_name]
@@ -106,4 +106,4 @@ func _unique_effect_for_biome(biome: BiomeDefinition) -> String:
 ## Deterministic per-plant seed so replanting the same crop id on the same
 ## tile with the same world seed always rolls the same trait outcome.
 func _plant_seed(crop_id: String, tile_x: int, tile_y: int) -> int:
-	return int(hash(str(world_seed) + ":crop:" + crop_id + ":" + str(tile_x) + "," + str(tile_y)))
+	return hash(str(world_seed) + ":crop:" + crop_id + ":" + str(tile_x) + "," + str(tile_y))

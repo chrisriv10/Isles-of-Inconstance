@@ -22,7 +22,6 @@ class_name UITweenHelper
 @export var easing: Tween.EaseType = Tween.EASE_OUT
 @export var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC
 
-var _tween: Tween
 var _original_position: Vector2
 
 func _ready() -> void:
