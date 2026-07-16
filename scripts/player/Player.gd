@@ -31,6 +31,7 @@ var _tool_swing_tween: Tween
 var _bob_phase: float = 0.0
 
 func _ready() -> void:
+	add_to_group("player")
 	call_deferred("_emit_initial_tool")
 
 func _emit_initial_tool() -> void:
@@ -52,6 +53,8 @@ func _physics_process(delta: float) -> void:
 		_walk_bob(delta)
 	else:
 		_reset_walk_bob()
+	
+	_update_tool_preview()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact"):
@@ -82,6 +85,7 @@ func select_seed(crop_id: String) -> void:
 func _set_tool(tool: Tool) -> void:
 	active_tool = tool
 	_update_tool_ui()
+	_update_tool_preview()
 
 func _update_tool_ui() -> void:
 	var tool_name := "None"
@@ -145,6 +149,32 @@ func _try_interact() -> void:
 			# Otherwise try to harvest
 			if world.has_method("harvest_crop"):
 				world.harvest_crop(target_pos)
+
+## Updates the blue pulsing tile preview based on the player's current tool
+## and facing direction. Shows multi-cell area for hoe/watering can,
+## single cell for seeds (only if seeds are actually available).
+func _update_tool_preview() -> void:
+	var world := get_tree().get_first_node_in_group("world")
+	if not world:
+		return
+	var target_pos: Vector2 = global_position + facing_direction * 16.0
+	
+	match active_tool:
+		Tool.HOE, Tool.WATERING_CAN:
+			if world.has_method("show_tool_preview"):
+				world.show_tool_preview(target_pos)
+		Tool.SEED_SLOT_1, Tool.SEED_SLOT_2, Tool.SEED_SLOT_3, Tool.SEED_SLOT_SELECTED:
+			# Only show the preview if this slot actually has seeds to plant
+			var crop := _get_crop_for_active_slot()
+			if crop != null and InventoryManager.get_count(crop.seed_item_id) > 0:
+				if world.has_method("show_single_cell_preview"):
+					world.show_single_cell_preview(target_pos)
+			else:
+				if world.has_method("clear_tool_preview"):
+					world.clear_tool_preview()
+		_:
+			if world.has_method("clear_tool_preview"):
+				world.clear_tool_preview()
 
 func _try_use_tool() -> void:
 	if _tool_cooldown_remaining > 0.0:

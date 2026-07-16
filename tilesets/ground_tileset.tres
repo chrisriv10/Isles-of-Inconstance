@@ -1,6 +1,6 @@
 [gd_resource type="TileSet" format=3 uid="uid://bp2m4vrwbo6ki"]
 
-[ext_resource type="Texture2D" uid="uid://5h2x6i0lhat1" path="res://assets/sprites/tileset.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tileset.png" id="1"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_1"]
 texture = ExtResource("1")
@@ -14,4 +14,5 @@ texture = ExtResource("1")
 7:0/0 = 0
 
 [resource]
+physics_layer_0/collision_layer = 1
 sources/0 = SubResource("TileSetAtlasSource_1")

@@ -9,6 +9,7 @@ const RESOURCE_NODE_SCENE: PackedScene = preload("res://scenes/objects/ResourceN
 const CROP_SCENE: PackedScene = preload("res://scenes/world/Crop.tscn")
 const SHOP_STAND_SCENE: PackedScene = preload("res://scenes/objects/ShopStand.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/objects/Tree.tscn")
+const ANIMAL_SCENE: PackedScene = preload("res://scenes/world/Animal.tscn")
 
 @export var world_width: int = 60
 @export var world_height: int = 60
@@ -17,6 +18,7 @@ const TREE_SCENE: PackedScene = preload("res://scenes/objects/Tree.tscn")
 
 @onready var ground_layer: TileMapLayer = $GroundLayer
 @onready var objects_root: Node2D = $Objects
+@onready var tool_preview: ToolPreview = $ToolPreview
 
 var _tile_grid: Array = []
 var _generator: WorldGenerator
@@ -36,6 +38,7 @@ func generate_world() -> void:
 	_scatter_objects()
 	_scatter_trees()
 	_spawn_shop_stand()
+	_scatter_animals()
 
 func generate_world_with_seed(new_seed: int) -> void:
 	world_seed = new_seed
@@ -74,6 +77,43 @@ func cell_to_world(cell: Vector2i) -> Vector2:
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return Vector2i(floori(world_pos.x / TILE_SIZE), floori(world_pos.y / TILE_SIZE))
+
+# ---------------------------------------------------------------------------
+# Tool targeting preview (pulsing blue outline)
+# ---------------------------------------------------------------------------
+
+## Show a preview of which tiles the player's current tool would affect.
+## Calls through so the Player can request a preview for hoe (multi-cell)
+## or seeds (single cell). Pass null/empty world_pos to clear.
+func show_tool_preview(target_world_pos: Vector2) -> void:
+	var cell := world_to_cell(target_world_pos)
+	if not _is_in_bounds(cell):
+		_clear_tool_preview()
+		return
+	var cells: Array[Vector2i] = UpgradeManager.get_tool_area_cells(cell)
+	# Filter to only show cells that are valid for the action
+	var valid: Array[Vector2i] = []
+	for c in cells:
+		if _is_in_bounds(c):
+			valid.append(c)
+	if valid.is_empty():
+		_clear_tool_preview()
+	else:
+		tool_preview.show_cells(valid)
+
+## Show preview for a single-cell action (planting seeds).
+func show_single_cell_preview(target_world_pos: Vector2) -> void:
+	var cell := world_to_cell(target_world_pos)
+	if not _is_in_bounds(cell):
+		_clear_tool_preview()
+		return
+	tool_preview.show_cells([cell])
+
+func clear_tool_preview() -> void:
+	tool_preview.hide_preview()
+
+func _clear_tool_preview() -> void:
+	clear_tool_preview()
 
 # ---------------------------------------------------------------------------
 # Farming actions
@@ -299,20 +339,20 @@ func _setup_water_collision() -> void:
 	if not source:
 		return
 
-	# Apply full-tile collision to all non-walkable tile types.
+	# Apply full-tile collision to all non-walkable tile types only
+	# (water=3, trees=4, rocks=5). Walkable tiles keep no collision.
 	var non_walkable_coords := [Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0)]
 	for coords in non_walkable_coords:
 		var tile_data: TileData = source.get_tile_data(coords, 0)
-		if tile_data:
-			if tile_data.get_collision_polygons_count(0) == 0:
-				var polygon := PackedVector2Array([
-					Vector2(0, 0),
-					Vector2(16, 0),
-					Vector2(16, 16),
-					Vector2(0, 16),
-				])
-				tile_data.add_collision_polygon(0)
-				tile_data.set_collision_polygon_points(0, 0, polygon)
+		if tile_data and tile_data.get_collision_polygons_count(0) == 0:
+			var polygon := PackedVector2Array([
+				Vector2(0, 0),
+				Vector2(16, 0),
+				Vector2(16, 16),
+				Vector2(0, 16),
+			])
+			tile_data.add_collision_polygon(0)
+			tile_data.set_collision_polygon_points(0, 0, polygon)
 
 	# Enable collision on the TileMapLayer.
 	ground_layer.collision_enabled = true
@@ -399,3 +439,17 @@ func _spawn_shop_stand() -> void:
 	var fallback := SHOP_STAND_SCENE.instantiate()
 	objects_root.add_child(fallback)
 	fallback.global_position = cell_to_world(Vector2i(centre_x, centre_y))
+
+## Spawns procedurally named animals with varied behaviours across
+## walkable tiles of the island.
+func _scatter_animals() -> void:
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = world_seed + 10000
+	var animal_count: int = rng.randi_range(3, 6)
+	var animal_types: Array[String] = ["chicken", "cow", "rabbit", "deer"]
+	var positions: Array = _generator.pick_object_positions(_tile_grid, animal_count, rng)
+	for i in range(positions.size()):
+		var p_type: String = animal_types[rng.randi() % animal_types.size()]
+		var animal: Animal = ANIMAL_SCENE.instantiate()
+		objects_root.add_child(animal)
+		animal.setup(p_type, cell_to_world(positions[i]))
