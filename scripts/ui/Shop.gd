@@ -6,17 +6,16 @@ extends CanvasLayer
 ## Three sections:
 ##   Seeds     - buy seed_item(s) for any discovered crop within the
 ##               player's current "Seed Vault Access" rarity tier.
-##   Sell      - sell any harvested crop or gathered resource for coins.
 ##   Upgrades  - buy the next level of Storage Satchel / Tool Forge /
 ##               Green Thumb / Seed Vault Access (this doubles as "buy
 ##               tools", since this project only has the hoe & watering can
 ##               and upgrading their tier *is* buying a better tool).
+## NOTE: Selling is done at the Boat, not here.
 
 @onready var dim: ColorRect = $Dim
 @onready var panel: PanelContainer = $Panel
 @onready var coins_label: Label = %CoinsLabel
 @onready var seeds_list: VBoxContainer = %SeedsList
-@onready var sell_list: VBoxContainer = %SellList
 @onready var upgrades_list: VBoxContainer = %UpgradesList
 
 var is_open: bool = false
@@ -79,7 +78,6 @@ func _on_upgrade_purchased(_upgrade: int, _level: int) -> void:
 func refresh() -> void:
 	coins_label.text = "$%d" % GameManager.money
 	_refresh_seeds()
-	_refresh_sell()
 	_refresh_upgrades()
 
 func _clear(container: Node) -> void:
@@ -127,42 +125,6 @@ func _buy_seed(seed_item: ItemData) -> void:
 		refresh()
 	else:
 		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
-
-# ---------------------------------------------------------------------------
-# Sell
-# ---------------------------------------------------------------------------
-
-func _refresh_sell() -> void:
-	_clear(sell_list)
-	var counts := InventoryManager.get_all_counts()
-	var ids := counts.keys()
-	ids.sort()
-
-	var shown := false
-	for item_id in ids:
-		var item := DataManager.get_item(item_id)
-		if not item or item.category == "seed" or item.sell_price <= 0:
-			continue
-		var count: int = counts[item_id]
-		shown = true
-		sell_list.add_child(_build_row(
-			"%s x%d" % [item.display_name, count],
-			"$%d each" % item.sell_price,
-			"Sell All",
-			func(): _sell_item(item_id, count)
-		))
-
-	if not shown:
-		sell_list.add_child(_hint_label("Nothing to sell yet - go harvest or gather something!"))
-
-func _sell_item(item_id: String, count: int) -> void:
-	var item := DataManager.get_item(item_id)
-	if not item:
-		return
-	if InventoryManager.remove_item(item_id, count):
-		GameManager.add_money(item.sell_price * count)
-		ToastNotification.show_toast("Sold %d %s for $%d!" % [count, item.display_name, item.sell_price * count], ToastNotification.ToastType.SUCCESS)
-		refresh()
 
 # ---------------------------------------------------------------------------
 # Upgrades (also where tool purchases live - see class doc comment above)

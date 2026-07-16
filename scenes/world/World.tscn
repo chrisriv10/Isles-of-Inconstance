@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://d080y62vvemcg"]
 
 [ext_resource type="Script" uid="uid://ck4ewr724b426" path="res://scripts/world/World.gd" id="1"]
-[ext_resource type="TileSet" uid="uid://bp2m4vrwbo6ki" path="res://tilesets/ground_tileset.tres" id="2"]
+[ext_resource type="TileSet" path="res://tilesets/ground_tileset.tres" id="2"]
 [ext_resource type="Script" uid="uid://bvw8mhbcsnefr" path="res://scripts/world/ToolPreview.gd" id="3"]
 
 [node name="World" type="Node2D" unique_id=1402690477 groups=["world"]]

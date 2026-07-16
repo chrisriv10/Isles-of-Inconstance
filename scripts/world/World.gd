@@ -7,7 +7,8 @@ extends Node2D
 const TILE_SIZE: int = 16
 const RESOURCE_NODE_SCENE: PackedScene = preload("res://scenes/objects/ResourceNode.tscn")
 const CROP_SCENE: PackedScene = preload("res://scenes/world/Crop.tscn")
-const SHOP_STAND_SCENE: PackedScene = preload("res://scenes/objects/ShopStand.tscn")
+const SHOP_BUILDING_SCENE: PackedScene = preload("res://scenes/objects/ShopBuilding.tscn")
+const BOAT_SCENE: PackedScene = preload("res://scenes/objects/Boat.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/objects/Tree.tscn")
 const ANIMAL_SCENE: PackedScene = preload("res://scenes/world/Animal.tscn")
 
@@ -38,6 +39,7 @@ func generate_world() -> void:
 	_scatter_objects()
 	_scatter_trees()
 	_spawn_shop_stand()
+	_spawn_boat()
 	_scatter_animals()
 
 func generate_world_with_seed(new_seed: int) -> void:
@@ -58,6 +60,116 @@ func _paint_ground() -> void:
 			var tile_type: TileTypeData = DataManager.get_tile_type(tile_id)
 			if tile_type:
 				ground_layer.set_cell(Vector2i(x, y), 0, tile_type.atlas_coords)
+	
+	# Post-process: add beach sand and coastline edge tiles around the island
+	_add_beach_and_edge_tiles()
+
+## Post-processes the tile grid to add beach sand and coastline edge tiles.
+## Beach: walkable tiles adjacent to water get replaced with sand.
+## Edge: water tiles adjacent to land get replaced with direction-specific
+## cliff-edge tiles (N/S/W/E + corners) so the coastline looks varied.
+func _add_beach_and_edge_tiles() -> void:
+	for y in range(world_height):
+		for x in range(world_width):
+			var cell := Vector2i(x, y)
+			var tile_id: String = _tile_grid[y][x]
+			
+			# Water cell with land neighbours → directional edge tile
+			if tile_id == "water" and _has_land_neighbor(cell):
+				var edge_id: String = _get_edge_direction(cell)
+				if edge_id != "":
+					_tile_grid[y][x] = edge_id
+					var edge_type: TileTypeData = DataManager.get_tile_type(edge_id)
+					if edge_type:
+						ground_layer.set_cell(cell, 0, edge_type.atlas_coords)
+			
+			# Land cell with a water neighbour → beach sand
+			elif tile_id != "water" and not tile_id.begins_with("edge") and tile_id != "tilled" \
+				and tile_id != "watered_tilled" and _has_water_neighbor(cell):
+				_tile_grid[y][x] = "sand"
+				var sand_type: TileTypeData = DataManager.get_tile_type("sand")
+				if sand_type:
+					ground_layer.set_cell(cell, 0, sand_type.atlas_coords)
+
+## Determines which directional edge tile to use for a water cell that
+## has land neighbours. Checks cardinal directions first, then corners.
+## Returns an edge tile id like "edge_n", "edge_ne", etc., or "" if none.
+func _get_edge_direction(cell: Vector2i) -> String:
+	var north: bool = _is_neighbor_land(cell, 0, -1)  # land above
+	var south: bool = _is_neighbor_land(cell, 0, 1)   # land below
+	var west: bool = _is_neighbor_land(cell, -1, 0)    # land left
+	var east: bool = _is_neighbor_land(cell, 1, 0)     # land right
+	
+	# Cardinal directions
+	if south and not west and not east and not north:
+		return "edge_n"   # land is south → north-facing cliff
+	if north and not west and not east and not south:
+		return "edge_s"   # land is north → south-facing cliff
+	if east and not north and not south and not west:
+		return "edge_w"   # land is east → west-facing cliff
+	if west and not north and not south and not east:
+		return "edge_e"   # land is west → east-facing cliff
+	
+	# Corners (two adjacent directions)
+	if south and east and not west and not north:
+		return "edge_nw"  # land is SE → NW corner
+	if south and west and not east and not north:
+		return "edge_ne"  # land is SW → NE corner
+	if north and east and not west and not south:
+		return "edge_sw"  # land is NE → SW corner
+	if north and west and not east and not south:
+		return "edge_se"  # land is NW → SE corner
+	
+	# Fallback for complex cases (3+ land neighbours): pick first cardinal
+	if north: return "edge_s"
+	if south: return "edge_n"
+	if west: return "edge_e"
+	if east: return "edge_w"
+	
+	return ""
+
+## Returns true if the neighbour at offset (dx, dy) from cell is land.
+func _is_neighbor_land(cell: Vector2i, dx: int, dy: int) -> bool:
+	var nc := Vector2i(cell.x + dx, cell.y + dy)
+	if not _is_in_bounds(nc):
+		return false
+	var nid: String = _tile_grid[nc.y][nc.x]
+	return nid in ["grass", "dirt", "fertile_soil", "sand", "trees", "rocks", "tilled", "watered_tilled"]
+
+## Returns true if any neighbour of the given cell is land.
+func _has_land_neighbor(cell: Vector2i) -> bool:
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if dx == 0 and dy == 0:
+				continue
+			if _is_neighbor_land(cell, dx, dy):
+				return true
+	return false
+
+## Returns true if any neighbour of the given cell is water.
+func _has_water_neighbor(cell: Vector2i) -> bool:
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if dx == 0 and dy == 0:
+				continue
+			var nc := Vector2i(cell.x + dx, cell.y + dy)
+			if not _is_in_bounds(nc):
+				return true  # out of bounds acts like water
+			var nid: String = _tile_grid[nc.y][nc.x]
+			if nid == "water" or nid.begins_with("edge"):
+				return true
+	return false
+
+## Public helper so Animal.gd can check if a world position is walkable
+## (not water or edge). Returns true if the cell at the given position is
+## safe for an animal to walk on.
+func is_cell_walkable(world_pos: Vector2) -> bool:
+	var cell := world_to_cell(world_pos)
+	if not _is_in_bounds(cell):
+		return false
+	var tile_id: String = _tile_grid[cell.y][cell.x]
+	var tile_type: TileTypeData = DataManager.get_tile_type(tile_id)
+	return tile_type != null and tile_type.walkable
 
 func _scatter_objects() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -340,8 +452,12 @@ func _setup_water_collision() -> void:
 		return
 
 	# Apply full-tile collision to all non-walkable tile types only
-	# (water=3, trees=4, rocks=5). Walkable tiles keep no collision.
-	var non_walkable_coords := [Vector2i(3, 0), Vector2i(4, 0), Vector2i(5, 0)]
+	# (water=3, trees=7, rocks=8, edge tiles 13-20). Walkable tiles keep no collision.
+	var non_walkable_coords: Array[Vector2i] = [
+		Vector2i(3, 0), Vector2i(7, 0), Vector2i(8, 0),
+	]
+	for i in range(13, 21):  # edge tiles at positions 13-20
+		non_walkable_coords.append(Vector2i(i, 0))
 	for coords in non_walkable_coords:
 		var tile_data: TileData = source.get_tile_data(coords, 0)
 		if tile_data and tile_data.get_collision_polygons_count(0) == 0:
@@ -430,15 +546,104 @@ func _spawn_shop_stand() -> void:
 			if blocked:
 				continue
 
-			var stand: Area2D = SHOP_STAND_SCENE.instantiate()
+			var stand: Area2D = SHOP_BUILDING_SCENE.instantiate()
 			objects_root.add_child(stand)
 			stand.global_position = cell_to_world(cell)
 			return
 
 	# Fallback: place at centre
-	var fallback := SHOP_STAND_SCENE.instantiate()
+	var fallback := SHOP_BUILDING_SCENE.instantiate()
 	objects_root.add_child(fallback)
 	fallback.global_position = cell_to_world(Vector2i(centre_x, centre_y))
+
+## Places the Boat at the outermost coastline cell so the player can sell
+## items there. Scans from the world edges inward so the boat always sits
+## on the true outer coast of the island (not an interior pond).
+func _spawn_boat() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = world_seed + 8888
+
+	var candidates: Array[Vector2i] = []
+
+	# Scan perimeter bands from the outside in, collecting candidate cells
+	# that are walkable sand tiles adjacent to water or edge tiles.
+	for band in range(0, world_width / 4):
+		var min_x := band
+		var max_x := world_width - 1 - band
+		var min_y := band
+		var max_y := world_height - 1 - band
+
+		# Top edge
+		for x in range(min_x, max_x + 1):
+			_add_boat_candidate(Vector2i(x, min_y), candidates)
+		# Bottom edge
+		for x in range(min_x, max_x + 1):
+			_add_boat_candidate(Vector2i(x, max_y), candidates)
+		# Left edge (excluding corners already done)
+		for y in range(min_y + 1, max_y):
+			_add_boat_candidate(Vector2i(min_x, y), candidates)
+		# Right edge
+		for y in range(min_y + 1, max_y):
+			_add_boat_candidate(Vector2i(max_x, y), candidates)
+
+		if not candidates.is_empty():
+			break
+
+	# Shuffle candidates and try to place the boat
+	candidates.shuffle()
+	for cell in candidates:
+		# Make sure nothing is already here
+		var blocked := false
+		for child in objects_root.get_children():
+			if child.global_position.distance_squared_to(cell_to_world(cell)) < 64.0:
+				blocked = true
+				break
+		if blocked:
+			continue
+
+		var boat: Area2D = BOAT_SCENE.instantiate()
+		objects_root.add_child(boat)
+		boat.global_position = cell_to_world(cell)
+		return
+
+	# Fallback: scan outward in a square spiral for any walkable tile
+	var centre_x := world_width / 2
+	var centre_y := world_height / 2
+	for r in range(1, world_width / 2):
+		for sx in range(-r, r + 1):
+			for sy in [-r, r]:
+				var cell := Vector2i(centre_x + sx, centre_y + sy)
+				if not _is_in_bounds(cell):
+					continue
+				var tile_id: String = _tile_grid[cell.y][cell.x] if cell.y < _tile_grid.size() and cell.x < _tile_grid[cell.y].size() else ""
+				var tt: TileTypeData = DataManager.get_tile_type(tile_id)
+				if tt and tt.walkable and not tile_id.begins_with("sand"):
+					var boat_inst := BOAT_SCENE.instantiate()
+					objects_root.add_child(boat_inst)
+					boat_inst.global_position = cell_to_world(cell)
+					return
+	# Last resort absolute centre (should never reach here)
+	var boat_last := BOAT_SCENE.instantiate()
+	objects_root.add_child(boat_last)
+	boat_last.global_position = cell_to_world(Vector2i(centre_x, centre_y))
+
+## Helper: if the cell is a walkable sand tile adjacent to water, add it
+## to the candidates list.
+func _add_boat_candidate(cell: Vector2i, candidates: Array[Vector2i]) -> void:
+	if not _is_in_bounds(cell):
+		return
+	var tile_id: String = _tile_grid[cell.y][cell.x] if cell.y < _tile_grid.size() and cell.x < _tile_grid[cell.y].size() else ""
+	if tile_id != "sand":
+		return
+	# Must have a water or edge neighbor
+	for d: Vector2i in [Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 0), Vector2i(-1, 0)]:
+		var nc: Vector2i = cell + d
+		if not _is_in_bounds(nc):
+			continue
+		var nt: String = _tile_grid[nc.y][nc.x] if nc.y < _tile_grid.size() and nc.x < _tile_grid[nc.y].size() else "water"
+		if nt == "water" or nt.begins_with("edge"):
+			candidates.append(cell)
+			return
 
 ## Spawns procedurally named animals with varied behaviours across
 ## walkable tiles of the island.

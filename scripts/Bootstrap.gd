@@ -74,7 +74,7 @@ func _start_new_game(p_seed: int) -> void:
 		if game and game.has_node("Player"):
 			player = game.get_node("Player")
 			if world and player:
-				var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
+				var spawn_cell := Vector2i(world.world_width - 12, world.world_height / 2)
 				player.global_position = world.cell_to_world(spawn_cell)
 	
 	# Reset managers

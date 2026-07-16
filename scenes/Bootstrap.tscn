@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cq31hboi5pon6" path="res://scripts/Bootstrap.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/MainMenu.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://scenes/Main.tscn" id="3"]
+[ext_resource type="PackedScene" uid="uid://c63m6ba7itmcr" path="res://scenes/Main.tscn" id="3"]
 
 [node name="Bootstrap" type="Node" unique_id=596273848]
 script = ExtResource("1")

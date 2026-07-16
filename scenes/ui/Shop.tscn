@@ -87,14 +87,6 @@ text = "— Seeds —"
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="SellHeader" type="Label" parent="Panel/Margin/Layout/Scroll/Sections"]
-layout_mode = 2
-text = "— Sell —"
-
-[node name="SellList" type="VBoxContainer" parent="Panel/Margin/Layout/Scroll/Sections"]
-unique_name_in_owner = true
-layout_mode = 2
-
 [node name="UpgradesHeader" type="Label" parent="Panel/Margin/Layout/Scroll/Sections"]
 layout_mode = 2
 text = "— Upgrades & Tools —"

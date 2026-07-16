@@ -6,7 +6,7 @@ class_name Hotbar
 ## Syncs with Player.active_tool and InventoryManager.
 
 const SLOT_COUNT: int = 6
-const SLOT_SIZE: int = 52
+const SLOT_SIZE: int = 58
 const CELL_PAD: int = 4
 
 var _slots: Array[PanelContainer] = []
@@ -77,10 +77,6 @@ func _build_ui() -> void:
 	hbox.add_theme_constant_override("separation", CELL_PAD / 2)
 	panel.add_child(hbox)
 
-	# Anchor this Control to the bottom of the screen
-	anchors_preset = PRESET_BOTTOM_WIDE
-	offset_top = -68
-	offset_bottom = -12
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 	for i in range(SLOT_COUNT):
@@ -100,7 +96,7 @@ func _build_ui() -> void:
 		icon_rect.mouse_filter = Control.MOUSE_FILTER_STOP
 		icon_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
-		icon_rect.custom_minimum_size = Vector2(40, 40)
+		icon_rect.custom_minimum_size = Vector2(44, 44)
 		icon_rect.gui_input.connect(_on_slot_gui_input.bind(i))
 		slot.add_child(icon_rect)
 		_icon_rects.append(icon_rect)
