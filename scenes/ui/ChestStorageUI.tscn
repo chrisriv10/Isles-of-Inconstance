@@ -1,0 +1,102 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/ChestStorageUI.gd" id="1"]
+
+[node name="ChestStorageUI" type="CanvasLayer" groups=["chest_storage_ui"]]
+layer = 5
+script = ExtResource("1")
+
+[node name="Dim" type="ColorRect" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.55)
+
+[node name="Panel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -175.0
+offset_top = -200.0
+offset_right = 175.0
+offset_bottom = 200.0
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="Layout" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleRow" type="HBoxContainer" parent="Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/Layout/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Storage Chest"
+
+[node name="ChestHeader" type="Label" parent="Panel/Margin/Layout"]
+layout_mode = 2
+text = "— Chest Contents —"
+horizontal_alignment = 1
+
+[node name="ChestScroll" type="ScrollContainer" parent="Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2i(0, 120)
+
+[node name="ChestList" type="VBoxContainer" parent="Panel/Margin/Layout/ChestScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="ChestHint" type="Label" parent="Panel/Margin/Layout/ChestScroll/ChestList"]
+text = "Empty"
+modulate = Color(1, 1, 1, 0.7)
+autowrap_mode = 2
+
+[node name="Separator" type="HSeparator" parent="Panel/Margin/Layout"]
+layout_mode = 2
+
+[node name="PlayerHeader" type="Label" parent="Panel/Margin/Layout"]
+layout_mode = 2
+text = "— Your Inventory —"
+horizontal_alignment = 1
+
+[node name="PlayerScroll" type="ScrollContainer" parent="Panel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2i(0, 120)
+
+[node name="PlayerList" type="VBoxContainer" parent="Panel/Margin/Layout/PlayerScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="PlayerHint" type="Label" parent="Panel/Margin/Layout/PlayerScroll/PlayerList"]
+text = "Empty"
+modulate = Color(1, 1, 1, 0.7)
+autowrap_mode = 2
+
+[node name="CloseButton" type="Button" parent="Panel/Margin/Layout"]
+layout_mode = 2
+text = "Close [Esc]"
+
+[connection signal="pressed" from="Panel/Margin/Layout/CloseButton" to="." method="_on_close_pressed"]

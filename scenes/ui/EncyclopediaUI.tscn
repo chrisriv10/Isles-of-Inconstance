@@ -1,0 +1,60 @@
+[gd_scene load_steps=5 format=3 uid="uid://dvexampleencyclopedia"]
+
+[ext_resource type="Script" path="res://scripts/ui/EncyclopediaUI.gd" id="1_encyclopedia"]
+[ext_resource type="Script" path="res://scripts/ui/ButtonSound.gd" id="2_btn_sound"]
+
+[sub_resource type="StyleBoxFlat" id="sb_bg"]
+bg_color = Color(0.08, 0.08, 0.12, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_dim"]
+bg_color = Color(0.0, 0.0, 0.0, 0.5)
+
+[node name="EncyclopediaUI" type="CanvasLayer"]
+layer = 7
+script = ExtResource("1_encyclopedia")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.5)
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.1
+anchor_top = 0.05
+anchor_right = 0.9
+anchor_bottom = 0.95
+theme_override_styles/panel = SubResource("sb_bg")
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TitleBar" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox/TitleBar"]
+text = "📖 World Guide"
+add_theme_font_size_override("font_size", 18)
+add_theme_color_override("font_color", Color(1, 0.85, 0.3))
+size_flags_horizontal = 3
+
+[node name="CloseButton" type="Button" parent="Panel/VBox/TitleBar"]
+text = "X"
+custom_minimum_size = Vector2(30, 30)
+
+[node name="ButtonSound" type="Node" parent="Panel/VBox/TitleBar/CloseButton"]
+script = ExtResource("2_btn_sound")
+
+[node name="TabContainer" type="TabContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[connection signal="pressed" from="Panel/VBox/TitleBar/CloseButton" to="." method="_on_close_pressed"]

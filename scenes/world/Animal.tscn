@@ -1,0 +1,33 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/Animal.gd" id="1_uakhx"]
+
+[sub_resource type="RectangleShape2D" id="1_3rfok"]
+size = Vector2(14, 14)
+
+[node name="Animal" type="Area2D"]
+script = ExtResource("1_uakhx")
+collision_layer = 4
+collision_mask = 2
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+centered = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1_3rfok")
+position = Vector2(0, 0)
+
+[node name="Label" type="Label" parent="."]
+position = Vector2(0, -14)
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 8
+
+[node name="WanderTimer" type="Timer" parent="."]
+wait_time = 3.0
+autostart = true
+
+[connection signal="timeout" from="WanderTimer" to="." method="_on_wander_timer_timeout"]
