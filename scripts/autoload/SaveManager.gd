@@ -1,0 +1,342 @@
+extends Node
+
+## Manages saving and loading game state using JSON serialization.
+## Saves include: world seed, player position, inventory, crops, genetics, money, upgrades.
+## Handles versioning, missing fields, malformed saves gracefully.
+
+const SAVE_FILE_PATH: String = "user://savegame.json"
+const SAVE_VERSION: int = 3
+
+signal save_completed(success: bool)
+signal load_completed(success: bool)
+
+## Save all game state to file
+func save_game() -> void:
+	# Ensure save directory exists
+	_ensure_save_directory()
+	
+	var save_data := _collect_save_data()
+	save_data["save_version"] = SAVE_VERSION
+	save_data["save_timestamp"] = Time.get_unix_time_from_system()
+	
+	var json_string := JSON.stringify(save_data)
+	
+	var file := FileAccess.open(SAVE_FILE_PATH, FileAccess.WRITE)
+	if not file:
+		printerr("Failed to open save file for writing: ", SAVE_FILE_PATH)
+		save_completed.emit(false)
+		return
+	
+	file.store_string(json_string)
+	file.close()
+	
+	print("Game saved successfully to: ", SAVE_FILE_PATH)
+	save_completed.emit(true)
+
+## Load all game state from file
+func load_game() -> void:
+	# Ensure save directory exists
+	_ensure_save_directory()
+	
+	if not FileAccess.file_exists(SAVE_FILE_PATH):
+		print("No save file found at: ", SAVE_FILE_PATH)
+		load_completed.emit(false)
+		return
+	
+	var file := FileAccess.open(SAVE_FILE_PATH, FileAccess.READ)
+	if not file:
+		printerr("Failed to open save file for reading: ", SAVE_FILE_PATH)
+		load_completed.emit(false)
+		return
+	
+	var json_string := file.get_as_text()
+	file.close()
+	
+	if json_string.is_empty():
+		printerr("Save file is empty")
+		load_completed.emit(false)
+		return
+	
+	var json := JSON.new()
+	var parse_result := json.parse(json_string)
+	if parse_result != OK:
+		printerr("Failed to parse save file JSON: ", json.get_error_message())
+		# Attempt recovery by deleting corrupted save
+		_delete_corrupted_save()
+		load_completed.emit(false)
+		return
+	
+	var save_data: Dictionary = json.data
+	if not save_data:
+		printerr("Save file contains no data")
+		load_completed.emit(false)
+		return
+	
+	# Handle version migration
+	_apply_save_data(save_data)
+	
+	print("Game loaded successfully from: ", SAVE_FILE_PATH)
+	load_completed.emit(true)
+
+## Check if a save file exists
+func has_save_file() -> bool:
+	return FileAccess.file_exists(SAVE_FILE_PATH)
+
+## Delete the save file
+func delete_save() -> void:
+	if FileAccess.file_exists(SAVE_FILE_PATH):
+		DirAccess.remove_absolute(SAVE_FILE_PATH)
+		print("Save file deleted")
+
+## Ensure save directory exists
+func _ensure_save_directory() -> void:
+	var dir := DirAccess.open("user://")
+	if dir:
+		dir.make_dir_recursive(".")
+
+## Delete corrupted save file
+func _delete_corrupted_save() -> void:
+	if FileAccess.file_exists(SAVE_FILE_PATH):
+		DirAccess.remove_absolute(SAVE_FILE_PATH)
+		print("Deleted corrupted save file")
+
+## Collect all game state into a serializable dictionary
+func _collect_save_data() -> Dictionary:
+	var save_data := {}
+	
+	# World data
+	var world := get_tree().get_first_node_in_group("world")
+	if world:
+		save_data["world_seed"] = world.world_seed
+		save_data["soil_data"] = _serialize_soil_data(world._soil_data)
+	
+	# Player data
+	var player := get_tree().get_first_node_in_group("player")
+	if player:
+		save_data["player_position"] = {
+			"x": player.global_position.x,
+			"y": player.global_position.y
+		}
+	
+	# Inventory data
+	save_data["inventory"] = InventoryManager.get_all_items()
+	
+	# Money
+	save_data["money"] = GameManager.money
+	
+	# Day/time
+	save_data["current_day"] = GameManager.current_day
+	save_data["current_hour"] = GameManager.get_hour()
+	save_data["current_minute"] = GameManager.get_minute()
+	
+	# Upgrades
+	save_data["upgrades"] = UpgradeManager.get_upgrade_levels()
+	
+	# Discovered crops
+	save_data["discovered_crops"] = DataManager.get_discovered_crop_ids()
+	
+	# Selected seed
+	if player:
+		save_data["selected_seed_crop_id"] = player.selected_seed_crop_id
+	
+	# Season system
+	if GameManager.season_system:
+		save_data["season_system"] = GameManager.season_system.serialize()
+	
+	# Buildings
+	var building_system := _get_building_system()
+	if building_system:
+		save_data["buildings"] = building_system.serialize()
+	
+	# Cooking
+	var cook_sys = _get_cooking_system_from_world()
+	if cook_sys:
+		save_data["cooking"] = cook_sys.serialize()
+	
+	return save_data
+
+## Apply loaded save data to game state
+func _apply_save_data(save_data: Dictionary) -> void:
+	# Handle version migration
+	var version: int = save_data.get("save_version", 1)
+	if version < SAVE_VERSION:
+		print("Migrating save from version %d to %d" % [version, SAVE_VERSION])
+		save_data = _migrate_save(save_data, version)
+	
+	# World data
+	var world := get_tree().get_first_node_in_group("world")
+	if world and save_data.has("world_seed"):
+		world.world_seed = save_data["world_seed"]
+		world.generate_world()
+		
+		if save_data.has("soil_data"):
+			_deserialize_soil_data(save_data["soil_data"], world)
+	
+	# Player position
+	var player := get_tree().get_first_node_in_group("player")
+	if player and save_data.has("player_position"):
+		var pos_data: Dictionary = save_data["player_position"]
+		player.global_position = Vector2(
+			pos_data.get("x", 0.0),
+			pos_data.get("y", 0.0)
+		)
+	
+	# Inventory
+	if save_data.has("inventory"):
+		InventoryManager.clear()
+		var inventory: Dictionary = save_data["inventory"]
+		for item_id in inventory:
+			var amount: int = inventory[item_id]
+			if amount is int and amount > 0:
+				InventoryManager.add_item(item_id, amount)
+	
+	# Money
+	if save_data.has("money"):
+		var money_val: int = save_data["money"]
+		if money_val is int:
+			GameManager.money = money_val
+	
+	# Day/time
+	if save_data.has("current_day"):
+		var day_val: int = save_data["current_day"]
+		if day_val is int:
+			GameManager.current_day = day_val
+	if save_data.has("current_hour"):
+		var hour_val: int = save_data["current_hour"]
+		var minute_val: int = save_data.get("current_minute", 0)
+		if hour_val is int and minute_val is int:
+			GameManager.set_time(hour_val, minute_val)
+	
+	# Upgrades
+	if save_data.has("upgrades"):
+		var upgrades: Dictionary = save_data["upgrades"]
+		for upgrade_id in upgrades:
+			var level_val: int = upgrades[upgrade_id]
+			if level_val is int:
+				# JSON serializes enum int-keys to strings; convert back
+				var upgrade_enum: int = int(upgrade_id) if upgrade_id is String else upgrade_id
+				UpgradeManager.set_upgrade_level(upgrade_enum, level_val)
+	
+	# Discovered crops
+	if save_data.has("discovered_crops"):
+		var discovered: Array = save_data["discovered_crops"]
+		for crop_id in discovered:
+			if crop_id is String:
+				DataManager.mark_discovered(crop_id)
+	
+	# Selected seed
+	if player and save_data.has("selected_seed_crop_id"):
+		var seed_id: String = save_data["selected_seed_crop_id"]
+		if seed_id is String:
+			player.selected_seed_crop_id = seed_id
+	
+	# Season system
+	if save_data.has("season_system"):
+		GameManager.season_system = SeasonSystem.deserialize(save_data["season_system"])
+	
+	# Buildings
+	if save_data.has("buildings"):
+		var building_system := _get_building_system()
+		if building_system:
+			var world_node: Node2D = get_tree().get_first_node_in_group("world")
+			if world_node:
+				building_system.deserialize(save_data["buildings"], world_node)
+	
+	# Cooking
+	if save_data.has("cooking"):
+		var cook_sys = _get_cooking_system_from_world()
+		if cook_sys:
+			var cs: CookingSystem = CookingSystem.deserialize(save_data["cooking"])
+			var world_node2: Node2D = get_tree().get_first_node_in_group("world")
+			if world_node2:
+				if world_node2.has_method("set_cooking_system"):
+					world_node2.set_cooking_system(cs)
+
+## Migrate save data from older versions
+func _migrate_save(save_data: Dictionary, from_version: int) -> Dictionary:
+	var migrated := save_data.duplicate()
+	
+	if from_version < 2:
+		# Version 2 adds: save_version, save_timestamp
+		# No data transformation needed, just ensure new fields exist
+		pass
+	
+	# Future migrations would go here
+	# if from_version < 3:
+	#     ...
+	
+	return migrated
+
+## Serialize soil data (crops and their genetics)
+func _serialize_soil_data(soil_data: Dictionary) -> Dictionary:
+	var serialized := {}
+	for cell_key in soil_data:
+		var soil: SoilData = soil_data[cell_key]
+		# Use SoilData.serialize() which includes soil_quality, disease, and fertilizer
+		var cell_data := soil.serialize()
+		
+		# Serialize crop genetics if present (extra data beyond SoilData)
+		var world := get_tree().get_first_node_in_group("world")
+		if world and world._crop_nodes.has(cell_key):
+			var crop: Crop = world._crop_nodes[cell_key]
+			if crop.genetics:
+				cell_data["genetics"] = crop.genetics.serialize()
+		
+		serialized[cell_key] = cell_data
+	
+	return serialized
+
+## Deserialize soil data and restore crops with genetics
+func _deserialize_soil_data(serialized: Dictionary, world: Node2D) -> void:
+	for cell_key in serialized:
+		var cell_data: Dictionary = serialized[cell_key]
+		
+		# Parse cell key (Vector2i string format)
+		var parts: PackedStringArray = cell_key.split(",")
+		if parts.size() < 2:
+			continue
+		var cell := Vector2i(
+			int(parts[0].substr(1)),
+			int(parts[1].rstrip(")"))
+		)
+		
+		# Use SoilData.deserialize() which fully restores soil_quality, disease,
+		# fertilizer, and all other state
+		var soil: SoilData = SoilData.deserialize(cell_data)
+		world._soil_data[cell] = soil
+		
+		# Update tile appearance
+		if soil.is_tilled:
+			var tile_type: String = "watered_tilled" if soil.is_watered else "tilled"
+			var tile_data: TileTypeData = DataManager.get_tile_type(tile_type)
+			if tile_data:
+				world.ground_layer.set_cell(cell, 0, tile_data.atlas_coords)
+		
+		# Restore crop if present
+		if soil.crop_id != "":
+			var crop: Crop = world.CROP_SCENE.instantiate()
+			world.objects_root.add_child(crop)
+			crop.global_position = world.cell_to_world(cell)
+			
+			# Restore genetics if saved
+			var genetics: CropGenetics = null
+			if cell_data.has("genetics"):
+				genetics = CropGenetics.deserialize(cell_data["genetics"])
+			
+			crop.setup(soil.crop_id, soil.days_grown, genetics)
+			crop.mutated.connect(world._on_crop_mutated.bind(cell))
+			world._crop_nodes[cell] = crop
+
+## Helper: get BuildingSystem reference from World
+func _get_building_system() -> BuildingSystem:
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("get_building_system"):
+		return world.get_building_system()
+	return null
+
+## Helper: get CookingSystem reference from World
+func _get_cooking_system_from_world():
+	var world_node: Node2D = get_tree().get_first_node_in_group("world")
+	if world_node and world_node.has_method("get_cooking_system"):
+		return world_node.get_cooking_system()
+	return null

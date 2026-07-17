@@ -1,0 +1,51 @@
+# Godot
+.godot/
+*.import
+*.tmp
+*.uid
+
+# Assets - ignore all non-code files
+assets/
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.tscn
+*.tres
+*.wav
+*.ogg
+*.mp3
+*.md
+*.txt
+*.cfg
+*.license
+*.LICENSE
+
+# Scenes and resources
+scenes/
+tilesets/
+
+# Documentation
+*.md
+files/
+
+# Icons
+icon.svg
+
+# Non-game addons (keep ezcha_network as it's the multiplayer framework)
+addons/godot_ai/
+addons/ziva_agent/
+
+# Generated
+assets/generated/
+
+# Archives
+*.zip
+
+# Windows
+nul
+Thumbs.db
+
+# Editor
+.editorconfig
+.gitattributes
