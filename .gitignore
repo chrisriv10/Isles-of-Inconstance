@@ -2,6 +2,7 @@
 .godot/
 *.import
 *.tmp
+*.uid
 
 # Non-game addons
 addons/godot_ai/
@@ -15,3 +16,12 @@ assets/generated/
 
 # Windows reserved
 nul
+Thumbs.db
+
+# Documentation (optional - keep if you want docs in repo)
+# *.md
+# files/
+
+# Editor config (optional)
+# .editorconfig
+# .gitattributes
