@@ -1,0 +1,17 @@
+# Godot
+.godot/
+*.import
+*.tmp
+
+# Non-game addons
+addons/godot_ai/
+addons/ziva_agent/
+
+# Generated files
+assets/generated/
+
+# Archives
+*.zip
+
+# Windows reserved
+nul

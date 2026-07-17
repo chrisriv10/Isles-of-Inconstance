@@ -1,0 +1,40 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/Player.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/player/PlayerInteractor.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/camera/CameraController.gd" id="3"]
+[ext_resource type="Texture2D" path="res://assets/generated/player_big_frame_0.png" id="4"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(16, 16)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1"]
+radius = 14.0
+
+[node name="Player" type="CharacterBody2D" groups=["player"]]
+collision_layer = 2
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("4")
+
+[node name="HeldItem" type="Sprite2D" parent="Sprite2D"]
+position = Vector2(3, 5)
+scale = Vector2(0.65, 0.65)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="Interactor" type="Area2D" parent="."]
+position = Vector2(0, 14)
+collision_layer = 0
+collision_mask = 4
+script = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Interactor"]
+shape = SubResource("CircleShape2D_1")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+script = ExtResource("3")
