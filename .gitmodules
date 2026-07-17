@@ -1,0 +1,4 @@
+[submodule "addons/ezcha_network"]
+	path = addons/ezcha_network
+	url = https://github.com/ezcha-network/godot-plugin
+	branch = godot-4.x
