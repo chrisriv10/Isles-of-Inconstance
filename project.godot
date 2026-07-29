@@ -29,7 +29,6 @@ ObjectiveManager="*res://scripts/autoload/ObjectiveManager.gd"
 BuffManager="*res://scripts/autoload/BuffManager.gd"
 LevelManager="*res://scripts/autoload/LevelManager.gd"
 PetManager="*res://scripts/autoload/PetManager.gd"
-_fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
 QuestManager="*res://scripts/autoload/QuestManager.gd"
 
 [debug]
