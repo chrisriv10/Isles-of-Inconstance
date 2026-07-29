@@ -49,10 +49,11 @@ static func animate_open(panel: Control, duration: float = 0.25, offset: float =
 	tween.tween_property(panel, "modulate:a", 1.0, duration)
 	
 	# Play open sound if AudioManager exists
-	if Engine.has_singleton("AudioManager"):
-		var audio = Engine.get_singleton("AudioManager")
+	var tree: SceneTree = Engine.get_main_loop()
+	if tree:
+		var audio: Node = tree.root.get_node_or_null("AudioManager")
 		if audio and audio.has_method("play"):
-			audio.play(AudioManager.Sound.UI_CLICK)
+			audio.play(audio.Sound.UI_CLICK)
 
 ## Static helper: Animate a panel closing (slide + fade out)
 static func animate_close(panel: Control, duration: float = 0.2, offset: float = 20.0, callback: Callable = Callable()) -> void:
@@ -79,10 +80,11 @@ static func animate_close(panel: Control, duration: float = 0.2, offset: float =
 		tween.tween_callback(func(): panel.visible = false)
 	
 	# Play close sound if AudioManager exists
-	if Engine.has_singleton("AudioManager"):
-		var audio = Engine.get_singleton("AudioManager")
+	var tree: SceneTree = Engine.get_main_loop()
+	if tree:
+		var audio: Node = tree.root.get_node_or_null("AudioManager")
 		if audio and audio.has_method("play"):
-			audio.play(AudioManager.Sound.UI_CLICK)
+			audio.play(audio.Sound.UI_CLICK)
 
 ## Instance method: Animate parent panel open
 func animate_open_parent() -> void:

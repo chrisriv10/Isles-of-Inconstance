@@ -144,8 +144,9 @@ func _show_persistent_background() -> void:
 
 func _start_new_game(p_seed: int) -> void:
 	# Stop main menu music — game ambience takes over via day/night cycle
-	if Engine.has_singleton("AudioManager"):
-		AudioManager.stop_music(1.0)
+	var am_node: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
+	if am_node and am_node.has_method("stop_music"):
+		am_node.stop_music(1.0)
 	
 	# Hide persistent background so game world is visible
 	_hide_persistent_background()
@@ -250,10 +251,8 @@ func _start_new_game(p_seed: int) -> void:
 	# Recalculate day/night phase to match the reset time
 	var reset_hour := GameManager.get_hour()
 	var reset_phase := GameManager.day_night.get_phase_for_hour(reset_hour)
-	if reset_phase != GameManager.day_night.current_phase:
-		GameManager.day_night.current_phase = reset_phase
-		# Only emit phase_changed if it actually changed (avoids double-emit)
-		GameManager.phase_changed.emit(reset_phase)
+	GameManager.day_night.current_phase = reset_phase
+	GameManager.phase_changed.emit(reset_phase)
 	
 	# Emit signals to update UI
 	GameManager.day_changed.emit(GameManager.current_day)
@@ -272,8 +271,9 @@ func _start_new_game(p_seed: int) -> void:
 
 func _load_game() -> void:
 	# Stop main menu music — game ambience takes over via day/night cycle
-	if Engine.has_singleton("AudioManager"):
-		AudioManager.stop_music(1.0)
+	var am_node: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
+	if am_node and am_node.has_method("stop_music"):
+		am_node.stop_music(1.0)
 	
 	# Hide persistent background so game world is visible
 	_hide_persistent_background()
@@ -311,13 +311,19 @@ func _load_game() -> void:
 	_show_ui_canvas_layers()
 	
 	# Reset pet state before loading (prevents stale active_pet_id flicker)
-	if Engine.has_singleton("PetManager"):
-		var pm: Node = Engine.get_singleton("PetManager")
-		pm.owned_pets.clear()
-		pm.active_pet_id = ""
+	var pm_node: Node = get_node("/root/PetManager") if has_node("/root/PetManager") else null
+	if pm_node:
+		pm_node.owned_pets.clear()
+		pm_node.active_pet_id = ""
 	
 	# Load the save file
 	SaveManager.load_game()
+	
+	# Emit phase_changed after loading so ambient music starts
+	var loaded_hour := GameManager.get_hour()
+	var loaded_phase := GameManager.day_night.get_phase_for_hour(loaded_hour)
+	GameManager.day_night.current_phase = loaded_phase
+	GameManager.phase_changed.emit(loaded_phase)
 	
 	# Show the loaded seed in the HUD
 	if hud and hud.has_method("set_seed_display"):
@@ -413,8 +419,9 @@ func _hide_game_and_show_menu() -> void:
 		main_menu.process_mode = Node.PROCESS_MODE_INHERIT
 	
 	# Restart main menu music when returning from game
-	if Engine.has_singleton("AudioManager"):
-		AudioManager.play_music(AudioManager.Sound.MAIN_MENU, 1.0)
+	var am_node: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
+	if am_node and am_node.has_method("play_music"):
+		am_node.play_music(am_node.Sound.MAIN_MENU, 1.0)
 	
 	_show_persistent_background()
 

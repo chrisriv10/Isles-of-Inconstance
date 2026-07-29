@@ -45,12 +45,11 @@ func _setup_audio() -> void:
 	add_child(_audio_player)
 	
 	# Try to load from AudioManager
-	if Engine.has_singleton("AudioManager"):
-		var audio = Engine.get_singleton("AudioManager")
-		if audio and audio.has_method("_get_sound_stream"):
-			var Sound = audio.get("Sound")
-			if Sound:
-				_audio_player.stream = audio._get_sound_stream(Sound.UI_CLICK)
+	var audio: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
+	if audio and audio.has_method("_get_sound_stream"):
+		var Sound = audio.get("Sound")
+		if Sound:
+			_audio_player.stream = audio._get_sound_stream(Sound.UI_CLICK)
 	
 	# Fallback: create procedural sound
 	if not _audio_player.stream:

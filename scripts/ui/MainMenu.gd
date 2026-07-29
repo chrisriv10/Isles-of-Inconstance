@@ -62,8 +62,9 @@ func _ready() -> void:
 	_generate_stars()
 	
 	# Start main menu music
-	if Engine.has_singleton("AudioManager"):
-		AudioManager.play_music(AudioManager.Sound.MAIN_MENU)
+	var audio_mgr: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
+	if audio_mgr and audio_mgr.has_method("play_music"):
+		audio_mgr.play_music(audio_mgr.Sound.MAIN_MENU)
 
 func _setup_entrance_animation() -> void:
 	# Start invisible

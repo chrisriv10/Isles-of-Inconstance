@@ -14,7 +14,7 @@ const MAX_PLAYERS: int = 32
 
 var _music_player: AudioStreamPlayer = null
 var _current_music: int = -1
-var _music_volume: float = -10.0
+var _music_volume: float = 0.0
 var _crossfade_tween: Tween = null
 
 enum Sound {
@@ -65,10 +65,9 @@ func _ready() -> void:
 	add_child(_music_player)
 
 	# Wire day/night cycle ambient switching
-	if Engine.has_singleton("GameManager"):
-		var gm = Engine.get_singleton("GameManager")
-		if gm and gm.has_signal("phase_changed"):
-			gm.phase_changed.connect(_on_phase_changed)
+	var gm_node: Node = get_node("/root/GameManager") if has_node("/root/GameManager") else null
+	if gm_node and gm_node.has_signal("phase_changed"):
+		gm_node.phase_changed.connect(_on_phase_changed)
 
 ## Load audio files from disk. No procedural fallback — missing files = silence.
 func _load_streams() -> void:
@@ -174,6 +173,8 @@ func stop_music(fade_seconds: float = 0.5) -> void:
 
 ## Respond to day/night phase changes — switch ambient music.
 func _on_phase_changed(phase: int) -> void:
+	if _current_music >= 0 and _current_music != Sound.AMBIENT_DAY and _current_music != Sound.AMBIENT_NIGHT:
+		return
 	match phase:
 		0, 1:  # DAWN, DAY
 			play_music(Sound.AMBIENT_DAY, 2.0)
