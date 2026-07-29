@@ -1,0 +1,123 @@
+{
+	"animation_name": "any_animation",
+	"animation_style": "any_animation",
+	"animation_type": "",
+	"columns": 4,
+	"directions": [
+		"row_1",
+		"row_2",
+		"row_3",
+		"row_4"
+	],
+	"frame_count": 16,
+	"frame_height": 64,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 64,
+			"w": 64,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 64,
+			"y": 0
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 128,
+			"y": 0
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 192,
+			"y": 0
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 0,
+			"y": 64
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 64,
+			"y": 64
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 128,
+			"y": 64
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 192,
+			"y": 64
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 0,
+			"y": 128
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 64,
+			"y": 128
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 128,
+			"y": 128
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 192,
+			"y": 128
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 0,
+			"y": 192
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 64,
+			"y": 192
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 128,
+			"y": 192
+		},
+		{
+			"h": 64,
+			"w": 64,
+			"x": 192,
+			"y": 192
+		}
+	],
+	"frame_width": 64,
+	"name": "water_wave_tiles",
+	"prompt": "Seamless 16x16 pixel art water tile animation for a top-down tilemap. Four frames showing gentle wave motion - water flowing and rippling. Deep ocean blue with light blue wave crest highlights. Each 16x16 tile must tile seamlessly. The wave crests should visibly move across the tile between frames.",
+	"rows": 4,
+	"source_image": "",
+	"source_tool": "generate_animation",
+	"spritesheet_height": 256,
+	"spritesheet_path": "res://assets/generated/water_wave_tiles.png",
+	"spritesheet_width": 256,
+	"type": "animation"
+}

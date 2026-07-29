@@ -1,0 +1,384 @@
+extends CanvasLayer
+
+## NPC shop overlay opened by interacting with the Merchant ShopStand in the
+## world. Requires proximity to the shop NPC to open.
+##
+## Three sections:
+##   Seeds       - buy seed_item(s) for any discovered crop within the
+##                 player's current "Seed Vault Access" rarity tier.
+##   Legendary   - buy Inconstant Fruits (extremely rare, ludicrously expensive)
+##   Upgrades    - buy the next level of Storage Satchel / Tool Forge /
+##                 Green Thumb / Seed Vault Access (this doubles as "buy
+##                 tools", since this project only has the hoe & watering can
+##                 and upgrading their tier *is* buying a better tool).
+## NOTE: Selling is done at the Boat, not here.
+
+@onready var dim: ColorRect = $Dim
+@onready var panel: PanelContainer = $Panel
+@onready var title_label: Label = %TitleLabel
+@onready var coins_label: Label = %CoinsLabel
+@onready var seeds_list: VBoxContainer = %SeedsList
+@onready var pets_list: VBoxContainer = %PetsList
+@onready var upgrades_list: VBoxContainer = %UpgradesList
+@onready var sections_container: VBoxContainer = %Sections
+var legendary_header: Label
+var legendary_list: VBoxContainer
+
+## Custom expedition merchant items, set via open_with_items().
+## Each entry: { "item_id": String, "price": int, "stock": int }
+var _expedition_items: Array = []
+var _expedition_header: Label
+var _expedition_list: VBoxContainer
+
+var is_open: bool = false
+
+func _ready() -> void:
+	GameManager.money_changed.connect(_on_money_changed)
+	InventoryManager.changed.connect(_on_inventory_changed)
+	DataManager.crop_discovered.connect(_on_crop_discovered)
+	UpgradeManager.upgrade_purchased.connect(_on_upgrade_purchased)
+	# Build dynamic sections
+	_build_legendary_section()
+	_build_expedition_section()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if is_open and event.is_action_pressed("close_menu"):
+		close()
+		get_viewport().set_input_as_handled()
+
+func toggle() -> void:
+	if is_open:
+		close()
+	else:
+		open()
+
+## Open the shop normally (seeds, pets, upgrades).
+func open() -> void:
+	_expedition_items.clear()
+	_open_common()
+
+## Open the shop with custom expedition merchant items.
+## items: Array of { "item_id": String, "price": int, "stock": int }
+## title: optional custom shop title
+func open_with_items(items: Array, title: String = "") -> void:
+	_expedition_items = items.duplicate()
+	_open_common()
+	if not title.is_empty():
+		title_label.text = title
+
+func _open_common() -> void:
+	is_open = true
+	AudioManager.play(AudioManager.Sound.MENU_OPEN)
+	dim.visible = true
+	panel.visible = true
+	
+	# Add smooth slide + fade animation with sound
+	UITweenHelper.animate_open(panel, 0.25, 20.0)
+	
+	refresh()
+
+func close() -> void:
+	is_open = false
+	AudioManager.play(AudioManager.Sound.MENU_CLOSE)
+	
+	# Animate out before hiding
+	UITweenHelper.animate_close(panel, 0.2, 20.0, func(): 
+		dim.visible = false
+		panel.visible = false
+	)
+
+func _on_close_pressed() -> void:
+	close()
+
+func _on_money_changed(_amount: int) -> void:
+	if is_open:
+		coins_label.text = "$%d" % GameManager.money
+
+func _on_inventory_changed() -> void:
+	if is_open:
+		refresh()
+
+func _on_crop_discovered(_crop_id: String) -> void:
+	if is_open:
+		refresh()
+
+func _on_upgrade_purchased(_upgrade: int, _level: int) -> void:
+	if is_open:
+		refresh()
+
+func refresh() -> void:
+	coins_label.text = "$%d" % GameManager.money
+	_refresh_seeds()
+	_refresh_legendary()
+	_refresh_pets()
+	_refresh_upgrades()
+	_refresh_expedition_items()
+
+func _clear(container: Node) -> void:
+	for child in container.get_children():
+		child.queue_free()
+
+# ---------------------------------------------------------------------------
+# Legendary Finds (Inconstant Fruits)
+# ---------------------------------------------------------------------------
+
+## Creates the legendary finds UI section (header + list) at the bottom.
+func _build_legendary_section() -> void:
+	legendary_header = Label.new()
+	legendary_header.text = "Legendary Finds"
+	legendary_header.add_theme_font_size_override("font_size", 18)
+	legendary_header.add_theme_color_override("font_color", Color(1.0, 0.6, 0.0, 1.0))
+	sections_container.add_child(legendary_header)
+	legendary_header.visible = false
+
+	legendary_list = VBoxContainer.new()
+	sections_container.add_child(legendary_list)
+	legendary_list.visible = false
+
+## Refresh the legendary finds section with available Inconstant Fruits.
+## Only shows fruits that the player can afford (or wants to save for).
+func _refresh_legendary() -> void:
+	_clear(legendary_list)
+	# Find Inconstant Fruits in the item registry
+	var shown := false
+	for item in DataManager.items.values():
+		if not item or not item.get_meta("inconstant_power", false):
+			continue
+		if item.buy_price <= 0:
+			continue
+		shown = true
+		var fruit_item: ItemData = item
+		legendary_list.add_child(_build_row(
+			fruit_item.display_name,
+			"$%d" % fruit_item.buy_price,
+			"Buy",
+			func(): _buy_inconstant_fruit(fruit_item)
+		))
+		# Show a hint about the power
+		var power_name: String = fruit_item.get_meta("power_name", "?")
+		var hint := RichTextLabel.new()
+		hint.text = "Power: [b]%s[/b]" % power_name
+		hint.bbcode_enabled = true
+		hint.fit_content = true
+		hint.modulate = Color(1.0, 0.8, 0.3, 0.9)
+		hint.add_theme_font_size_override("font_size", 13)
+		legendary_list.add_child(hint)
+	legendary_header.visible = shown
+	legendary_list.visible = shown
+
+func _buy_inconstant_fruit(fruit_item: ItemData) -> void:
+	if GameManager.spend_money(fruit_item.buy_price):
+		InventoryManager.add_item(fruit_item.id, 1)
+		AudioManager.play(AudioManager.Sound.BUY)
+		ToastNotification.show_toast("Legends whisper of the %s!" % fruit_item.display_name, ToastNotification.ToastType.SUCCESS)
+		refresh()
+	else:
+		ToastNotification.show_toast("Even this fortune pales before the cost...", ToastNotification.ToastType.ERROR)
+
+# ---------------------------------------------------------------------------
+# Seeds
+# ---------------------------------------------------------------------------
+
+func _refresh_seeds() -> void:
+	_clear(seeds_list)
+	var max_tier := UpgradeManager.get_max_purchasable_rarity_tier()
+	var crops: Array[CropData] = DataManager.get_discovered_crops()
+	crops.sort_custom(func(a, b): return a.display_name < b.display_name)
+
+	var shown := false
+	for crop in crops:
+		if crop.seed_item_id == "":
+			continue
+		var seed_item: ItemData = DataManager.get_item(crop.seed_item_id)
+		if not seed_item or seed_item.buy_price <= 0:
+			continue
+		var rarity_tier: int = crop.genetics.rarity_tier if crop.genetics else 0
+		if rarity_tier > max_tier:
+			continue
+		shown = true
+		seeds_list.add_child(_build_row(
+			"%s Seed (%s)" % [crop.display_name, crop.rarity],
+			"$%d" % seed_item.buy_price,
+			"Buy",
+			func(): _buy_seed(seed_item)
+		))
+
+	if not shown:
+		seeds_list.add_child(_hint_label(
+			"Grow and harvest a crop to unlock it here." if crops.is_empty()
+			else "Buy Seed Vault Access below to unlock rarer seeds."
+		))
+
+func _buy_seed(seed_item: ItemData) -> void:
+	if GameManager.spend_money(seed_item.buy_price):
+		InventoryManager.add_item(seed_item.id, 1)
+		AudioManager.play(AudioManager.Sound.BUY)
+		ToastNotification.show_toast("Bought %s!" % seed_item.display_name, ToastNotification.ToastType.SUCCESS)
+		refresh()
+	else:
+		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
+
+# ---------------------------------------------------------------------------
+# Pets
+# ---------------------------------------------------------------------------
+
+func _refresh_pets() -> void:
+	_clear(pets_list)
+	var pet_egg_ids := ["cat_egg", "dog_egg", "fox_egg", "bird_egg", "turtle_egg", "rabbit_egg", "ice_cream_sandwich_egg", "gingerbread_man_egg"]
+	var shown := false
+	for egg_id in pet_egg_ids:
+		var egg: ItemData = DataManager.get_item(egg_id)
+		if not egg or egg.buy_price <= 0:
+			continue
+		var pet_id: String = egg_id.trim_suffix("_egg")
+		if PetManager.has_pet(pet_id):
+			continue  # already owned
+		shown = true
+		pets_list.add_child(_build_row(
+			egg.display_name,
+			"$%d" % egg.buy_price,
+			"Buy",
+			func(): _buy_pet_egg(egg)
+		))
+	if not shown:
+		pets_list.add_child(_hint_label("All pets have been adopted! Check your pet menu."))
+
+func _buy_pet_egg(egg: ItemData) -> void:
+	if GameManager.spend_money(egg.buy_price):
+		InventoryManager.add_item(egg.id, 1)
+		AudioManager.play(AudioManager.Sound.BUY)
+		ToastNotification.show_toast("Bought %s! Use it in inventory to hatch." % egg.display_name, ToastNotification.ToastType.SUCCESS)
+		refresh()
+	else:
+		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
+
+# ---------------------------------------------------------------------------
+# Upgrades (also where tool purchases live - see class doc comment above)
+# ---------------------------------------------------------------------------
+
+func _refresh_upgrades() -> void:
+	_clear(upgrades_list)
+	for upgrade in UpgradeManager.Upgrade.values():
+		var level := UpgradeManager.get_level(upgrade)
+		var maxed := UpgradeManager.is_maxed(upgrade)
+		var name_text := "%s (Lv %d/%d)" % [UpgradeManager.get_upgrade_name(upgrade), level, UpgradeManager.MAX_LEVEL]
+		var cost_text := "MAXED" if maxed else "$%d" % UpgradeManager.get_cost(upgrade)
+
+		var row := _build_row(name_text, cost_text, "Buy", func(): _buy_upgrade(upgrade))
+		var button := row.get_child(row.get_child_count() - 1)
+		if button is Button:
+			button.disabled = maxed
+		upgrades_list.add_child(row)
+
+		var desc := Label.new()
+		desc.text = UpgradeManager.get_description(upgrade)
+		desc.add_theme_font_size_override("font_size", 13)
+		desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+		upgrades_list.add_child(desc)
+
+func _buy_upgrade(upgrade: int) -> void:
+	var success := UpgradeManager.purchase(upgrade)
+	if success:
+		var upgrade_name := UpgradeManager.get_upgrade_name(upgrade)
+		var level := UpgradeManager.get_level(upgrade)
+		ToastNotification.show_toast("%s upgraded to Lv %d!" % [upgrade_name, level], ToastNotification.ToastType.SUCCESS)
+	else:
+		if UpgradeManager.is_maxed(upgrade):
+			ToastNotification.show_toast("Already at max level!", ToastNotification.ToastType.INFO)
+		else:
+			ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
+	refresh()
+
+# ---------------------------------------------------------------------------
+# Row helper
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Expedition merchant items
+# ---------------------------------------------------------------------------
+
+## Build the expedition merchant section (hidden by default).
+func _build_expedition_section() -> void:
+	_expedition_header = Label.new()
+	_expedition_header.text = "Expedition Wares"
+	_expedition_header.add_theme_font_size_override("font_size", 18)
+	_expedition_header.add_theme_color_override("font_color", Color(0.4, 0.9, 0.6, 1.0))
+	sections_container.add_child(_expedition_header)
+	_expedition_header.visible = false
+
+	_expedition_list = VBoxContainer.new()
+	sections_container.add_child(_expedition_list)
+	_expedition_list.visible = false
+
+## Refresh the expedition merchant item listings.
+func _refresh_expedition_items() -> void:
+	_clear(_expedition_list)
+	if _expedition_items.is_empty():
+		_expedition_header.visible = false
+		_expedition_list.visible = false
+		return
+
+	_expedition_header.visible = true
+	_expedition_list.visible = true
+
+	for entry in _expedition_items:
+		var item_id: String = entry.get("item_id", "")
+		var price: int = entry.get("price", 1)
+		var stock: int = entry.get("stock", 1)
+		if item_id.is_empty():
+			continue
+
+		var item_def = DataManager.get_item(item_id)
+		var item_name: String = item_def.display_name if item_def else item_id.replace("_", " ").capitalize()
+
+		_expedition_list.add_child(_build_row(
+			"%s (x%d)" % [item_name, stock],
+			"$%d" % price,
+			"Buy",
+			func(): _buy_expedition_item(item_id, price)
+		))
+
+func _buy_expedition_item(item_id: String, price: int) -> void:
+	if GameManager.spend_money(price):
+		InventoryManager.add_item(item_id, 1)
+		AudioManager.play(AudioManager.Sound.BUY)
+		var item_def = DataManager.get_item(item_id)
+		var item_name: String = item_def.display_name if item_def else item_id.replace("_", " ").capitalize()
+		ToastNotification.show_toast("Bought %s!" % item_name, ToastNotification.ToastType.SUCCESS)
+		refresh()
+	else:
+		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
+
+# ---------------------------------------------------------------------------
+# Row helper
+# ---------------------------------------------------------------------------
+
+func _build_row(left_text: String, price_text: String, button_text: String, on_pressed: Callable) -> HBoxContainer:
+	var row := HBoxContainer.new()
+
+	var label := Label.new()
+	label.text = left_text
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	row.add_child(label)
+
+	var price := Label.new()
+	price.text = price_text
+	price.add_theme_font_size_override("font_size", 14)
+	price.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+	row.add_child(price)
+
+	var button := Button.new()
+	button.text = button_text
+	button.pressed.connect(on_pressed)
+	row.add_child(button)
+
+	return row
+
+func _hint_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.modulate = Color(1.0, 1.0, 1.0, 0.7)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	return label

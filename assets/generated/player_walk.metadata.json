@@ -1,0 +1,70 @@
+{
+	"animation_name": "walking",
+	"animation_style": "",
+	"animation_type": "walking",
+	"columns": 4,
+	"directions": [],
+	"frame_count": 8,
+	"frame_height": 48,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 48
+		}
+	],
+	"frame_width": 48,
+	"name": "player_walk",
+	"prompt": "animate sprite",
+	"rows": 2,
+	"source_image": "res://assets/generated/player_big_v2_frame_0.png",
+	"source_tool": "animate_sprite",
+	"spritesheet_height": 96,
+	"spritesheet_path": "res://assets/generated/player_walk.png",
+	"spritesheet_width": 192,
+	"type": "animation"
+}

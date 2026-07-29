@@ -1,0 +1,70 @@
+{
+	"animation_name": "walking",
+	"animation_style": "",
+	"animation_type": "walking",
+	"columns": 4,
+	"directions": [],
+	"frame_count": 8,
+	"frame_height": 32,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 32,
+			"w": 32,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 32,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 64,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 96,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 0,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 32,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 64,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 96,
+			"y": 32
+		}
+	],
+	"frame_width": 32,
+	"name": "pirate_walk_atlas",
+	"prompt": "animate sprite",
+	"rows": 2,
+	"source_image": "res://assets/generated/pirate_raider_32_frame_0.png",
+	"source_tool": "animate_sprite",
+	"spritesheet_height": 64,
+	"spritesheet_path": "res://assets/generated/pirate_walk_atlas.png",
+	"spritesheet_width": 128,
+	"type": "animation"
+}

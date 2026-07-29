@@ -1,0 +1,147 @@
+{
+	"animation_name": "small_sprites",
+	"animation_style": "small_sprites",
+	"animation_type": "",
+	"columns": 5,
+	"directions": [
+		"row_1",
+		"row_2",
+		"row_3",
+		"row_4"
+	],
+	"frame_count": 20,
+	"frame_height": 32,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 32,
+			"w": 32,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 32,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 64,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 96,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 128,
+			"y": 0
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 0,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 32,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 64,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 96,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 128,
+			"y": 32
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 0,
+			"y": 64
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 32,
+			"y": 64
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 64,
+			"y": 64
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 96,
+			"y": 64
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 128,
+			"y": 64
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 0,
+			"y": 96
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 32,
+			"y": 96
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 64,
+			"y": 96
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 96,
+			"y": 96
+		},
+		{
+			"h": 32,
+			"w": 32,
+			"x": 128,
+			"y": 96
+		}
+	],
+	"frame_width": 32,
+	"name": "chicken_walk",
+	"prompt": "Small white chicken, top-down view, walking animation cycle for a farming game",
+	"rows": 4,
+	"source_image": "",
+	"source_tool": "generate_animation",
+	"spritesheet_height": 128,
+	"spritesheet_path": "res://assets/generated/chicken_walk.png",
+	"spritesheet_width": 160,
+	"type": "animation"
+}

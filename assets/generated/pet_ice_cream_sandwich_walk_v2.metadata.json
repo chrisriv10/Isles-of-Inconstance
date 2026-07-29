@@ -1,0 +1,123 @@
+{
+	"animation_name": "walking_and_idle",
+	"animation_style": "walking_and_idle",
+	"animation_type": "",
+	"columns": 4,
+	"directions": [
+		"row_1",
+		"row_2",
+		"row_3",
+		"row_4"
+	],
+	"frame_count": 16,
+	"frame_height": 48,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 96
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 96
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 96
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 96
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 144
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 144
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 144
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 144
+		}
+	],
+	"frame_width": 48,
+	"name": "pet_ice_cream_sandwich_walk_v2",
+	"prompt": "Cute ice cream sandwich man walking with a waddle, two wafer cookies with vanilla cream center, small arms and legs moving in a walk cycle, 48x48 pixel art frames on a 4x2 grid",
+	"rows": 4,
+	"source_image": "",
+	"source_tool": "generate_animation",
+	"spritesheet_height": 192,
+	"spritesheet_path": "res://assets/generated/pet_ice_cream_sandwich_walk_v2.png",
+	"spritesheet_width": 192,
+	"type": "animation"
+}

@@ -1,0 +1,46 @@
+{
+	"animation_name": "subtle_motion",
+	"animation_style": "",
+	"animation_type": "subtle_motion",
+	"columns": 2,
+	"directions": [],
+	"frame_count": 4,
+	"frame_height": 48,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 48
+		}
+	],
+	"frame_width": 48,
+	"name": "water_animated_48",
+	"prompt": "Flowing water waves, gentle rippling motion across the surface, water flowing from left to right in a seamless loop, wave crests and troughs moving smoothly",
+	"rows": 2,
+	"source_image": "res://assets/generated/water_base_48.png",
+	"source_tool": "animate_sprite",
+	"spritesheet_height": 96,
+	"spritesheet_path": "res://assets/generated/water_animated_48.png",
+	"spritesheet_width": 96,
+	"type": "animation"
+}

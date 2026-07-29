@@ -1,0 +1,70 @@
+{
+	"animation_name": "idle",
+	"animation_style": "",
+	"animation_type": "idle",
+	"columns": 4,
+	"directions": [],
+	"frame_count": 8,
+	"frame_height": 48,
+	"frame_paths": [],
+	"frame_regions": [
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 0
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 0,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 48,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 96,
+			"y": 48
+		},
+		{
+			"h": 48,
+			"w": 48,
+			"x": 144,
+			"y": 48
+		}
+	],
+	"frame_width": 48,
+	"name": "pet_gingerbread_man_idle_v4",
+	"prompt": "Gingerbread man standing idle with gentle breathing, round brown cookie with white icing smile and green gumdrop buttons",
+	"rows": 2,
+	"source_image": "res://assets/gingerbread_set/animal_gingerbread_man_frame_0.png",
+	"source_tool": "animate_sprite",
+	"spritesheet_height": 96,
+	"spritesheet_path": "res://assets/generated/pet_gingerbread_man_idle_v4.png",
+	"spritesheet_width": 192,
+	"type": "animation"
+}
