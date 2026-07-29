@@ -1,0 +1,109 @@
+[gd_scene format=3 uid="uid://dq32aykjcmr0y"]
+
+[ext_resource type="Script" uid="uid://bbb04uioird8d" path="res://scripts/ui/QuestDialogueUI.gd" id="1_6ea6n"]
+
+[sub_resource type="StyleBoxFlat" id="1"]
+bg_color = Color(0.15, 0.15, 0.18, 1)
+
+[sub_resource type="StyleBoxFlat" id="2"]
+bg_color = Color(0.2, 0.6, 0.3, 1)
+
+[node name="QuestDialogueUI" type="PanelContainer" unique_id=1612874395]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -300.0
+offset_right = 200.0
+offset_bottom = -60.0
+script = ExtResource("1_6ea6n")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=233814241]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="NpcNameLabel" type="Label" parent="VBoxContainer" unique_id=235781965]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.95, 0.6, 1)
+theme_override_font_sizes/font_size = 16
+text = "NPC Name"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer" unique_id=1201236825]
+layout_mode = 2
+
+[node name="DialogueText" type="RichTextLabel" parent="VBoxContainer" unique_id=2051808850]
+custom_minimum_size = Vector2(320, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/normal_font_size = 13
+text = "Dialogue text goes here..."
+scroll_active = false
+
+[node name="QuestInfoVBox" type="VBoxContainer" parent="VBoxContainer" unique_id=1706643303]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="QuestTitleLabel" type="Label" parent="VBoxContainer/QuestInfoVBox" unique_id=1625070416]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Quest Title"
+
+[node name="QuestDescLabel" type="Label" parent="VBoxContainer/QuestInfoVBox" unique_id=2062631382]
+custom_minimum_size = Vector2(320, 40)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.82, 0.85, 1)
+theme_override_font_sizes/font_size = 11
+text = "Quest description"
+autowrap_mode = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="VBoxContainer/QuestInfoVBox" unique_id=823543890]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/background = SubResource("1")
+theme_override_styles/fill = SubResource("2")
+max_value = 10.0
+show_percentage = false
+
+[node name="ProgressText" type="Label" parent="VBoxContainer/QuestInfoVBox" unique_id=1975972709]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "0/0"
+horizontal_alignment = 1
+
+[node name="RewardLabel" type="Label" parent="VBoxContainer/QuestInfoVBox" unique_id=1212331546]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 1, 0.7, 1)
+theme_override_font_sizes/font_size = 11
+text = "Rewards:"
+autowrap_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="VBoxContainer" unique_id=1490677625]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="AcceptButton" type="Button" parent="VBoxContainer/ButtonRow" unique_id=1992590488]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Accept"
+
+[node name="DeclineButton" type="Button" parent="VBoxContainer/ButtonRow" unique_id=535346394]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Decline"
+
+[node name="CloseButton" type="Button" parent="VBoxContainer/ButtonRow" unique_id=2135384040]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Close"

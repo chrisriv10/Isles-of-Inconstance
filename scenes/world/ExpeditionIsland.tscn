@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://dcq2584cckw7c"]
+
+[ext_resource type="Script" uid="uid://dubjbeilko0v8" path="res://scripts/world/ExpeditionIsland.gd" id="1"]
+[ext_resource type="TileSet" uid="uid://c6b5bj8lc5xwn" path="res://tilesets/ground_tileset.tres" id="2"]
+
+[node name="ExpeditionIsland" type="Node2D" unique_id=465518601]
+script = ExtResource("1")
+
+[node name="GroundLayer" type="TileMapLayer" parent="." unique_id=2036265296]
+tile_set = ExtResource("2")
+
+[node name="Objects" type="Node2D" parent="." unique_id=530304101]

@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/enemies/RootWarden.gd" id="1_q0g5f"]
+
+[sub_resource type="CircleShape2D" id="1_xs2wt"]
+radius = 10.0
+
+[node name="RootWarden" type="CharacterBody2D"]
+script = ExtResource("1_q0g5f")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+centered = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1_xs2wt")

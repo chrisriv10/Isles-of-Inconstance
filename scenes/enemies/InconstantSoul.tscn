@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://ig2vjm756ntw"]
+
+[ext_resource type="Script" uid="uid://d4igwc02bh1v" path="res://scripts/world/enemies/InconstantSoul.gd" id="1_qm3a2"]
+
+[sub_resource type="CircleShape2D" id="1_t8n6f"]
+radius = 14.0
+
+[node name="InconstantSoul" type="CharacterBody2D" unique_id=1948067681]
+script = ExtResource("1_qm3a2")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1021532974]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1177161846]
+shape = SubResource("1_t8n6f")

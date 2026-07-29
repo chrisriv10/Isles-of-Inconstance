@@ -1,0 +1,185 @@
+[gd_scene format=3 uid="uid://dygbk4vf1gcde"]
+
+[ext_resource type="Script" uid="uid://dfofl14ilg36g" path="res://scripts/ui/ButtonSound.gd" id="1_jywan"]
+[ext_resource type="Script" uid="uid://cx5g8gecjsnxy" path="res://scripts/ui/InventoryUI.gd" id="3_inv"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1r87s"]
+bg_color = Color(0.102, 0.063, 0.031, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.722, 0.525, 0.176, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="InventoryUI" type="CanvasLayer" unique_id=130081713]
+layer = 5
+script = ExtResource("3_inv")
+
+[node name="Dim" type="ColorRect" parent="." unique_id=412855901]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="Panel" type="PanelContainer" parent="." unique_id=483359179]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -195.0
+offset_right = 320.0
+offset_bottom = 195.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_1r87s")
+
+[node name="Margin" type="MarginContainer" parent="Panel" unique_id=1797616064]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="MainVBox" type="VBoxContainer" parent="Panel/Margin" unique_id=1749614767]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="SideBySide" type="HBoxContainer" parent="Panel/Margin/MainVBox" unique_id=1749614768]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="LeftCol" type="VBoxContainer" parent="Panel/Margin/MainVBox/SideBySide" unique_id=1481097291]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="TitleRow" type="HBoxContainer" parent="Panel/Margin/MainVBox/SideBySide/LeftCol" unique_id=1773163449]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/MainVBox/SideBySide/LeftCol/TitleRow" unique_id=414417644]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 16
+text = "Inventory  [I]"
+
+[node name="CapacityLabel" type="Label" parent="Panel/Margin/MainVBox/SideBySide/LeftCol/TitleRow" unique_id=719590788]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.9, 0.6, 1)
+theme_override_font_sizes/font_size = 12
+text = "0 / 20 slots"
+
+[node name="Scroll" type="ScrollContainer" parent="Panel/Margin/MainVBox/SideBySide/LeftCol" unique_id=370035533]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Grid" type="GridContainer" parent="Panel/Margin/MainVBox/SideBySide/LeftCol/Scroll" unique_id=500494740]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 6
+
+[node name="BottomRow" type="HBoxContainer" parent="Panel/Margin/MainVBox/SideBySide/LeftCol" unique_id=1087100431]
+layout_mode = 2
+
+[node name="DiscardButton" type="Button" parent="Panel/Margin/MainVBox/SideBySide/LeftCol/BottomRow" unique_id=1538441814]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.3, 0.3, 1)
+text = "Discard [Del]"
+
+[node name="CloseButton" type="Button" parent="Panel/Margin/MainVBox/SideBySide/LeftCol/BottomRow" unique_id=1253017751]
+layout_mode = 2
+text = "Close [Esc]"
+
+[node name="ButtonSound" type="Node" parent="Panel/Margin/MainVBox/SideBySide/LeftCol/BottomRow/CloseButton" unique_id=297735323]
+script = ExtResource("1_jywan")
+
+[node name="RightCol" type="VBoxContainer" parent="Panel/Margin/MainVBox/SideBySide" unique_id=1173402452]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(144, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="PlayerPortrait" type="PanelContainer" parent="Panel/Margin/MainVBox/SideBySide/RightCol" unique_id=819550186]
+custom_minimum_size = Vector2(80, 80)
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="PortraitMargin" type="MarginContainer" parent="Panel/Margin/MainVBox/SideBySide/RightCol/PlayerPortrait" unique_id=1682917886]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="PortraitTexture" type="TextureRect" parent="Panel/Margin/MainVBox/SideBySide/RightCol/PlayerPortrait/PortraitMargin" unique_id=793137111]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+stretch_mode = 6
+
+[node name="ItemInfo" type="PanelContainer" parent="Panel/Margin/MainVBox" unique_id=1639780832]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InfoMargin" type="MarginContainer" parent="Panel/Margin/MainVBox/ItemInfo" unique_id=1287070162]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="InfoLayout" type="VBoxContainer" parent="Panel/Margin/MainVBox/ItemInfo/InfoMargin" unique_id=683805480]
+layout_mode = 2
+
+[node name="ItemNameLabel" type="Label" parent="Panel/Margin/MainVBox/ItemInfo/InfoMargin/InfoLayout" unique_id=2044219336]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+max_lines_visible = 2
+
+[node name="ItemCategoryLabel" type="Label" parent="Panel/Margin/MainVBox/ItemInfo/InfoMargin/InfoLayout" unique_id=1523213327]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ItemDescriptionLabel" type="RichTextLabel" parent="Panel/Margin/MainVBox/ItemInfo/InfoMargin/InfoLayout" unique_id=588513652]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+bbcode_enabled = true
+
+[node name="UseButton" type="Button" parent="Panel/Margin/MainVBox/ItemInfo/InfoMargin/InfoLayout" unique_id=960769587]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+text = "Eat / Use"
+
+[node name="DragIcon" type="TextureRect" parent="." unique_id=727885895]
+unique_name_in_owner = true
+visible = false
+z_index = 100
+custom_minimum_size = Vector2(44, 44)
+mouse_filter = 2
+
+[connection signal="pressed" from="Panel/Margin/MainVBox/SideBySide/LeftCol/BottomRow/CloseButton" to="." method="_on_close_pressed"]

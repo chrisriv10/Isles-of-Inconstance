@@ -1,0 +1,61 @@
+[gd_scene format=3 uid="uid://drnaiuiaeiklo"]
+
+[ext_resource type="Script" uid="uid://dyolif0vumyej" path="res://scripts/ui/EncyclopediaUI.gd" id="1_encyclopedia"]
+[ext_resource type="Script" uid="uid://dfofl14ilg36g" path="res://scripts/ui/ButtonSound.gd" id="2_btn_sound"]
+
+[sub_resource type="StyleBoxFlat" id="sb_bg"]
+bg_color = Color(0.102, 0.063, 0.031, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.722, 0.525, 0.176, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="EncyclopediaUI" type="CanvasLayer" unique_id=962638344]
+layer = 7
+script = ExtResource("1_encyclopedia")
+
+[node name="Dim" type="ColorRect" parent="." unique_id=1288403624]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="." unique_id=1353124579]
+anchors_preset = -1
+anchor_left = 0.05
+anchor_top = 0.05
+anchor_right = 0.95
+anchor_bottom = 0.95
+theme_override_styles/panel = SubResource("sb_bg")
+
+[node name="VBox" type="VBoxContainer" parent="Panel" unique_id=514787430]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TitleBar" type="HBoxContainer" parent="Panel/VBox" unique_id=323613849]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox/TitleBar" unique_id=1431023726]
+layout_mode = 2
+text = "📖 World Guide"
+
+[node name="CloseButton" type="Button" parent="Panel/VBox/TitleBar" unique_id=1059480780]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+text = "X"
+
+[node name="ButtonSound" type="Node" parent="Panel/VBox/TitleBar/CloseButton" unique_id=900098710]
+script = ExtResource("2_btn_sound")
+
+[node name="TabContainer" type="TabContainer" parent="Panel/VBox" unique_id=1881770740]
+layout_mode = 2
+size_flags_vertical = 3
+
+[connection signal="pressed" from="Panel/VBox/TitleBar/CloseButton" to="." method="_on_close_pressed"]

@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://bg0qkkj2ohx5k"]
+
+[ext_resource type="Texture2D" uid="uid://dk4m8fllpfc4e" path="res://assets/generated/player_walk.png" id="1_becso"]
+[ext_resource type="Texture2D" uid="uid://ctrkhmg1n52yg" path="res://assets/generated/knight_v5_48_frame_0.png" id="2_cwajk"]
+
+[node name="Root" type="Node2D" unique_id=1378231540]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1110475541]
+
+[node name="Bg" type="ColorRect" parent="." unique_id=1080140445]
+z_index = -1
+offset_right = 420.0
+offset_bottom = 280.0
+color = Color(0.15, 0.15, 0.2, 1)
+
+[node name="Farmer" type="Sprite2D" parent="." unique_id=650410492]
+position = Vector2(105, 160)
+scale = Vector2(8, 8)
+texture = ExtResource("1_becso")
+region_enabled = true
+region_rect = Rect2(0, 0, 48, 48)
+
+[node name="Knight" type="Sprite2D" parent="." unique_id=2010849154]
+position = Vector2(315, 160)
+scale = Vector2(8, 8)
+texture = ExtResource("2_cwajk")

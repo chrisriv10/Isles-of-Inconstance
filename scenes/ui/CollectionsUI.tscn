@@ -1,0 +1,140 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/CollectionsUI.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="sb_bg"]
+bg_color = Color(0.102, 0.063, 0.031, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.722, 0.525, 0.176, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_detail"]
+bg_color = Color(0.078, 0.047, 0.020, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.545, 0.412, 0.122, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="CollectionsUI" type="CanvasLayer"]
+layer = 7
+script = ExtResource("1")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -260.0
+offset_right = 320.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("sb_bg")
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TitleBar" type="HBoxContainer" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox/TitleBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "📋 Collections"
+
+[node name="ProgressLabel" type="Label" parent="Panel/VBox/TitleBar"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "0 / 0"
+
+[node name="CloseButton" type="Button" parent="Panel/VBox/TitleBar"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+text = "✕"
+
+[node name="SearchInput" type="LineEdit" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Search items..."
+
+[node name="TabRow" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+
+[node name="MainBody" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel/VBox/MainBody"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ItemList" type="VBoxContainer" parent="Panel/VBox/MainBody/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="VSep" type="VSeparator" parent="Panel/VBox/MainBody"]
+layout_mode = 2
+
+[node name="DetailPanel" type="PanelContainer" parent="Panel/VBox/MainBody"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("sb_detail")
+
+[node name="DetailMargin" type="MarginContainer" parent="Panel/VBox/MainBody/DetailPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="DetailVBox" type="VBoxContainer" parent="Panel/VBox/MainBody/DetailPanel/DetailMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DetailIcon" type="TextureRect" parent="Panel/VBox/MainBody/DetailPanel/DetailMargin/DetailVBox"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+stretch_mode = 0
+
+[node name="DetailName" type="Label" parent="Panel/VBox/MainBody/DetailPanel/DetailMargin/DetailVBox"]
+layout_mode = 2
+
+[node name="DetailDescription" type="RichTextLabel" parent="Panel/VBox/MainBody/DetailPanel/DetailMargin/DetailVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+scroll_active = false
+bbcode_enabled = true
+autowrap_mode = 2
+
+[node name="DetailEmptyHint" type="Label" parent="Panel/VBox/MainBody/DetailPanel/DetailMargin/DetailVBox"]
+layout_mode = 2
+text = "Select an item to see details"

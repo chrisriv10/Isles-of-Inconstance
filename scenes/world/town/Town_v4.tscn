@@ -1,0 +1,195 @@
+[gd_scene format=3 uid="uid://uxgff880bbw4"]
+
+[ext_resource type="Texture2D" uid="uid://djbvl0kry6t6j" path="res://assets/generated/unrestored.png" id="1_oquis"]
+[ext_resource type="Texture2D" uid="uid://d1ar4ise8rw4m" path="res://assets/generated/restored.png" id="2_ysbp5"]
+[ext_resource type="Texture2D" uid="uid://8g8j5dfbug1g" path="res://assets/sprites/player.png" id="3_78wdu"]
+[ext_resource type="Texture2D" uid="uid://b3dk5d2520nts" path="res://assets/generated/bank_v4_large_frame_0.png" id="4_cthwj"]
+[ext_resource type="Texture2D" uid="uid://b7oo08nc1umf5" path="res://assets/generated/building_cottage_fachwerk_2_frame_0.png" id="5_4guah"]
+[ext_resource type="Texture2D" uid="uid://uyk7cg72rvkr" path="res://assets/generated/bakery.png" id="6_hvd1j"]
+[ext_resource type="Texture2D" uid="uid://dnq1upu4s01lc" path="res://assets/generated/tavern.png" id="7_4ld46"]
+[ext_resource type="Texture2D" uid="uid://c3dqkdm4fi7tb" path="res://assets/generated/library_96_frame_0.png" id="8_d0jot"]
+[ext_resource type="Texture2D" uid="uid://ca77t0uqsv82m" path="res://assets/generated/blacksmith.png" id="9_2aw3x"]
+[ext_resource type="Texture2D" uid="uid://dpfckuvent62x" path="res://assets/generated/building_town_well_fachwerk_4_frame_0.png" id="10_qoenm"]
+[ext_resource type="Texture2D" uid="uid://d1am25wmep5fy" path="res://assets/generated/building_general_store_fachwerk_v3_frame_0.png" id="11_1gxn0"]
+[ext_resource type="Texture2D" uid="uid://cvhxmo63fwb8r" path="res://assets/generated/building_stable_european_v2_frame_0.png" id="12_7knk6"]
+[ext_resource type="Texture2D" uid="uid://cj1ks3x3hrknl" path="res://assets/generated/restaurant.png" id="13_mndo4"]
+[ext_resource type="Texture2D" uid="uid://d2x5r0u4v0t86" path="res://assets/generated/store.png" id="14_gykl0"]
+[ext_resource type="Texture2D" uid="uid://cec6wm7b2niuc" path="res://assets/generated/stall1.png" id="15_4a3e8"]
+[ext_resource type="Texture2D" uid="uid://c6111kssqd7n5" path="res://assets/generated/stall2.png" id="16_ho1gd"]
+[ext_resource type="Texture2D" uid="uid://b8wmdl8axyvja" path="res://assets/generated/building_windmill_frame_0.png" id="17_4jfr8"]
+[ext_resource type="Texture2D" uid="uid://bpkbwf0w16x18" path="res://assets/generated/building_barn_frame_0.png" id="18_4uf2w"]
+[ext_resource type="Texture2D" uid="uid://c1nu5ggajdtht" path="res://assets/generated/building_hotel_frame_0.png" id="19_nqyhh"]
+[ext_resource type="Texture2D" uid="uid://vaeee68rsd8s" path="res://assets/generated/building_fountain_frame_0.png" id="20_73lpa"]
+[ext_resource type="Texture2D" uid="uid://cj7tgildokaxm" path="res://assets/generated/building_statue_frame_0.png" id="21_srken"]
+[ext_resource type="Texture2D" uid="uid://cafh423egvki6" path="res://assets/generated/building_bench_frame_0.png" id="22_wd4vb"]
+[ext_resource type="Texture2D" uid="uid://b67dgyib2ohmv" path="res://assets/generated/building_campfire_frame_0.png" id="23_5ubsp"]
+[ext_resource type="Texture2D" uid="uid://cu4xjoc77dvex" path="res://assets/generated/building_garden_bed_frame_0.png" id="24_rky6q"]
+[ext_resource type="Texture2D" uid="uid://cach2fcglcgus" path="res://assets/generated/building_decorative_lantern_frame_0.png" id="25_nn2b5"]
+[ext_resource type="Texture2D" uid="uid://830urobrr0ji" path="res://assets/generated/building_sign_frame_0.png" id="26_m3a8a"]
+
+[node name="TownLayout" type="Node2D" unique_id=586143037]
+
+[node name="PlazaGround" type="Sprite2D" parent="." unique_id=2118717802]
+position = Vector2(119, 166)
+scale = Vector2(0.7222, 0.7439)
+texture = ExtResource("1_oquis")
+
+[node name="RestoredPlaza" type="Sprite2D" parent="." unique_id=23749786]
+visible = false
+position = Vector2(104, 168)
+scale = Vector2(0.1992, 0.1992)
+texture = ExtResource("2_ysbp5")
+
+[node name="PlayerRef" type="Sprite2D" parent="." unique_id=293955344]
+modulate = Color(0, 1, 1, 1)
+position = Vector2(33, 170)
+texture = ExtResource("3_78wdu")
+
+[node name="Buildings" type="Node2D" parent="." unique_id=477569543]
+
+[node name="Bank" type="Sprite2D" parent="Buildings" unique_id=227313647]
+position = Vector2(-54, 62)
+scale = Vector2(0.28, 0.28)
+texture = ExtResource("4_cthwj")
+
+[node name="Cottage1" type="Sprite2D" parent="Buildings" unique_id=382388974]
+position = Vector2(119, 62)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("5_4guah")
+
+[node name="Cottage2" type="Sprite2D" parent="Buildings" unique_id=2070339902]
+position = Vector2(292, 62)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("5_4guah")
+
+[node name="Bakery" type="Sprite2D" parent="Buildings" unique_id=778016427]
+position = Vector2(-54, 136)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("6_hvd1j")
+
+[node name="Tavern" type="Sprite2D" parent="Buildings" unique_id=198009760]
+position = Vector2(119, 136)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("7_4ld46")
+
+[node name="Library" type="Sprite2D" parent="Buildings" unique_id=1945469529]
+position = Vector2(292, 136)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("8_d0jot")
+
+[node name="Blacksmith" type="Sprite2D" parent="Buildings" unique_id=1762627379]
+position = Vector2(-54, 210)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("9_2aw3x")
+
+[node name="Well" type="Sprite2D" parent="Buildings" unique_id=262282407]
+position = Vector2(119, 210)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("10_qoenm")
+
+[node name="Workshop" type="Sprite2D" parent="Buildings" unique_id=826561826]
+position = Vector2(292, 210)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("11_1gxn0")
+
+[node name="Stable" type="Sprite2D" parent="Buildings" unique_id=634830796]
+position = Vector2(-54, 284)
+scale = Vector2(0.83, 0.83)
+texture = ExtResource("12_7knk6")
+
+[node name="Restaurant" type="Sprite2D" parent="Buildings" unique_id=1408073006]
+position = Vector2(119, 284)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("13_mndo4")
+
+[node name="GeneralStore" type="Sprite2D" parent="Buildings" unique_id=1727158297]
+position = Vector2(292, 284)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("14_gykl0")
+
+[node name="MarketStall1" type="Sprite2D" parent="Buildings" unique_id=328035569]
+texture_filter = 1
+position = Vector2(-86, 170)
+scale = Vector2(0.05, 0.05)
+texture = ExtResource("15_4a3e8")
+
+[node name="MarketStall2" type="Sprite2D" parent="Buildings" unique_id=1942299078]
+texture_filter = 1
+position = Vector2(324, 170)
+scale = Vector2(0.05, 0.05)
+texture = ExtResource("16_ho1gd")
+
+[node name="Windmill" type="Sprite2D" parent="Buildings" unique_id=198769416]
+position = Vector2(-86, 62)
+scale = Vector2(0.55, 0.55)
+texture = ExtResource("17_4jfr8")
+
+[node name="Barn" type="Sprite2D" parent="Buildings" unique_id=1220523236]
+position = Vector2(320, 284)
+scale = Vector2(0.83, 0.83)
+texture = ExtResource("18_4uf2w")
+
+[node name="Hotel" type="Sprite2D" parent="Buildings" unique_id=1607001205]
+position = Vector2(320, 136)
+scale = Vector2(0.4, 0.4)
+texture = ExtResource("19_nqyhh")
+
+[node name="Fountain" type="Sprite2D" parent="Buildings" unique_id=505343071]
+position = Vector2(33, 170)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("20_73lpa")
+
+[node name="Statue" type="Sprite2D" parent="Buildings" unique_id=1581633197]
+position = Vector2(205, 170)
+scale = Vector2(0.35, 0.35)
+texture = ExtResource("21_srken")
+
+[node name="Bench1" type="Sprite2D" parent="Buildings" unique_id=113805724]
+position = Vector2(33, 99)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("22_wd4vb")
+
+[node name="Bench2" type="Sprite2D" parent="Buildings" unique_id=1701555956]
+position = Vector2(205, 99)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("22_wd4vb")
+
+[node name="Bench3" type="Sprite2D" parent="Buildings" unique_id=1910408155]
+position = Vector2(33, 243)
+scale = Vector2(0.8, 0.8)
+texture = ExtResource("22_wd4vb")
+
+[node name="Campfire" type="Sprite2D" parent="Buildings" unique_id=970418628]
+position = Vector2(205, 243)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("23_5ubsp")
+
+[node name="GardenBed" type="Sprite2D" parent="Buildings" unique_id=891023555]
+position = Vector2(-86, 243)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("24_rky6q")
+
+[node name="Lantern1" type="Sprite2D" parent="Buildings" unique_id=2034106711]
+position = Vector2(-90, 30)
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("25_nn2b5")
+
+[node name="Lantern2" type="Sprite2D" parent="Buildings" unique_id=1533885810]
+position = Vector2(328, 30)
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("25_nn2b5")
+
+[node name="Lantern3" type="Sprite2D" parent="Buildings" unique_id=1075518750]
+position = Vector2(-90, 305)
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("25_nn2b5")
+
+[node name="Lantern4" type="Sprite2D" parent="Buildings" unique_id=1578077721]
+position = Vector2(328, 305)
+scale = Vector2(0.6, 0.6)
+texture = ExtResource("25_nn2b5")
+
+[node name="Sign" type="Sprite2D" parent="Buildings" unique_id=50750719]
+position = Vector2(119, 28)
+scale = Vector2(0.7, 0.7)
+texture = ExtResource("26_m3a8a")

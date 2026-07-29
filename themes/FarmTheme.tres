@@ -1,0 +1,190 @@
+[gd_resource type="Theme" format=3 uid="uid://dxhl4wtkfxt8x"]
+
+[ext_resource type="Texture2D" uid="uid://b22mv3pec3wgq" path="res://assets/generated/wood_planks.png" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="sb_button_disabled"]
+bg_color = Color(0.239, 0.18, 0.102, 0.5)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.361, 0.29, 0.188, 0.4)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_button_hover"]
+bg_color = Color(0.478, 0.333, 0.188, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.722, 0.525, 0.176, 0.8)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_button_normal"]
+bg_color = Color(0.361, 0.239, 0.118, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.545, 0.412, 0.122, 0.6)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_button_pressed"]
+bg_color = Color(0.29, 0.18, 0.078, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.545, 0.412, 0.122, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_scrollbar_grab"]
+bg_color = Color(0.545, 0.412, 0.122, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.361, 0.29, 0.188, 0.6)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="sb_scrollbar_bg"]
+bg_color = Color(0.165, 0.094, 0.031, 0.3)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="sb_lineedit_focus"]
+bg_color = Color(0.361, 0.239, 0.118, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.722, 0.525, 0.176, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_lineedit"]
+bg_color = Color(0.29, 0.18, 0.078, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.545, 0.412, 0.122, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxTexture" id="sb_panel"]
+texture = ExtResource("1")
+texture_margin_left = 8.0
+texture_margin_top = 8.0
+texture_margin_right = 8.0
+texture_margin_bottom = 8.0
+expand_margin_left = 3.0
+expand_margin_top = 3.0
+expand_margin_right = 3.0
+expand_margin_bottom = 3.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+region_rect = Rect2(0, 0, 32, 32)
+modulate_color = Color(0.4, 0.25, 0.1, 1)
+
+[sub_resource type="StyleBoxFlat" id="sb_tab_selected"]
+bg_color = Color(0.545, 0.412, 0.122, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_color = Color(0.361, 0.239, 0.118, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+
+[sub_resource type="StyleBoxFlat" id="sb_tab_unselected"]
+bg_color = Color(0.29, 0.18, 0.078, 0.7)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_color = Color(0.361, 0.239, 0.118, 0.5)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+
+[resource]
+default_font_size = 12
+Button/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+Button/colors/font_disabled_color = Color(0.6, 0.55, 0.45, 0.6)
+Button/colors/font_hover_color = Color(1, 0.95, 0.85, 1)
+Button/colors/font_pressed_color = Color(0.85, 0.78, 0.6, 1)
+Button/font_sizes/font_size = 13
+Button/styles/disabled = SubResource("sb_button_disabled")
+Button/styles/hover = SubResource("sb_button_hover")
+Button/styles/normal = SubResource("sb_button_normal")
+Button/styles/pressed = SubResource("sb_button_pressed")
+CheckBox/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+CheckBox/colors/font_hover_color = Color(1, 0.95, 0.85, 1)
+CheckBox/colors/font_pressed_color = Color(0.85, 0.78, 0.6, 1)
+CheckBox/font_sizes/font_size = 12
+ColorRect/colors/bg = Color(0.15, 0.1, 0.03, 0.55)
+HScrollBar/styles/grab = SubResource("sb_scrollbar_grab")
+HScrollBar/styles/grab_highlight = SubResource("sb_scrollbar_grab")
+HScrollBar/styles/track = SubResource("sb_scrollbar_bg")
+HSeparator/colors/color = Color(0.361, 0.239, 0.118, 0.7)
+Label/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+Label/font_sizes/font_size = 12
+LineEdit/colors/cursor_color = Color(0.96, 0.9, 0.75, 0.9)
+LineEdit/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+LineEdit/font_sizes/font_size = 12
+LineEdit/styles/focus = SubResource("sb_lineedit_focus")
+LineEdit/styles/normal = SubResource("sb_lineedit")
+OptionButton/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+OptionButton/colors/font_hover_color = Color(1, 0.95, 0.85, 1)
+OptionButton/colors/font_pressed_color = Color(0.85, 0.78, 0.6, 1)
+OptionButton/font_sizes/font_size = 11
+OptionButton/styles/hover = SubResource("sb_button_hover")
+OptionButton/styles/normal = SubResource("sb_button_normal")
+OptionButton/styles/pressed = SubResource("sb_button_pressed")
+Panel/styles/panel = SubResource("sb_panel")
+PanelContainer/styles/panel = SubResource("sb_panel")
+ProgressBar/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+ProgressBar/colors/font_shadow_color = Color(0, 0, 0, 0.3)
+ProgressBar/font_sizes/font_size = 9
+ProgressBar/styles/background = SubResource("sb_scrollbar_bg")
+ProgressBar/styles/fill = SubResource("sb_scrollbar_grab")
+RichTextLabel/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+RichTextLabel/font_sizes/font_size = 12
+ScrollContainer/constants/deadzone = 0
+ScrollContainer/styles/bg = SubResource("sb_scrollbar_bg")
+TabBar/colors/font_color = Color(0.7, 0.65, 0.55, 0.8)
+TabBar/colors/font_selected_color = Color(1, 0.95, 0.85, 1)
+TabBar/font_sizes/font_size = 11
+TabBar/styles/tab_selected = SubResource("sb_tab_selected")
+TabBar/styles/tab_unselected = SubResource("sb_tab_unselected")
+TabContainer/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+TabContainer/colors/font_selected_color = Color(1, 0.95, 0.85, 1)
+TabContainer/font_sizes/font_size = 11
+TabContainer/styles/panel = SubResource("sb_panel")
+Tree/colors/font_color = Color(0.96, 0.9, 0.75, 1)
+Tree/font_sizes/font_size = 11
+VScrollBar/styles/grab = SubResource("sb_scrollbar_grab")
+VScrollBar/styles/grab_highlight = SubResource("sb_scrollbar_grab")
+VScrollBar/styles/track = SubResource("sb_scrollbar_bg")
+VSeparator/colors/color = Color(0.361, 0.239, 0.118, 0.7)
+Window/colors/title_color = Color(0.96, 0.9, 0.75, 1)
+Window/styles/panel = SubResource("sb_panel")

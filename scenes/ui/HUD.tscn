@@ -1,0 +1,298 @@
+[gd_scene format=3 uid="uid://cj5m1428bklbj"]
+
+[ext_resource type="Script" uid="uid://0h54vtwosq0f" path="res://scripts/ui/HUD.gd" id="1"]
+[ext_resource type="Script" uid="uid://cl4ysjalxgnn0" path="res://scripts/ui/Hotbar.gd" id="2"]
+[ext_resource type="Script" uid="uid://63j2qcixcxoi" path="res://scripts/ui/ToastNotification.gd" id="3"]
+
+[node name="HUD" type="CanvasLayer" unique_id=823216769]
+script = ExtResource("1")
+
+[node name="Root" type="Control" parent="." unique_id=42781613]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBar" type="PanelContainer" parent="Root" unique_id=2122551345]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 48.0
+grow_horizontal = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Root/TopBar" unique_id=193603416]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="DayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=1079792791]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Day 1"
+
+[node name="TimeLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=987869379]
+unique_name_in_owner = true
+layout_mode = 2
+text = "06:00"
+
+[node name="MoneyLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=839684048]
+unique_name_in_owner = true
+layout_mode = 2
+text = "$500"
+
+[node name="ToolLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=1375047212]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Tool: Hoe"
+
+[node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=901312833]
+layout_mode = 2
+text = "[C] Craft   [I] Inventory"
+
+[node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=2035179578]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Seed: 0"
+
+[node name="PetIndicator" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=260535522]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.8, 0.5, 0.9)
+
+[node name="MenuButton" type="Button" parent="Root/TopBar/HBoxContainer" unique_id=1042358607]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Menu"
+
+[node name="InteractionPrompt" type="PanelContainer" parent="Root" unique_id=2065995361]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -80.0
+offset_top = -104.0
+offset_right = 80.0
+offset_bottom = -84.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Label" type="Label" parent="Root/InteractionPrompt" unique_id=518288779]
+layout_mode = 2
+text = "[E] Interact"
+horizontal_alignment = 1
+
+[node name="StatusBar" type="PanelContainer" parent="Root" unique_id=2122551346]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 52.0
+offset_right = -12.0
+offset_bottom = 72.0
+grow_horizontal = 2
+mouse_filter = 1
+
+[node name="StatusHBox" type="HBoxContainer" parent="Root/StatusBar" unique_id=2122551347]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="HealthLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551348]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.2, 0.2, 1)
+text = "❤️"
+
+[node name="HealthBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551349]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+value = 100.0
+show_percentage = false
+
+[node name="HungerLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551350]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.6, 0.15, 1)
+text = "🍽️"
+
+[node name="HungerBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551351]
+unique_name_in_owner = true
+modulate = Color(1, 0.85, 0.3, 1)
+custom_minimum_size = Vector2(120, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+show_percentage = false
+
+[node name="ArmorLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551352]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.5, 0.9, 1)
+text = "🛡️"
+
+[node name="ArmorBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551353]
+unique_name_in_owner = true
+modulate = Color(0.6, 0.6, 1, 1)
+custom_minimum_size = Vector2(60, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 30.0
+show_percentage = false
+
+[node name="LevelBar" type="PanelContainer" parent="Root" unique_id=2122551355]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 12.0
+offset_top = 76.0
+offset_right = -12.0
+offset_bottom = 92.0
+grow_horizontal = 2
+mouse_filter = 1
+
+[node name="LevelHBox" type="HBoxContainer" parent="Root/LevelBar" unique_id=2122551356]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="LevelLabel" type="Label" parent="Root/LevelBar/LevelHBox" unique_id=2122551357]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.3, 1)
+text = "Lv. 1"
+
+[node name="XPBar" type="ProgressBar" parent="Root/LevelBar/LevelHBox" unique_id=2122551358]
+unique_name_in_owner = true
+modulate = Color(0.6, 0.3, 0.9, 1)
+custom_minimum_size = Vector2(200, 16)
+layout_mode = 2
+size_flags_horizontal = 3
+show_percentage = false
+
+[node name="ObjectiveLabel" type="PanelContainer" parent="Root" unique_id=928622471]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 98.0
+offset_right = 200.0
+offset_bottom = 148.0
+grow_horizontal = 2
+mouse_filter = 1
+
+[node name="VBox" type="VBoxContainer" parent="Root/ObjectiveLabel" unique_id=471836344]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="Label" type="Label" parent="Root/ObjectiveLabel/VBox" unique_id=2122551354]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.95, 0.7, 0.9)
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+
+[node name="CompletedLabel" type="Label" parent="Root/ObjectiveLabel/VBox" unique_id=399270099]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 1, 0.3, 1)
+theme_override_font_sizes/font_size = 12
+text = "✓ Completed!"
+horizontal_alignment = 1
+
+[node name="MutationLabel" type="PanelContainer" parent="Root" unique_id=782277737]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+offset_left = 12.0
+offset_top = 96.0
+offset_right = 200.0
+offset_bottom = 120.0
+
+[node name="Label" type="Label" parent="Root/MutationLabel" unique_id=1575031636]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="MutationToastTimer" type="Timer" parent="Root" unique_id=184229845]
+unique_name_in_owner = true
+wait_time = 3.5
+one_shot = true
+
+[node name="FadeOverlay" type="ColorRect" parent="Root" unique_id=46963938]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="TutorialHint" type="PanelContainer" parent="Root" unique_id=1375349099]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = 180.0
+offset_right = 200.0
+offset_bottom = 204.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="Label" type="Label" parent="Root/TutorialHint" unique_id=1527595559]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="TutorialHintTimer" type="Timer" parent="Root" unique_id=1174864915]
+unique_name_in_owner = true
+wait_time = 5.0
+one_shot = true
+
+[node name="DayNightOverlay" type="ColorRect" parent="Root" unique_id=1987654321]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0.1, 0)
+
+[node name="Hotbar" type="Control" parent="Root" unique_id=1583035416]
+anchors_preset = 0
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -320.0
+offset_top = -80.0
+offset_right = 320.0
+offset_bottom = -16.0
+mouse_filter = 2
+script = ExtResource("2")
+
+[node name="ToastNotification" type="PanelContainer" parent="." unique_id=492598283]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 110.0
+offset_right = -20.0
+offset_bottom = 180.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("3")

@@ -1,0 +1,34 @@
+[gd_scene format=3 uid="uid://bv6wsu77efdjl"]
+
+[ext_resource type="Script" uid="uid://b0omc87rpvl46" path="res://scripts/world/Animal.gd" id="1_uakhx"]
+
+[sub_resource type="RectangleShape2D" id="1_3rfok"]
+size = Vector2(14, 14)
+
+[node name="Animal" type="Area2D" unique_id=40504647]
+collision_layer = 4
+collision_mask = 3
+script = ExtResource("1_uakhx")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=2059335879]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=2075371556]
+shape = SubResource("1_3rfok")
+
+[node name="Label" type="Label" parent="." unique_id=847608817]
+offset_top = -20.0
+offset_bottom = -20.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 7
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="WanderTimer" type="Timer" parent="." unique_id=1139099863]
+wait_time = 3.0
+autostart = true
+
+[connection signal="timeout" from="WanderTimer" to="." method="_on_wander_timer_timeout"]

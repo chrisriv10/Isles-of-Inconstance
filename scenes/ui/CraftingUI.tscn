@@ -1,0 +1,217 @@
+[gd_scene format=3 uid="uid://c1eplu2lb161l"]
+
+[ext_resource type="Script" uid="uid://dfofl14ilg36g" path="res://scripts/ui/ButtonSound.gd" id="1_qo0p8"]
+[ext_resource type="Script" uid="uid://23vxxjjdhjf5" path="res://scripts/ui/CraftingUI.gd" id="2_craft"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.102, 0.063, 0.031, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.722, 0.525, 0.176, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_detail"]
+bg_color = Color(0.078, 0.047, 0.02, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.545, 0.412, 0.122, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
+bg_color = Color(0.29, 0.18, 0.078, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.545, 0.412, 0.122, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="CraftingUI" type="CanvasLayer" unique_id=1224575309]
+layer = 6
+script = ExtResource("2_craft")
+
+[node name="Dim" type="ColorRect" parent="." unique_id=1026276777]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="." unique_id=776466244]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -220.0
+offset_right = 350.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="Margin" type="MarginContainer" parent="Panel" unique_id=2129616391]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="Layout" type="VBoxContainer" parent="Panel/Margin" unique_id=1118081144]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleRow" type="HBoxContainer" parent="Panel/Margin/Layout" unique_id=323458625]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/Layout/TitleRow" unique_id=694494184]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 18
+text = "Crafting  [C]"
+
+[node name="CloseButton" type="Button" parent="Panel/Margin/Layout/TitleRow" unique_id=280929978]
+layout_mode = 2
+text = "X"
+
+[node name="ButtonSound" type="Node" parent="Panel/Margin/Layout/TitleRow/CloseButton" unique_id=663657918]
+script = ExtResource("1_qo0p8")
+
+[node name="MainBody" type="HBoxContainer" parent="Panel/Margin/Layout" unique_id=139261410]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="LeftCol" type="VBoxContainer" parent="Panel/Margin/Layout/MainBody" unique_id=42743683]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="InfoLabel" type="Label" parent="Panel/Margin/Layout/MainBody/LeftCol" unique_id=2098196762]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.5, 0.8)
+theme_override_font_sizes/font_size = 11
+text = "Select a recipe to see details"
+
+[node name="CraftTabBar" type="HBoxContainer" parent="Panel/Margin/Layout/MainBody/LeftCol" unique_id=11112222]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="AlchemyTab" type="Button" parent="Panel/Margin/Layout/MainBody/LeftCol/CraftTabBar" unique_id=11112223]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 13
+text = "⚗ Alchemy"
+
+[node name="TabSep" type="VSeparator" parent="Panel/Margin/Layout/MainBody/LeftCol/CraftTabBar" unique_id=11112224]
+layout_mode = 2
+
+[node name="CraftingTab" type="Button" parent="Panel/Margin/Layout/MainBody/LeftCol/CraftTabBar" unique_id=11112225]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 13
+text = "🔨 Crafting"
+
+[node name="Scroll" type="ScrollContainer" parent="Panel/Margin/Layout/MainBody/LeftCol" unique_id=52617888]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RecipeList" type="VBoxContainer" parent="Panel/Margin/Layout/MainBody/LeftCol/Scroll" unique_id=282015381]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="VSep" type="VSeparator" parent="Panel/Margin/Layout/MainBody" unique_id=176067567]
+layout_mode = 2
+
+[node name="DetailPanel" type="PanelContainer" parent="Panel/Margin/Layout/MainBody" unique_id=67511018]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_detail")
+
+[node name="DetailMargin" type="MarginContainer" parent="Panel/Margin/Layout/MainBody/DetailPanel" unique_id=190765944]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="DetailLayout" type="VBoxContainer" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin" unique_id=1070576174]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PreviewIcon" type="TextureRect" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=1243680522]
+visible = false
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DetailTitle" type="Label" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=936069997]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 15
+text = "Recipe"
+
+[node name="DetailResultLabel" type="Label" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=960742564]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.9, 0.6, 1)
+theme_override_font_sizes/font_size = 12
+text = "Result: —"
+
+[node name="IngredientsHeader" type="Label" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=524614390]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.45, 0.15, 1)
+theme_override_font_sizes/font_size = 10
+text = "— Ingredients —"
+
+[node name="DetailIngredientList" type="VBoxContainer" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=1027739954]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="DetailHint" type="Label" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=215013589]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 0.7)
+theme_override_font_sizes/font_size = 11
+text = "Select a recipe"
+
+[node name="CraftButton" type="Button" parent="Panel/Margin/Layout/MainBody/DetailPanel/DetailMargin/DetailLayout" unique_id=1492245502]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+disabled = true
+text = "Craft"
+
+[connection signal="pressed" from="Panel/Margin/Layout/TitleRow/CloseButton" to="." method="_on_close_pressed"]

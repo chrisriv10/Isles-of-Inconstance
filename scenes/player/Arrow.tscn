@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://b24n7evy0elym"]
+
+[ext_resource type="Script" uid="uid://ql8ove60sm7r" path="res://scripts/player/Arrow.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dx8hutww70o33" path="res://assets/generated/arrow_projectile_frame_0.png" id="2"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_01"]
+radius = 4.0
+
+[node name="Arrow" type="RigidBody2D" unique_id=869943986]
+gravity_scale = 0.0
+contact_monitor = true
+max_contacts_reported = 1
+script = ExtResource("1")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1628461161]
+shape = SubResource("CircleShape2D_01")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=748815814]
+texture = ExtResource("2")

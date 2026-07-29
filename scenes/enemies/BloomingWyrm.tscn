@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dvj5ddatlnw4n"]
+
+[ext_resource type="Script" uid="uid://xrpri08eaj8f" path="res://scripts/world/enemies/BloomingWyrm.gd" id="1_3h8qy"]
+[ext_resource type="Texture2D" uid="uid://ch0hnlr7t35w8" path="res://assets/generated/blooming_wyrm_boss_frame_0.png" id="2_yxxp8"]
+
+[sub_resource type="CircleShape2D" id="1_wd2t9"]
+radius = 15.0
+
+[node name="BloomingWyrm" type="CharacterBody2D" unique_id=803640444]
+script = ExtResource("1_3h8qy")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=650461763]
+scale = Vector2(1.25, 1.25)
+texture = ExtResource("2_yxxp8")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1191532282]
+shape = SubResource("1_wd2t9")

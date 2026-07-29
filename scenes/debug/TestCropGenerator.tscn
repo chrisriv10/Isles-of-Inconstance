@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://caar8lgdh78t5"]
+
+[ext_resource type="Script" path="res://scripts/test_crop_generator.gd" id="1_0"]
+
+[node name="TestCropGenerator" type="Node"]
+script = ExtResource("1_0")

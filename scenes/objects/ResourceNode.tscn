@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://dcxoxovsvmsnp"]
+
+[ext_resource type="Script" uid="uid://be7cj2thqp4e1" path="res://scripts/world/ResourceNode.gd" id="1"]
+[ext_resource type="Texture2D" uid="uid://dyepmhr4nrrda" path="res://assets/sprites/rock.png" id="2"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_1"]
+radius = 7.0
+
+[node name="ResourceNode" type="Area2D" unique_id=2072222397]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1")
+interaction_prompt = "Gather Stone"
+required_tool = 10
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=772922781]
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=548100705]
+shape = SubResource("CircleShape2D_1")

@@ -1,0 +1,310 @@
+[gd_scene format=3 uid="uid://b6ky3xxp25pvl"]
+
+[ext_resource type="Script" uid="uid://d0e81hnknct10" path="res://scripts/ui/MainMenu.gd" id="1"]
+
+[sub_resource type="ButtonGroup" id="bg_mode_group"]
+
+[node name="MainMenu" type="Control" unique_id=2057665313]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="BgBottom" type="ColorRect" parent="." unique_id=1062889907]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+
+[node name="BgGradient" type="ColorRect" parent="." unique_id=639763224]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.06, 0.04, 0.02, 0.45)
+
+[node name="StarField" type="Node2D" parent="." unique_id=776244386]
+
+[node name="TopBorder" type="ColorRect" parent="." unique_id=1197187390]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 3.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.545, 0.412, 0.122, 0.85)
+
+[node name="BottomBorder" type="ColorRect" parent="." unique_id=1526920220]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -3.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.545, 0.412, 0.122, 0.85)
+
+[node name="LeftBorder" type="ColorRect" parent="." unique_id=276746676]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 3.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.545, 0.412, 0.122, 0.85)
+
+[node name="RightBorder" type="ColorRect" parent="." unique_id=348687416]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -3.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(0.545, 0.412, 0.122, 0.85)
+
+[node name="CornerTL" type="ColorRect" parent="." unique_id=1679391211]
+layout_mode = 0
+offset_left = 3.0
+offset_top = 3.0
+offset_right = 23.0
+offset_bottom = 23.0
+mouse_filter = 2
+color = Color(0.722, 0.525, 0.176, 0.7)
+
+[node name="CornerTR" type="ColorRect" parent="." unique_id=861851274]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -23.0
+offset_top = 3.0
+offset_right = -3.0
+offset_bottom = 23.0
+mouse_filter = 2
+color = Color(0.722, 0.525, 0.176, 0.7)
+
+[node name="CornerBL" type="ColorRect" parent="." unique_id=1154321780]
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 3.0
+offset_top = -23.0
+offset_right = 23.0
+offset_bottom = -3.0
+mouse_filter = 2
+color = Color(0.722, 0.525, 0.176, 0.7)
+
+[node name="CornerBR" type="ColorRect" parent="." unique_id=1363637083]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -23.0
+offset_top = -23.0
+offset_right = -3.0
+offset_bottom = -3.0
+mouse_filter = 2
+color = Color(0.722, 0.525, 0.176, 0.7)
+
+[node name="TitleBorder" type="ColorRect" parent="." unique_id=918819403]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -225.0
+offset_top = 30.0
+offset_right = 225.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(0.545, 0.412, 0.122, 0.6)
+
+[node name="TitlePanel" type="PanelContainer" parent="." unique_id=918819404]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -220.0
+offset_top = 35.0
+offset_right = 220.0
+offset_bottom = 175.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 1
+
+[node name="TitleVBox" type="VBoxContainer" parent="TitlePanel" unique_id=259219636]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="TitleLabel" type="Label" parent="TitlePanel/TitleVBox" unique_id=199540883]
+layout_mode = 2
+text = "Isles of Inconstance"
+
+[node name="Divider" type="ColorRect" parent="TitlePanel/TitleVBox" unique_id=351898507]
+custom_minimum_size = Vector2(300, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.45, 0.28, 0.08, 0.75)
+
+[node name="Subtitle" type="Label" parent="TitlePanel/TitleVBox" unique_id=705187415]
+layout_mode = 2
+text = "A Procedural Farming Adventure"
+
+[node name="ContentCenter" type="Control" parent="." unique_id=792215902]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -40.0
+offset_right = 200.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="ButtonContainer" type="VBoxContainer" parent="ContentCenter" unique_id=2128127145]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="NameBox" type="HBoxContainer" parent="ContentCenter/ButtonContainer" unique_id=1535465462]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="NameLabel" type="Label" parent="ContentCenter/ButtonContainer/NameBox" unique_id=1174629469]
+layout_mode = 2
+text = "Name:"
+
+[node name="NameInput" type="LineEdit" parent="ContentCenter/ButtonContainer/NameBox" unique_id=232538414]
+custom_minimum_size = Vector2(100, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Farmer"
+placeholder_text = "Enter your name..."
+
+[node name="NewGameButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=324046670]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "New Game"
+
+[node name="ContinueButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=1451628519]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Continue"
+
+[node name="SeedBox" type="HBoxContainer" parent="ContentCenter/ButtonContainer" unique_id=1007092278]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="SeedLabel" type="Label" parent="ContentCenter/ButtonContainer/SeedBox" unique_id=346836632]
+layout_mode = 2
+text = "Seed:"
+
+[node name="SeedInput" type="LineEdit" parent="ContentCenter/ButtonContainer/SeedBox" unique_id=562349178]
+custom_minimum_size = Vector2(100, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0"
+placeholder_text = "Enter world seed..."
+
+[node name="RandomSeedButton" type="Button" parent="ContentCenter/ButtonContainer/SeedBox" unique_id=164837700]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+text = "Random"
+
+[node name="ModeBox" type="HBoxContainer" parent="ContentCenter/ButtonContainer" unique_id=200000000]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="ModeLabel" type="Label" parent="ContentCenter/ButtonContainer/ModeBox" unique_id=200000001]
+layout_mode = 2
+text = "Game Mode:"
+
+[node name="ModeButtons" type="HBoxContainer" parent="ContentCenter/ButtonContainer/ModeBox" unique_id=355348499]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="PeacefulBtn" type="Button" parent="ContentCenter/ButtonContainer/ModeBox/ModeButtons" unique_id=1844555350]
+custom_minimum_size = Vector2(72, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_group = SubResource("bg_mode_group")
+text = "Peaceful"
+
+[node name="SurvivalBtn" type="Button" parent="ContentCenter/ButtonContainer/ModeBox/ModeButtons" unique_id=667376984]
+custom_minimum_size = Vector2(72, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("bg_mode_group")
+text = "Survival"
+
+[node name="CreativeBtn" type="Button" parent="ContentCenter/ButtonContainer/ModeBox/ModeButtons" unique_id=150175154]
+custom_minimum_size = Vector2(72, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_group = SubResource("bg_mode_group")
+text = "Creative"
+
+[node name="HardcoreBtn" type="Button" parent="ContentCenter/ButtonContainer/ModeBox/ModeButtons" unique_id=876377445]
+custom_minimum_size = Vector2(72, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_group = SubResource("bg_mode_group")
+text = "Hardcore"
+
+[node name="QuitButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=962544815]
+custom_minimum_size = Vector2(220, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Quit"
+
+[node name="VersionLabel" type="Label" parent="." unique_id=537211634]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -62.0
+offset_top = -23.0
+offset_right = 78.0
+offset_bottom = -1.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "v0.1.0"

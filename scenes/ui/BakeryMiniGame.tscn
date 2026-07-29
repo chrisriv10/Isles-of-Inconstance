@@ -1,0 +1,112 @@
+[gd_scene format=3 uid="uid://db0lfqojc8ydv"]
+
+[ext_resource type="Script" uid="uid://deehjd8nl5jk8" path="res://scripts/world/town/BakeryMiniGame.gd" id="1_3aue7"]
+
+[node name="BakeryMiniGame" type="Control" unique_id=1930041614]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 200.0
+offset_top = 250.0
+offset_right = 600.0
+offset_bottom = 450.0
+mouse_filter = 2
+script = ExtResource("1_3aue7")
+
+[node name="Bar" type="ColorRect" parent="." unique_id=1560897136]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 50.0
+offset_top = 40.0
+offset_right = 350.0
+offset_bottom = 60.0
+mouse_filter = 2
+color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="Marker" type="ColorRect" parent="." unique_id=23123151]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 146.0
+offset_top = 36.0
+offset_right = 154.0
+offset_bottom = 64.0
+mouse_filter = 2
+
+[node name="Zone" type="ColorRect" parent="." unique_id=1469981207]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 40.0
+offset_right = 150.0
+offset_bottom = 60.0
+mouse_filter = 2
+color = Color(0.2, 0.8, 0.2, 0.25)
+
+[node name="SilverZone" type="ColorRect" parent="." unique_id=1712986132]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 40.0
+offset_right = 150.0
+offset_bottom = 60.0
+mouse_filter = 2
+color = Color(0.3, 0.6, 1, 0.4)
+
+[node name="GoldZone" type="ColorRect" parent="." unique_id=687438422]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 40.0
+offset_right = 150.0
+offset_bottom = 60.0
+mouse_filter = 2
+color = Color(1, 0.85, 0.2, 0.45)
+
+[node name="IridiumZone" type="ColorRect" parent="." unique_id=883678014]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 100.0
+offset_top = 40.0
+offset_right = 150.0
+offset_bottom = 60.0
+mouse_filter = 2
+color = Color(0.5, 1, 0.8, 0.5)
+
+[node name="InstructionLabel" type="Label" parent="." unique_id=1269136473]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 50.0
+offset_top = 8.0
+offset_right = 350.0
+offset_bottom = 32.0
+theme_override_font_sizes/font_size = 12
+text = "Press [SPACE / E] to bake! Hit the green zone."
+horizontal_alignment = 1
+
+[node name="ResultLabel" type="Label" parent="." unique_id=1759845066]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 50.0
+offset_top = 70.0
+offset_right = 350.0
+offset_bottom = 96.0
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+
+[node name="TimerLabel" type="Label" parent="." unique_id=1119858660]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 50.0
+offset_top = 100.0
+offset_right = 350.0
+offset_bottom = 120.0
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="." unique_id=2004327928]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 150.0
+offset_top = 130.0
+offset_right = 250.0
+offset_bottom = 160.0
+text = "Close"

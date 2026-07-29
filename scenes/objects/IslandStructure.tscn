@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://d1e0yyfovhgmy"]
+
+[ext_resource type="Script" uid="uid://bhk7g54ctfw12" path="res://scripts/world/IslandStructure.gd" id="1_5v1eb"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(32, 32)
+
+[sub_resource type="RectangleShape2D" id="2"]
+size = Vector2(48, 48)
+
+[node name="IslandStructure" type="Area2D" unique_id=1109062447]
+collision_layer = 4
+collision_mask = 0
+script = ExtResource("1_5v1eb")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1620157209]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1543071301]
+shape = SubResource("1")
+
+[node name="InteractionArea" type="Area2D" parent="." unique_id=1373301711]
+collision_layer = 0
+collision_mask = 2
+
+[node name="InteractionCollision" type="CollisionShape2D" parent="InteractionArea" unique_id=1330244145]
+shape = SubResource("1")
+
+[node name="Blocker" type="StaticBody2D" parent="." unique_id=1234567890]
+collision_layer = 8
+collision_mask = 0
+
+[node name="BlockerShape" type="CollisionShape2D" parent="Blocker" unique_id=1234567891]
+shape = SubResource("2")

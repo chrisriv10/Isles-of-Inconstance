@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://b03ga6feff5ve"]
+
+[ext_resource type="Script" uid="uid://bcpl1kbq5e68c" path="res://scripts/Pet.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(22, 22)
+
+[node name="Pet" type="CharacterBody2D" unique_id=891410436]
+collision_layer = 0
+script = ExtResource("1")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1327433469]
+scale = Vector2(0.5, 0.5)
+
+[node name="Label" type="Label" parent="." unique_id=456122904]
+offset_top = -12.0
+offset_bottom = -12.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_outline_size = 1
+theme_override_font_sizes/font_size = 7
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1107836712]
+shape = SubResource("RectangleShape2D_1")

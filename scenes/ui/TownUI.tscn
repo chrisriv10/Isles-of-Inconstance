@@ -1,0 +1,194 @@
+[gd_scene format=3 uid="uid://c8j87my3cfvk7"]
+
+[ext_resource type="Script" uid="uid://ccutt5j5lkb4v" path="res://scripts/ui/TownUI.gd" id="1_af0o6"]
+
+[sub_resource type="StyleBoxFlat" id="1"]
+bg_color = Color(0.08, 0.08, 0.12, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.35, 0.3, 0.2, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[node name="TownUI" type="CanvasLayer" unique_id=732249491]
+visible = false
+layer = 5
+script = ExtResource("1_af0o6")
+
+[node name="MainPanel" type="Control" parent="." unique_id=291834928]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="MainPanel" unique_id=914824624]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="MainPanel" unique_id=160636006]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -225.0
+offset_right = 250.0
+offset_bottom = 225.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("1")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MainPanel/Panel" unique_id=2094375482]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TitleLabel" type="Label" parent="MainPanel/Panel/VBoxContainer" unique_id=1807739187]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Town Overview"
+
+[node name="TownLevelLabel" type="Label" parent="MainPanel/Panel/VBoxContainer" unique_id=1172527773]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Level: Clearing"
+
+[node name="ReputationLabel" type="Label" parent="MainPanel/Panel/VBoxContainer" unique_id=1489761973]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Reputation: 0"
+
+[node name="HSeparator" type="HSeparator" parent="MainPanel/Panel/VBoxContainer" unique_id=472934930]
+layout_mode = 2
+
+[node name="ProgressScroll" type="ScrollContainer" parent="MainPanel/Panel/VBoxContainer" unique_id=1860589357]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ProgressContainer" type="VBoxContainer" parent="MainPanel/Panel/VBoxContainer/ProgressScroll" unique_id=1413751766]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HSeparator2" type="HSeparator" parent="MainPanel/Panel/VBoxContainer" unique_id=1927312619]
+layout_mode = 2
+
+[node name="ResidentsLabel" type="Label" parent="MainPanel/Panel/VBoxContainer" unique_id=435134733]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Residents (0)"
+
+[node name="ResidentsScroll" type="ScrollContainer" parent="MainPanel/Panel/VBoxContainer" unique_id=153794138]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_vertical = 2
+
+[node name="ResidentsContainer" type="VBoxContainer" parent="MainPanel/Panel/VBoxContainer/ResidentsScroll" unique_id=1978302922]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RecruitSection" type="VBoxContainer" parent="MainPanel/Panel/VBoxContainer" unique_id=287650914]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HSeparatorRecruit" type="HSeparator" parent="MainPanel/Panel/VBoxContainer/RecruitSection"]
+layout_mode = 2
+
+[node name="RecruitHeader" type="Label" parent="MainPanel/Panel/VBoxContainer/RecruitSection" unique_id=1405317549]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.7, 0.25, 1)
+theme_override_font_sizes/font_size = 13
+text = "Recruitment"
+
+[node name="RecruitTips" type="Label" parent="MainPanel/Panel/VBoxContainer/RecruitSection" unique_id=429886015]
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+theme_override_colors/font_color = Color(0.7, 0.7, 0.75, 1)
+text = "Restore ruined buildings to make homes. Talk to visitors (press E near them) or visit the Town Hall recruitment desk to invite them to stay!"
+
+[node name="RecruitVacancyLabel" type="Label" parent="MainPanel/Panel/VBoxContainer/RecruitSection" unique_id=793630140]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "Vacancies: 0"
+
+[node name="RecruitVisitorLabel" type="Label" parent="MainPanel/Panel/VBoxContainer/RecruitSection" unique_id=1126695547]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = ""
+
+[node name="NoTownLabel" type="Label" parent="MainPanel/Panel/VBoxContainer" unique_id=1284265827]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "No town found."
+
+[node name="TributeSection" type="VBoxContainer" parent="MainPanel/Panel/VBoxContainer" unique_id=369154875]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HSeparator3" type="HSeparator" parent="MainPanel/Panel/VBoxContainer/TributeSection" unique_id=1764523562]
+layout_mode = 2
+
+[node name="TributeHeader" type="Label" parent="MainPanel/Panel/VBoxContainer/TributeSection" unique_id=1383889799]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 14
+text = "Town Restored!"
+
+[node name="TributeDesc" type="Label" parent="MainPanel/Panel/VBoxContainer/TributeSection" unique_id=613399733]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Your grateful townsfolk offer a daily tribute."
+
+[node name="TributeAmountLabel" type="Label" parent="MainPanel/Panel/VBoxContainer/TributeSection" unique_id=561437984]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.9, 0.6, 1)
+theme_override_font_sizes/font_size = 12
+text = "Today's tribute: 0 money"
+
+[node name="CollectTributeButton" type="Button" parent="MainPanel/Panel/VBoxContainer/TributeSection" unique_id=1365305217]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Collect Daily Tribute"
+
+[node name="TributeStatusLabel" type="Label" parent="MainPanel/Panel/VBoxContainer/TributeSection" unique_id=1048275196]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.7, 0.35, 1)
+theme_override_font_sizes/font_size = 10
+text = "Available!"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MainPanel/Panel/VBoxContainer" unique_id=1730632975]
+layout_mode = 2
+alignment = 1
+
+[node name="CloseButton" type="Button" parent="MainPanel/Panel/VBoxContainer/HBoxContainer" unique_id=1406601268]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
