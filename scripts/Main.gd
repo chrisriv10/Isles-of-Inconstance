@@ -25,6 +25,10 @@ var _prev_r_pressed: bool = false
 # Maps peer_id → Player node (both local and remote players).
 var _remote_players: Dictionary = {}
 
+# World sync state
+var _world_generated: bool = false
+var _pending_seed_peers: Array[int] = []
+
 func _ready() -> void:
 	# Create weather visual effects overlay (rain, lightning, fog)
 	weather_fx = WeatherFXManager.new()
@@ -426,12 +430,51 @@ func _register_me_to_remote(peer_id: int) -> void:
 		return
 	# Ensure the remote player exists locally
 	_instantiate_remote_player(peer_id)
+
+	# Send world seed BEFORE player info so the client generates the
+	# world first (remote player nodes need a valid world parent).
+	if _world_generated:
+		rpc_id(peer_id, "_receive_world_seed", world.world_seed)
+	else:
+		_pending_seed_peers.append(peer_id)
+
 	# Broadcast the new peer to all clients
 	rpc("_add_remote_player", peer_id)
 	# Tell the new peer about every other existing peer
 	for pid in _remote_players:
 		if pid != peer_id:
 			rpc_id(peer_id, "_add_remote_player", pid)
+
+
+## Called by the host's Bootstrap after world generation to notify Main.
+func notify_world_generated(seed: int) -> void:
+	if not NetworkManager.is_network_active():
+		return
+	_world_generated = true
+	# Send seed to any peers that connected before the world was ready
+	for pid in _pending_seed_peers:
+		rpc_id(pid, "_receive_world_seed", seed)
+	_pending_seed_peers.clear()
+
+
+## Sent by the host to a client with the world seed so the client can
+## generate an identical world locally.
+@rpc("authority", "reliable")
+func _receive_world_seed(seed: int) -> void:
+	if world and world.has_method("generate_world_with_seed"):
+		player.set_process(false)
+		player.set_physics_process(false)
+		world.generate_world_with_seed(seed)
+		player.set_process(true)
+		player.set_physics_process(true)
+		_position_player_at_spawn()
+		# Reposition any remote players to the default spawn
+		var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
+		var spawn_pos: Vector2 = world.cell_to_world(spawn_cell) if world.has_method("cell_to_world") else Vector2.ZERO
+		for pid in _remote_players:
+			var p = _remote_players[pid]
+			if p != player:
+				p.global_position = spawn_pos
 
 
 ## Creates a remote player node on all clients for the given peer.

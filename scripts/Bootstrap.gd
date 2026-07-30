@@ -316,6 +316,10 @@ func _start_new_game(p_seed: int) -> void:
 		world.world_seed = p_seed
 		world.generate_world()
 		
+		# Notify Main that the world is ready (sends seed to any pending clients)
+		if game.has_method("notify_world_generated"):
+			game.notify_world_generated(p_seed)
+		
 		if hud and hud.has_method("set_seed_display"):
 			hud.set_seed_display(p_seed)
 		
