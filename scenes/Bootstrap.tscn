@@ -15,8 +15,6 @@ layer = 10
 
 [node name="SaveSelectUI" parent="CanvasLayer" unique_id=290556104 instance=ExtResource("5")]
 visible = false
-grow_horizontal = 2
-grow_vertical = 2
 
 [node name="Game" parent="." unique_id=1640694204 instance=ExtResource("3")]
 process_mode = 2

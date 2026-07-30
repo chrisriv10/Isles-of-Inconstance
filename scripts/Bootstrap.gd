@@ -13,6 +13,7 @@ var _pending_new_game_seed: int = 0
 
 func _ready() -> void:
 	print("Bootstrap._ready() running")
+	_setup_emoji_font_fallback()
 	# CRITICAL: CanvasLayer children render independently of parent Node2D
 	# visibility. Even with game.visible = false, HUD/Shop/Inventory/etc.
 	# CanvasLayers still render on top of the main menu. Hide them explicitly.
@@ -26,6 +27,22 @@ func _ready() -> void:
 	# visible behind MainMenu AND SaveSelectUI regardless of menu states.
 	call_deferred("_place_persistent_background")
 	call_deferred("_connect_signals")
+
+
+func _setup_emoji_font_fallback() -> void:
+	# FarmTheme.tres intentionally has no default_font set — this wires
+	# NotoColorEmoji in as a FALLBACK (for glyphs the built-in font can't
+	# render, e.g. emoji), while keeping the engine's default font as primary.
+	var project_theme: Theme = ThemeDB.get_project_theme()
+	if not project_theme:
+		return
+	var emoji_font: Font = load("res://fonts/NotoColorEmoji.ttf")
+	if not emoji_font:
+		push_warning("NotoColorEmoji.ttf not found — skipping emoji fallback setup.")
+		return
+	var base_font: Font = ThemeDB.fallback_font.duplicate()
+	base_font.fallbacks = [emoji_font]
+	project_theme.default_font = base_font
 
 
 func _place_persistent_background() -> void:
