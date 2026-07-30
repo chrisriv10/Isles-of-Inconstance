@@ -3783,3 +3783,29 @@ func get_biome_generator():
 
 func get_enemy_spawner():
 	return enemy_spawner
+
+
+# ── Multiplayer ────────────────────────────────────────────────────────
+
+## Called by an interactable object before it removes itself (e.g. tree
+## chopped, rock mined). Broadcasts the cell to all clients so they can
+## remove the matching node on their end.
+func notify_cell_object_removed(world_pos: Vector2) -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if not multiplayer.is_server():
+		return
+	var cell := world_to_cell(world_pos)
+	rpc("_sync_remove_cell_object", cell)
+
+
+## Received by clients to remove a world object at the given cell.
+@rpc("authority", "call_local")
+func _sync_remove_cell_object(cell: Vector2i) -> void:
+	# Find and remove any node at this cell position on the objects layer
+	for child in objects_root.get_children():
+		if child is Node2D and is_instance_valid(child):
+			var child_cell := world_to_cell(child.global_position)
+			if child_cell == cell:
+				child.queue_free()
+				return

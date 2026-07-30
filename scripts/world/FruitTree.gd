@@ -83,7 +83,15 @@ func _complete_chopping() -> void:
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property($Sprite2D, "modulate:a", 0.0, 0.3)
-	tween.tween_callback(queue_free)
+	tween.tween_callback(_notify_and_free)
+
+
+func _notify_and_free() -> void:
+	var world: Node = get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_cell_object_removed"):
+		world.notify_cell_object_removed(global_position)
+	queue_free()
+
 
 func _get_available_fruits() -> PackedStringArray:
 	return PackedStringArray(["berry", "mushroom"])

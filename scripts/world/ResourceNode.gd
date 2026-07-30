@@ -174,6 +174,9 @@ func _complete_gathering() -> void:
 	LevelManager.add_xp_source("gather")
 
 	super.interact(_gatherer_ref)
+	var world: Node = get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_cell_object_removed"):
+		world.notify_cell_object_removed(global_position)
 	queue_free()
 
 
