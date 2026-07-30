@@ -7,6 +7,8 @@ class_name MainMenuUI
 signal new_game_requested(seed: int, game_mode: int)
 signal continue_requested()
 signal quit_requested()
+signal host_game_requested(seed: int, game_mode: int)
+signal join_game_requested(ip: String)
 
 @onready var new_game_button: Button = $ContentCenter/ButtonContainer/NewGameButton
 @onready var continue_button: Button = $ContentCenter/ButtonContainer/ContinueButton
@@ -21,6 +23,11 @@ signal quit_requested()
 @onready var title_panel: PanelContainer = $TitlePanel
 @onready var content_center: Control = $ContentCenter
 @onready var star_field: Node2D = $StarField
+@onready var host_game_button: Button = $ContentCenter/ButtonContainer/HostGameButton
+@onready var join_game_button: Button = $ContentCenter/ButtonContainer/JoinGameButton
+@onready var join_ip_box: HBoxContainer = $ContentCenter/ButtonContainer/JoinIPBox
+@onready var join_ip_input: LineEdit = $ContentCenter/ButtonContainer/JoinIPBox/JoinIPInput
+@onready var join_connect_button: Button = $ContentCenter/ButtonContainer/JoinIPBox/JoinConnectButton
 @onready var title_vbox: VBoxContainer = $TitlePanel/TitleVBox
 
 # Star particle data
@@ -35,6 +42,9 @@ func _ready() -> void:
 	new_game_button.pressed.connect(_on_new_game_pressed)
 	continue_button.pressed.connect(_on_continue_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
+	host_game_button.pressed.connect(_on_host_game_pressed)
+	join_game_button.pressed.connect(_on_join_game_pressed)
+	join_connect_button.pressed.connect(_on_join_connect_pressed)
 	random_seed_button.pressed.connect(_on_random_seed_pressed)
 	peaceful_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.PEACEFUL))
 	survival_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.SURVIVAL))
@@ -245,6 +255,31 @@ func _on_mode_button_pressed(mode_id: int) -> void:
 func _get_selected_mode() -> int:
 	return _selected_mode
 
+func _on_host_game_pressed() -> void:
+	print("MainMenu: Host Game clicked!")
+	var p_name: String = name_input.text.strip_edges()
+	if p_name.is_empty():
+		p_name = "Farmer"
+	GameManager.player_name = p_name
+	GameManager.save_name = "My Island"
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	join_ip_box.visible = false
+	_fade_out_and_emit("host", seed_input.text.to_int(), "", _get_selected_mode())
+
+func _on_join_game_pressed() -> void:
+	print("MainMenu: Join Game clicked!")
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	join_ip_box.visible = not join_ip_box.visible
+
+func _on_join_connect_pressed() -> void:
+	print("MainMenu: Join Connect clicked!")
+	var ip: String = join_ip_input.text.strip_edges()
+	if ip.is_empty():
+		ip = "127.0.0.1"
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	join_ip_box.visible = false
+	_fade_out_and_emit("join", 0, ip)
+
 func _on_quit_pressed() -> void:
 	print("MainMenu: Quit clicked!")
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
@@ -258,7 +293,7 @@ func _on_continue_pressed() -> void:
 ## Fade out the whole menu before emitting the signal for a polished transition.
 ## Uses mouse_filter instead of child.disabled so it can never get stuck
 ## in a broken state if the tween is killed mid-flight.
-func _fade_out_and_emit(action: String, seed_val: int = 0) -> void:
+func _fade_out_and_emit(action: String, seed_val: int = 0, join_ip: String = "", game_mode: int = -1) -> void:
 	# Block input during transition via mouse_filter (safer than child.disabled)
 	content_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
@@ -280,6 +315,10 @@ func _fade_out_and_emit(action: String, seed_val: int = 0) -> void:
 				new_game_requested.emit(seed_val, _get_selected_mode())
 			"continue":
 				continue_requested.emit()
+			"host":
+				host_game_requested.emit(seed_val, game_mode if game_mode >= 0 else _get_selected_mode())
+			"join":
+				join_game_requested.emit(join_ip)
 			"quit":
 				quit_requested.emit()
 	)

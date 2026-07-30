@@ -274,6 +274,9 @@ func _setup_animation() -> void:
 	sprite.play("idle")
 
 func _physics_process(delta: float) -> void:
+	# Skip physics for remote players — they receive position via RPC
+	if not is_multiplayer_authority() and NetworkManager.is_network_active():
+		return
 	# Sitting on a bench — disable all movement
 	if is_sitting:
 		velocity = Vector2.ZERO
@@ -405,6 +408,10 @@ func _physics_process(delta: float) -> void:
 			_handle_interact_released()
 		_prev_e_pressed = e_pressed
 
+	# Sync position to remote peers if multiplayer is active
+	if NetworkManager.is_network_active():
+		rpc("_sync_remote_state", global_position, sprite.flip_h, velocity)
+
 ## Prevents the player from moving into non-walkable tiles (e.g. water).
 ## Checks the tile one step ahead in each axis and zeroes out movement
 ## toward any blocked tile. This works alongside tile collision to prevent
@@ -519,6 +526,9 @@ func _is_water_cell(world_node: Node, cell: Vector2i) -> bool:
 		or (atlas.x >= 13 and atlas.x <= 20 and atlas.y == 0)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Skip input for remote players
+	if not is_multiplayer_authority() and NetworkManager.is_network_active():
+		return
 	# While sitting on a bench, only the interact key (E) works to stand up.
 	# Stand up directly instead of going through the general interact system,
 	# because a closer interactable (e.g. a tree) could intercept the action
@@ -2768,3 +2778,14 @@ static func _enemy_knockback_dir(enemy_pos: Vector2, player_pos: Vector2) -> Vec
 ## Spawns golden sparkles around the player to show invincibility is active.
 func _on_gingerbread_sparkle_tick() -> void:
 	EffectSpawner.spawn_particles(global_position + Vector2(randf_range(-10, 10), randf_range(-14, 6)), Color(1.0, 0.85, 0.3), 2, 6.0)
+
+
+## Received by all peers to update a remote player's visible state.
+## Only the authority sends this; all others apply the interpolated state.
+@rpc("unreliable", "any_peer")
+func _sync_remote_state(pos: Vector2, facing_left: bool, vel: Vector2) -> void:
+	if is_multiplayer_authority():
+		return
+	global_position = pos
+	sprite.flip_h = facing_left
+	velocity = vel

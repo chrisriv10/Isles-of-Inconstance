@@ -75,6 +75,8 @@ func _connect_signals() -> void:
 		main_menu.new_game_requested.connect(_on_new_game)
 		main_menu.continue_requested.connect(_show_save_select)
 		main_menu.quit_requested.connect(_on_quit)
+		main_menu.host_game_requested.connect(_on_host_game)
+		main_menu.join_game_requested.connect(_on_join_game)
 	
 	if save_select_ui:
 		save_select_ui.save_selected.connect(_on_continue)
@@ -84,6 +86,11 @@ func _connect_signals() -> void:
 	# Listen for hardcore death — game over deletes save and returns to main menu
 	if not GameManager.hardcore_death_occurred.is_connected(_on_hardcore_death):
 		GameManager.hardcore_death_occurred.connect(_on_hardcore_death)
+
+	if not NetworkManager.server_disconnected.is_connected(_on_mp_server_disconnected):
+		NetworkManager.server_disconnected.connect(_on_mp_server_disconnected)
+	if not NetworkManager.peer_disconnected.is_connected(_on_mp_peer_disconnected):
+		NetworkManager.peer_disconnected.connect(_on_mp_peer_disconnected)
 
 func _show_save_select() -> void:
 	# Force the main menu fully opaque so its background scene is visible
@@ -95,6 +102,93 @@ func _on_save_select_back() -> void:
 	# Hide save select — main menu with its scenic background was never hidden.
 	save_select_ui.close_ui()
 	main_menu.reset_visual_state()
+
+func _on_host_game(p_seed: int, p_mode: int = GameManager.GameMode.SURVIVAL) -> void:
+	print("Bootstrap: Host Game requested, seed=", p_seed, " mode=", p_mode)
+	GameManager.set_game_mode(p_mode)
+	_pending_new_game_seed = p_seed
+	_connect_mp_success_signal(_on_host_started)
+	_connect_mp_fail_signal()
+	NetworkManager.host()
+
+func _on_host_started(_peer_id: int) -> void:
+	print("Bootstrap: Host started successfully")
+	_cleanup_mp_signals()
+	_show_save_select()
+
+func _on_join_game(ip: String) -> void:
+	print("Bootstrap: Join Game requested to ", ip)
+	_connect_mp_success_signal(_on_join_success)
+	_connect_mp_fail_signal()
+	NetworkManager.join(ip)
+
+func _on_join_success(peer_id: int) -> void:
+	print("Bootstrap: Joined game successfully, peer ID: ", peer_id)
+	_cleanup_mp_signals()
+	_save_and_load_game_for_mp()
+
+func _on_mp_connect_failed() -> void:
+	print("Bootstrap: Multiplayer connection failed!")
+	_cleanup_mp_signals()
+	if main_menu:
+		main_menu.visible = true
+		main_menu.modulate.a = 1.0
+		main_menu.process_mode = Node.PROCESS_MODE_INHERIT
+		main_menu.reset_visual_state()
+
+func _on_mp_server_disconnected() -> void:
+	print("Bootstrap: Server disconnected!")
+	NetworkManager.disconnect_from_server()
+	_hide_game_and_show_menu()
+
+func _on_mp_peer_disconnected(id: int) -> void:
+	print("Bootstrap: Peer disconnected: ", id)
+
+func _connect_mp_success_signal(callback: Callable) -> void:
+	if NetworkManager.connection_succeeded.is_connected(_on_host_started):
+		NetworkManager.connection_succeeded.disconnect(_on_host_started)
+	if NetworkManager.connection_succeeded.is_connected(_on_join_success):
+		NetworkManager.connection_succeeded.disconnect(_on_join_success)
+	NetworkManager.connection_succeeded.connect(callback)
+
+func _connect_mp_fail_signal() -> void:
+	if NetworkManager.connection_failed.is_connected(_on_mp_connect_failed):
+		NetworkManager.connection_failed.disconnect(_on_mp_connect_failed)
+	NetworkManager.connection_failed.connect(_on_mp_connect_failed)
+
+func _cleanup_mp_signals() -> void:
+	if NetworkManager.connection_succeeded.is_connected(_on_host_started):
+		NetworkManager.connection_succeeded.disconnect(_on_host_started)
+	if NetworkManager.connection_succeeded.is_connected(_on_join_success):
+		NetworkManager.connection_succeeded.disconnect(_on_join_success)
+	if NetworkManager.connection_failed.is_connected(_on_mp_connect_failed):
+		NetworkManager.connection_failed.disconnect(_on_mp_connect_failed)
+
+func _save_and_load_game_for_mp() -> void:
+	# For multiplayer, start a new game directly without save select
+	if not NetworkManager.is_host():
+		# Clients go straight to game
+		_load_mp_game_as_client.call_deferred()
+	else:
+		# Host uses the normal new game flow via save select
+		pass
+
+func _load_mp_game_as_client() -> void:
+	# Start game in client mode — world will be synced in later chunks
+	print("Bootstrap: Starting game as client")
+	GameManager.set_game_mode(GameManager.GameMode.SURVIVAL)
+	_show_persistent_background()
+	if main_menu:
+		main_menu.visible = false
+		main_menu.process_mode = Node.PROCESS_MODE_DISABLED
+	var hud: CanvasLayer = null
+	if game and game.has_node("HUD"):
+		hud = game.get_node("HUD") as CanvasLayer
+		hud.visible = true
+	if game:
+		game.process_mode = Node.PROCESS_MODE_INHERIT
+		game.visible = true
+	_show_ui_canvas_layers()
 
 func _on_new_game(p_seed: int, p_mode: int = GameManager.GameMode.SURVIVAL) -> void:
 	print("Bootstrap._on_new_game received! seed=", p_seed, " mode=", p_mode)

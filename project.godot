@@ -30,6 +30,8 @@ BuffManager="*res://scripts/autoload/BuffManager.gd"
 LevelManager="*res://scripts/autoload/LevelManager.gd"
 PetManager="*res://scripts/autoload/PetManager.gd"
 QuestManager="*res://scripts/autoload/QuestManager.gd"
+NetworkManager="*res://scripts/autoload/NetworkManager.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [debug]
 
@@ -46,6 +48,10 @@ window/size/viewport_width="1152"
 window/size/viewport_height="648"
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 
 [gui]
 

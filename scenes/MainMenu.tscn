@@ -288,6 +288,47 @@ toggle_mode = true
 button_group = SubResource("bg_mode_group")
 text = "Hardcore"
 
+[node name="MultiplayerSeparator" type="ColorRect" parent="ContentCenter/ButtonContainer" unique_id=1900000000]
+custom_minimum_size = Vector2(200, 1)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+color = Color(0.45, 0.28, 0.08, 0.4)
+
+[node name="HostGameButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=1900000001]
+custom_minimum_size = Vector2(220, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Host Game"
+
+[node name="JoinGameButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=1900000002]
+custom_minimum_size = Vector2(220, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Join Game"
+
+[node name="JoinIPBox" type="HBoxContainer" parent="ContentCenter/ButtonContainer" unique_id=1900000003]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+visible = false
+
+[node name="JoinIPLabel" type="Label" parent="ContentCenter/ButtonContainer/JoinIPBox" unique_id=1900000004]
+layout_mode = 2
+text = "Host IP:"
+
+[node name="JoinIPInput" type="LineEdit" parent="ContentCenter/ButtonContainer/JoinIPBox" unique_id=1900000005]
+custom_minimum_size = Vector2(100, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "127.0.0.1"
+placeholder_text = "Enter host IP..."
+
+[node name="JoinConnectButton" type="Button" parent="ContentCenter/ButtonContainer/JoinIPBox" unique_id=1900000006]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+text = "Connect"
+
 [node name="QuitButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=962544815]
 custom_minimum_size = Vector2(220, 40)
 layout_mode = 2

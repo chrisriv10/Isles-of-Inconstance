@@ -21,6 +21,10 @@ var _ui_was_open_last_frame: bool = false
 # since GUI-consumed events never reach _input() / _unhandled_input().
 var _prev_r_pressed: bool = false
 
+# ── Multiplayer remote player tracking ──
+# Maps peer_id → Player node (both local and remote players).
+var _remote_players: Dictionary = {}
+
 func _ready() -> void:
 	# Create weather visual effects overlay (rain, lightning, fog)
 	weather_fx = WeatherFXManager.new()
@@ -134,6 +138,9 @@ func _ready() -> void:
 		InputMap.action_add_event("open_collections", col_ev)
 
 	# ObjectivesPanel self-registers in its own _ready()
+
+	# Multiplayer setup
+	_setup_multiplayer()
 
 
 ## Tracks UI visibility each frame so the Escape-to-open-menu logic
@@ -308,7 +315,6 @@ func _on_pet_changed(_pet_id: String) -> void:
 
 ## Find the nearest ruin structure within max_distance pixels of the player.
 func _get_nearest_ruin(max_distance: float) -> RuinStructure:
-	var player: Node2D = $Player
 	if not player:
 		return null
 	var ruins := get_tree().get_nodes_in_group("ruin_structures")
@@ -386,3 +392,97 @@ func _try_open_restoration_panel() -> void:
 	var def: TownManager.RuinDef = town_manager.get_ruin_def(ruin.ruin_id)
 	var name_str: String = def.building_name if def else "Building"
 	panel.open(ruin.ruin_id, name_str)
+
+
+# ── Multiplayer ────────────────────────────────────────────────────────
+
+func _setup_multiplayer() -> void:
+	if not NetworkManager.is_network_active():
+		return
+
+	var my_id := multiplayer.get_unique_id()
+	player.set_multiplayer_authority(my_id)
+	_remote_players[my_id] = player
+
+	NetworkManager.peer_connected.connect(_on_peer_connected)
+	NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
+
+	# Host: register with any peers that connected before Main was ready
+	# We create remote players locally and let _register_me_to_remote handle
+	# the broadcast to ensure each client is ready before receiving RPCs.
+	if multiplayer.is_server():
+		for pid in multiplayer.get_peers():
+			_instantiate_remote_player(pid)
+	else:
+		# Client: tell the host about us so we appear on other peers
+		rpc_id(1, "_register_me_to_remote", my_id)
+
+
+## Called by a client when its Main scene is ready, asking the host to
+## broadcast this peer's remote player to all clients.
+@rpc("any_peer", "reliable")
+func _register_me_to_remote(peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	# Ensure the remote player exists locally
+	_instantiate_remote_player(peer_id)
+	# Broadcast the new peer to all clients
+	rpc("_add_remote_player", peer_id)
+	# Tell the new peer about every other existing peer
+	for pid in _remote_players:
+		if pid != peer_id:
+			rpc_id(peer_id, "_add_remote_player", pid)
+
+
+## Creates a remote player node on all clients for the given peer.
+@rpc("authority", "reliable")
+func _add_remote_player(peer_id: int) -> void:
+	_instantiate_remote_player(peer_id)
+
+
+## Removes a remote player node from all peers.
+@rpc("authority", "call_local", "reliable")
+func _remove_remote_player(peer_id: int) -> void:
+	var remote = _remote_players.get(peer_id)
+	if remote and remote != player:
+		remote.queue_free()
+	_remote_players.erase(peer_id)
+
+
+func _instantiate_remote_player(peer_id: int) -> void:
+	if _remote_players.has(peer_id):
+		return
+
+	# This is our own player — just register the existing node
+	if peer_id == multiplayer.get_unique_id():
+		_remote_players[peer_id] = player
+		return
+
+	var player_scene := preload("res://scenes/player/Player.tscn")
+	var remote: CharacterBody2D = player_scene.instantiate()
+	remote.name = "Player_%d" % peer_id
+	remote.set_multiplayer_authority(peer_id)
+
+	# Place near spawn initially (position will be overwritten by first RPC sync)
+	if world and world.has_method("cell_to_world"):
+		var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
+		remote.global_position = world.cell_to_world(spawn_cell)
+
+	world.add_child(remote)
+	_remote_players[peer_id] = remote
+
+
+## Called on the host when a new peer connects.
+## Creates the remote player locally; waits for _register_me_to_remote
+## from the client before broadcasting to ensure the client is ready.
+func _on_peer_connected(peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	_instantiate_remote_player(peer_id)
+
+
+## Called on the host when a peer disconnects.
+func _on_peer_disconnected(peer_id: int) -> void:
+	if not multiplayer.is_server():
+		return
+	rpc("_remove_remote_player", peer_id)
