@@ -1,0 +1,24 @@
+# Godot editor/import cache — regenerates automatically, never commit
+.godot/
+*.import
+
+# Compiled texture cache 
+*.ctex
+*.ctex.uid
+
+# Editor crash-recovery autosaves
+*.tmp
+
+# Archives / exports
+*.zip
+
+# OS/platform junk
+nul
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Dev-only AI tool plugins (not needed to run the game)
+addons/godot_ai/
+addons/ziva_agent/
+godot-ai-LICENSE.txt

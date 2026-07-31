@@ -69,6 +69,8 @@ func _load_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 	
 	_burrow_cooldown = maxf(_burrow_cooldown - delta, 0.0)
 	_pool_timer += delta
@@ -246,7 +248,9 @@ func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false
 
 func _die() -> void:
 	InventoryManager.add_item("wyrms_petal", 1)
+	_queue_loot("wyrms_petal", 1)
 	InventoryManager.add_item("everbloom_seed", 1)
+	_queue_loot("everbloom_seed", 1)
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
 	if mgr and mgr.has_method("on_boss_defeated"):
 		mgr.on_boss_defeated()

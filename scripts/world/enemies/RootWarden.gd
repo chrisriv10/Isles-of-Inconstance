@@ -65,6 +65,8 @@ func _summon_spawn_effect() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 	
 	_aoe_cooldown = maxf(_aoe_cooldown - delta, 0.0)
 	_root_grasp_cooldown = maxf(_root_grasp_cooldown - delta, 0.0)
@@ -174,7 +176,9 @@ func _summon_minions() -> void:
 
 func _die() -> void:
 	InventoryManager.add_item("wardens_core", 1)
+	_queue_loot("wardens_core", 1)
 	InventoryManager.add_item("evergrowth_seed", 1)
+	_queue_loot("evergrowth_seed", 1)
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
 	if mgr and mgr.has_method("on_boss_defeated"):
 		mgr.on_boss_defeated()

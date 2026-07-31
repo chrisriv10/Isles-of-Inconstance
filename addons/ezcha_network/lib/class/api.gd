@@ -1,0 +1,8 @@
+extends RefCounted
+class_name EzchaAPI
+## A base class for handling calls to the Ezcha Network API.
+
+var _ezcha: EzchaSingleton = null
+
+func _init(ezcha: EzchaSingleton) -> void:
+	_ezcha = ezcha

@@ -57,6 +57,8 @@ func _load_wisp_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 
 	_shoot_timer = maxf(_shoot_timer - delta, 0.0)
 

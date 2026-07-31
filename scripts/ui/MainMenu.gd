@@ -9,6 +9,8 @@ signal continue_requested()
 signal quit_requested()
 signal host_game_requested(seed: int, game_mode: int)
 signal join_game_requested(ip: String)
+signal host_online_requested(seed: int, game_mode: int)
+signal join_online_requested(join_code: String)
 
 @onready var new_game_button: Button = $ContentCenter/ButtonContainer/NewGameButton
 @onready var continue_button: Button = $ContentCenter/ButtonContainer/ContinueButton
@@ -30,6 +32,16 @@ signal join_game_requested(ip: String)
 @onready var join_connect_button: Button = $ContentCenter/ButtonContainer/JoinIPBox/JoinConnectButton
 @onready var title_vbox: VBoxContainer = $TitlePanel/TitleVBox
 
+var _lan_button: Button = null
+var _lan_list: ItemList = null
+var _lan_list_refresh_timer: float = 0.0
+
+var _online_button: Button = null
+var _online_panel: VBoxContainer = null
+var _online_code_label: Label = null
+var _online_status_label: Label = null
+var _online_join_code_input: LineEdit = null
+
 # Star particle data
 var _stars: Array[Dictionary] = []
 var _star_count: int = 60
@@ -50,6 +62,38 @@ func _ready() -> void:
 	survival_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.SURVIVAL))
 	creative_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.CREATIVE))
 	hardcore_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.HARDCORE))
+
+	# Add LAN discovery button after Join Game
+	_lan_button = Button.new()
+	_lan_button.text = "LAN"
+	_lan_button.custom_minimum_size = Vector2(120, 36)
+	_lan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var lan_parent := join_game_button.get_parent()
+	var lan_idx := join_game_button.get_index() + 1
+	lan_parent.add_child(_lan_button)
+	lan_parent.move_child(_lan_button, lan_idx)
+	_lan_button.pressed.connect(_on_lan_pressed)
+
+	# Add Online button after LAN
+	_online_button = Button.new()
+	_online_button.text = "Online"
+	_online_button.custom_minimum_size = Vector2(120, 36)
+	_online_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var online_idx := _lan_button.get_index() + 1
+	lan_parent.add_child(_online_button)
+	lan_parent.move_child(_online_button, online_idx)
+	_online_button.pressed.connect(_on_online_pressed)
+
+	# Create online panel (hidden by default)
+	_online_panel = VBoxContainer.new()
+	_online_panel.name = "OnlinePanel"
+	_online_panel.visible = false
+	_online_panel.custom_minimum_size = Vector2(280, 0)
+	_online_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	lan_parent.add_child(_online_panel)
+	lan_parent.move_child(_online_panel, online_idx + 1)
+
+	_build_online_panel()
 	
 	# Enable continue if any save exists
 	var save_count: int = SaveManager.count_saves()
@@ -101,6 +145,9 @@ func reset_visual_state() -> void:
 	modulate.a = 1.0
 	title_panel.modulate.a = 1.0
 	content_center.modulate.a = 1.0
+	_hide_lan_list()
+	_hide_online_panel()
+	join_ip_box.visible = false
 
 	# Restore mouse filter (might have been set to IGNORE during fade)
 	content_center.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -200,6 +247,12 @@ func _generate_stars() -> void:
 
 func _process(delta: float) -> void:
 	_animate_stars(delta)
+	# Periodically refresh LAN server list
+	if _lan_list and _lan_list.visible:
+		_lan_list_refresh_timer += delta
+		if _lan_list_refresh_timer >= 1.0:
+			_lan_list_refresh_timer = 0.0
+			_refresh_lan_list()
 
 func _animate_stars(delta: float) -> void:
 	if _stars.is_empty():
@@ -279,6 +332,169 @@ func _on_join_connect_pressed() -> void:
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
 	join_ip_box.visible = false
 	_fade_out_and_emit("join", 0, ip)
+
+func _on_lan_pressed() -> void:
+	print("MainMenu: LAN pressed!")
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	if _lan_list and _lan_list.visible:
+		_hide_lan_list()
+		return
+	_show_lan_list()
+
+func _show_lan_list() -> void:
+	_ensure_lan_list()
+	if not _lan_list:
+		return
+	_lan_list.clear()
+	_lan_list.visible = true
+	NetworkManager.start_lan_discovery()
+	if not NetworkManager.lan_server_found.is_connected(_on_lan_server_found):
+		NetworkManager.lan_server_found.connect(_on_lan_server_found)
+
+func _hide_lan_list() -> void:
+	if _lan_list:
+		_lan_list.visible = false
+	NetworkManager.stop_lan_discovery()
+
+func _hide_online_panel() -> void:
+	if _online_panel:
+		_online_panel.visible = false
+	_hide_online_status()
+
+func _ensure_lan_list() -> void:
+	if _lan_list and is_instance_valid(_lan_list):
+		return
+	_lan_list = ItemList.new()
+	_lan_list.custom_minimum_size = Vector2(240, 160)
+	_lan_list.visible = false
+	_lan_list.add_theme_color_override("font_color", Color(1, 1, 1))
+	_lan_list.add_theme_constant_override("v_separation", 4)
+	content_center.add_child(_lan_list)
+	_lan_list.item_selected.connect(_on_lan_item_selected)
+
+func _on_lan_server_found(_srv_name: String, _ip: String, _port: int) -> void:
+	_refresh_lan_list()
+
+func _refresh_lan_list() -> void:
+	if not _lan_list or not _lan_list.visible:
+		return
+	_lan_list.clear()
+	var servers: Array[Dictionary] = NetworkManager.get_lan_servers()
+	for srv in servers:
+		var label: String = srv.get("name", "Unknown") + "  (" + srv.get("ip", "?") + ")"
+		_lan_list.add_item(label)
+	if servers.is_empty():
+		_lan_list.add_item("(scanning...)")
+
+func _on_lan_item_selected(idx: int) -> void:
+	var servers: Array[Dictionary] = NetworkManager.get_lan_servers()
+	if idx < 0 or idx >= servers.size():
+		return
+	var srv: Dictionary = servers[idx]
+	_hide_lan_list()
+	_fade_out_and_emit("join", 0, srv.get("ip", "127.0.0.1"))
+
+func _build_online_panel() -> void:
+	var title := Label.new()
+	title.text = "Online Play"
+	title.add_theme_font_size_override("font_size", 18)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_online_panel.add_child(title)
+
+	var host_btn := Button.new()
+	host_btn.text = "Host Online"
+	host_btn.custom_minimum_size = Vector2(200, 32)
+	host_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_online_panel.add_child(host_btn)
+	host_btn.pressed.connect(_on_online_host_pressed)
+
+	var join_hbox := HBoxContainer.new()
+	join_hbox.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var code_label := Label.new()
+	code_label.text = "Code:"
+	code_label.custom_minimum_size = Vector2(45, 0)
+	join_hbox.add_child(code_label)
+	_online_join_code_input = LineEdit.new()
+	_online_join_code_input.placeholder_text = "ABC123"
+	_online_join_code_input.custom_minimum_size = Vector2(100, 0)
+	join_hbox.add_child(_online_join_code_input)
+	var join_btn := Button.new()
+	join_btn.text = "Join"
+	join_btn.pressed.connect(_on_online_join_pressed)
+	join_hbox.add_child(join_btn)
+	_online_panel.add_child(join_hbox)
+
+	_online_code_label = Label.new()
+	_online_code_label.text = ""
+	_online_code_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_online_code_label.add_theme_color_override("font_color", Color(0.3, 1.0, 0.3))
+	_online_code_label.visible = false
+	_online_panel.add_child(_online_code_label)
+
+	_online_status_label = Label.new()
+	_online_status_label.text = ""
+	_online_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_online_status_label.visible = false
+	_online_panel.add_child(_online_status_label)
+
+func _on_online_pressed() -> void:
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	if _lan_list and _lan_list.visible:
+		_hide_lan_list()
+	_online_panel.visible = not _online_panel.visible
+	if not _online_panel.visible:
+		_hide_online_status()
+	_connect_ezcha_listeners()
+
+func _connect_ezcha_listeners() -> void:
+	if not NetworkManager.ezcha_lobby_created.is_connected(_on_ezcha_lobby_created):
+		NetworkManager.ezcha_lobby_created.connect(_on_ezcha_lobby_created)
+	if not NetworkManager.ezcha_lobby_error.is_connected(_on_ezcha_lobby_error):
+		NetworkManager.ezcha_lobby_error.connect(_on_ezcha_lobby_error)
+	if not NetworkManager.connection_failed.is_connected(_on_online_connect_failed):
+		NetworkManager.connection_failed.connect(_on_online_connect_failed)
+
+func _on_online_host_pressed() -> void:
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	var p_name: String = name_input.text.strip_edges()
+	if p_name.is_empty():
+		p_name = "Farmer"
+	GameManager.player_name = p_name
+	GameManager.save_name = "My Island"
+	_hide_online_status()
+	_online_status_label.text = "Connecting to relay..."
+	_online_status_label.visible = true
+	host_online_requested.emit(seed_input.text.to_int(), _get_selected_mode())
+
+func _on_online_join_pressed() -> void:
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	var code: String = _online_join_code_input.text.strip_edges()
+	if code.is_empty():
+		return
+	_hide_online_status()
+	_online_status_label.text = "Joining lobby..."
+	_online_status_label.visible = true
+	join_online_requested.emit(code)
+
+func _on_ezcha_lobby_created(join_code: String) -> void:
+	_hide_online_status()
+	_online_code_label.text = "Join code: " + join_code
+	_online_code_label.visible = true
+	# Bootstrap will handle connection_succeeded to show save select
+
+func _on_ezcha_lobby_error(_code: int, _message: String) -> void:
+	_online_status_label.text = "Connection failed"
+	_online_status_label.visible = true
+
+func _on_online_connect_failed() -> void:
+	if not _online_panel.visible:
+		return
+	_online_status_label.text = "Connection failed"
+	_online_status_label.visible = true
+
+func _hide_online_status() -> void:
+	_online_code_label.visible = false
+	_online_status_label.visible = false
 
 func _on_quit_pressed() -> void:
 	print("MainMenu: Quit clicked!")

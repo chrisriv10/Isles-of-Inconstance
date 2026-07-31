@@ -7,10 +7,12 @@ class_name Chest
 @export var chest_title: String = "Storage Chest"
 
 var _container: ContainerInventory = null
+var _chest_key: String = ""
 
 
 func _init() -> void:
 	_container = ContainerInventory.new(18)
+	_chest_key = "placed_%d" % [get_instance_id()]
 	
 	# Add starter items — a modest boost so the world doesn't feel empty,
 	# but not so much that gathering becomes pointless. The 8 stone here
@@ -109,7 +111,7 @@ func interact(interactor: Node) -> void:
 		ToastNotification.show_toast("No storage UI available!", ToastNotification.ToastType.ERROR, 2.0)
 		return
 	
-	chest_ui.open_for(_container, chest_title)
+	chest_ui.open_for(_container, chest_title, Callable(), _chest_key)
 	AudioManager.play(AudioManager.Sound.CHEST_OPEN)
 	
 	super.interact(interactor)

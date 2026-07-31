@@ -26,6 +26,10 @@ const DROP_RATE_MULTIPLIER: float = 0.35  # Harder mode — less loot from enemi
 var current_health: int
 var state: int = State.IDLE
 var player_ref: CharacterBody2D = null
+## Tracker for enemy loot drops. Populated on the host, broadcast in death sync.
+var _pending_loot_drops: Array[Dictionary] = []
+
+
 var _attack_timer: float = 0.0
 var _enrage_warning_shown: bool = false
 ## Grace period (seconds) after spawn during which the enemy won't chase.
@@ -37,6 +41,12 @@ var _spawned_at: float = 0.0
 ## Hitstun state — briefly pauses enemy AI after taking damage.
 var _stun_timer: Timer
 var _previous_state: int = State.IDLE
+
+# Multiplayer sync
+const SYNC_INTERVAL: float = 0.1  # seconds between position broadcasts (host only)
+var enemy_id: int = 0
+var _is_remote: bool = false
+var _sync_timer: float = 0.0
 
 # Health bar nodes
 var _health_bar_bg: ColorRect = null
@@ -120,6 +130,10 @@ func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
 	
+	# Remote copy — skip AI, position is synced by host
+	if NetworkManager.is_network_active() and _is_remote:
+		return
+	
 	_attack_timer = max(0.0, _attack_timer - delta)
 	
 	if not is_instance_valid(player_ref):
@@ -150,6 +164,13 @@ func _physics_process(delta: float) -> void:
 	if not is_finite(velocity.x) or not is_finite(velocity.y):
 		velocity = Vector2.ZERO
 	move_and_slide()
+	
+	# Host: periodically broadcast position/state to remote peers
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_sync_timer += delta
+		if _sync_timer >= SYNC_INTERVAL:
+			_sync_timer = 0.0
+			rpc("_sync_enemy_state", enemy_id, global_position, current_health, state)
 
 
 func _update_state() -> void:
@@ -265,13 +286,18 @@ func _attack_player() -> void:
 	if not player_ref:
 		return
 	_attack_timer = attack_cooldown
-	# Deal damage if player is still in range
 	var dist := global_position.distance_to(player_ref.global_position)
 	if dist <= attack_range + 10.0:
-		GameManager.take_damage(damage)
+		if NetworkManager.is_network_active():
+			var target_peer: int = player_ref.get_multiplayer_authority()
+			if target_peer != multiplayer.get_unique_id():
+				rpc_id(target_peer, "_receive_remote_enemy_damage", damage)
+			else:
+				GameManager.take_damage(damage)
+		else:
+			GameManager.take_damage(damage)
 		EffectSpawner.spawn_particles(player_ref.global_position, Color(1.0, 0.2, 0.2), 4, 8.0)
 		AudioManager.play(AudioManager.Sound.HIT)
-		# Push back slightly so enemy doesn't sit on the player
 		var push_dir := _safe_normalize(global_position - player_ref.global_position)
 		if push_dir != Vector2.ZERO:
 			global_position += push_dir * 8.0
@@ -279,6 +305,11 @@ func _attack_player() -> void:
 
 func take_damage(amount: int, _source: Node2D = null, is_critical: bool = false) -> void:
 	if state == State.DEAD:
+		return
+	
+	# Client-side remote copy — forward attack to host for authoritative processing
+	if NetworkManager.is_network_active() and _is_remote:
+		rpc_id(1, "_server_receive_enemy_attack", enemy_id, amount, is_critical)
 		return
 	
 	current_health -= amount
@@ -335,6 +366,10 @@ func take_damage(amount: int, _source: Node2D = null, is_critical: bool = false)
 			var hit_tween := create_tween()
 			hit_tween.tween_property(sprite, "modulate", Color.WHITE, 0.15)
 			hit_tween.set_ease(Tween.EASE_OUT)
+	
+	# Host: broadcast damage update to all clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_enemy_damage", enemy_id, current_health, amount, is_critical, global_position, max_health)
 
 
 ## Public death trigger — called by CreativePanel kill-all and other external systems.
@@ -346,6 +381,14 @@ func _die() -> void:
 	state = State.DEAD
 	velocity = Vector2.ZERO
 	collision.set_deferred("disabled", true)
+	
+	# Drop loot (populates _pending_loot_drops for broadcast)
+	_drop_loot()
+	
+	# Host: broadcast death and loot to all clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_enemy_died", enemy_id, _pending_loot_drops)
+	_pending_loot_drops.clear()
 	
 	var is_boss := is_in_group("bosses")
 	if is_boss:
@@ -367,9 +410,6 @@ func _die() -> void:
 		EffectSpawner.spawn_xp_notification(experience_value, global_position + Vector2(0, -16))
 		# Play death audio (throttled: skip if the same sound is already playing)
 		AudioManager.play(AudioManager.Sound.ENEMY_DIE)
-	
-	# Drop loot
-	_drop_loot()
 	
 	# Track enemy slain objective
 	var ene_mgr := get_tree().get_first_node_in_group("objective_manager")
@@ -423,11 +463,76 @@ func _drop_loot() -> void:
 			loot_bonus = pet_mgr.get_loot_bonus()
 	for entry in loot:
 		if randf() <= (entry.get("chance", 1.0) + loot_bonus) * DROP_RATE_MULTIPLIER:
-			InventoryManager.add_item(entry["item_id"], entry.get("count", 1))
+			var count: int = entry.get("count", 1)
+			InventoryManager.add_item(entry["item_id"], count)
+			_queue_loot(entry["item_id"], count)
 	
 	# Ultra-rare Inconstant Fruit drop from any enemy (0.05% base + tiny pet bonus)
 	if randf() < 0.0005 + loot_bonus * 0.001:
 		_try_drop_inconstant_fruit()
+
+
+func _queue_loot(item_id: String, count: int = 1) -> void:
+	if NetworkManager.is_network_active():
+		_pending_loot_drops.append({"item_id": item_id, "count": count})
+
+
+# ── Multiplayer RPC ──────────────────────────────────────────────────────
+
+## Host → all clients: sync position, health, and state for a remote copy.
+@rpc("unreliable", "authority", "call_local")
+func _sync_enemy_state(eid: int, pos: Vector2, hp: int, st: int) -> void:
+	if not _is_remote or enemy_id != eid:
+		return
+	global_position = pos
+	current_health = hp
+	state = st
+	_update_health_bar()
+
+
+## Host → all clients: broadcast damage result so remote copies show effects.
+@rpc("authority", "call_local")
+func _sync_enemy_damage(eid: int, hp: int, dmg: int, crit: bool, pos: Vector2, mhp: int) -> void:
+	if not _is_remote or enemy_id != eid:
+		return
+	current_health = hp
+	max_health = mhp
+	_update_health_bar()
+	EffectSpawner.spawn_damage_number(dmg, pos, crit)
+	if crit:
+		EffectSpawner.spawn_particles(pos, Color(1.0, 0.4, 0.0), 6, 10.0)
+
+
+## Host → all clients: signal that this enemy has died and distribute loot.
+@rpc("authority", "call_local")
+func _sync_enemy_died(eid: int, loot: Array[Dictionary] = []) -> void:
+	if not _is_remote or enemy_id != eid:
+		return
+	state = State.DEAD
+	died.emit(global_position)
+	# Add loot to the receiving client's inventory
+	for drop in loot:
+		var item_id: String = drop.get("item_id", "")
+		var count: int = drop.get("count", 1)
+		if not item_id.is_empty():
+			InventoryManager.add_item(item_id, count)
+	queue_free()
+
+
+## Client → host: forward a melee/ranged attack on a remote copy.
+@rpc("any_peer", "reliable")
+func _server_receive_enemy_attack(eid: int, amount: int, crit: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	if _is_remote or enemy_id != eid:
+		return
+	# Basic validation — attacker must be nearby
+	var attacker := get_tree().get_first_node_in_group("player")
+	if not attacker:
+		return
+	if global_position.distance_to(attacker.global_position) > 100.0:
+		return
+	take_damage(amount, attacker, crit)
 
 
 ## Safely normalize a Vector2, returning Vector2.ZERO if the vector is zero or contains NaN/INF.
@@ -445,6 +550,7 @@ func _try_drop_inconstant_fruit() -> void:
 	var fruit: ItemData = available_fruits[randi() % available_fruits.size()]
 	if InventoryManager.can_fit(fruit.id, 1):
 		InventoryManager.add_item(fruit.id, 1)
+		_queue_loot(fruit.id, 1)
 		ToastNotification.show_toast("[color=#FFD700][b]✦ Legendary Drop! ✦[/b][/color]\nA [color=#BB66FF]%s[/color] falls from the slain foe!" % fruit.display_name, ToastNotification.ToastType.SUCCESS, 5.0)
 		AudioManager.play(AudioManager.Sound.LEVEL_UP)
 		EffectSpawner.spawn_sparkle(global_position, Color(1.0, 0.8, 0.3))

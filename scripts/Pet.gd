@@ -17,6 +17,7 @@ var _state: int = PetState.FOLLOW
 var _attack_cooldown: float = 0.0
 var _idle_shift_timer: float = 0.0
 var _idle_shift_target: Vector2 = Vector2.ZERO
+var _is_remote: bool = false
 
 ## Follow distance: pet maintains this range from the player.
 ## Increased from 16 to 42 so the pet doesn't feel like it's stuck to you.
@@ -116,6 +117,12 @@ func _physics_process(delta: float) -> void:
 	if not player_ref or not is_instance_valid(player_ref):
 		return
 	if _pet_data.is_empty():
+		return
+	if _is_remote:
+		# Remote pet: sit at follow offset relative to player, no AI
+		var offset: Vector2 = _pet_data.get("offset", Vector2(-22, 8))
+		position = offset
+		sprite.play("idle")
 		return
 	
 	_attack_cooldown = max(0.0, _attack_cooldown - delta)

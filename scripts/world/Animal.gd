@@ -191,6 +191,15 @@ const FOLLOW_STOP_DISTANCE: float = 36.0
 const FOLLOW_SPREAD_RANGE: float = 20.0
 
 # ---------------------------------------------------------------------------
+# Multiplayer sync
+# ---------------------------------------------------------------------------
+static var _next_animal_id: int = 1
+var animal_id: int = 0
+var _is_remote: bool = false
+var _last_pos_sync_time: float = 0.0
+const POS_SYNC_INTERVAL: float = 0.1
+
+# ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------
 @export var animal_name: String = "Animal"
@@ -247,6 +256,9 @@ var _tamed: bool = false  # marked when fed — anchors home to fenced areas so 
 var _dialogue_bubble: Node2D
 var _dialogue_label: Label
 
+var _loot_drops: Array[Dictionary] = []
+
+
 # Health bar nodes
 var _health_bar_bg: ColorRect = null
 var _health_bar_fill: ColorRect = null
@@ -302,7 +314,65 @@ func _on_arrow_hit(body: Node) -> void:
 			arrow._on_hit_effect()
 
 
+# ── Multiplayer RPC ──────────────────────────────────────────────────────
+
+## Host → all clients: sync position for a remote copy.
+@rpc("unreliable", "authority", "call_local")
+func _sync_animal_pos(aid: int, pos: Vector2) -> void:
+	if not _is_remote or animal_id != aid:
+		return
+	global_position = pos
+
+## Host → all clients: broadcast damage result so remote copies show effects.
+@rpc("authority", "call_local")
+func _sync_animal_damage(aid: int, hp: int, dmg: int, crit: bool, pos: Vector2, mhp: int) -> void:
+	if not _is_remote or animal_id != aid:
+		return
+	current_health = hp
+	max_health = mhp
+	_update_health_bar()
+	EffectSpawner.spawn_damage_number(dmg, pos, crit)
+	if crit:
+		EffectSpawner.spawn_particles(pos, Color(1.0, 0.4, 0.0), 6, 10.0)
+
+## Host → all clients: signal that this animal has died and distribute loot.
+@rpc("authority", "call_local")
+func _sync_animal_died(aid: int, loot: Array[Dictionary] = []) -> void:
+	if not _is_remote or animal_id != aid:
+		return
+	for drop in loot:
+		var item_id: String = drop.get("item_id", "")
+		var count: int = drop.get("count", 1)
+		if not item_id.is_empty():
+			InventoryManager.add_item(item_id, count)
+	# Death effects on remote copy
+	EffectSpawner.spawn_particles(global_position, Color(0.5, 0.0, 0.0), 6, 10.0)
+	EffectSpawner.spawn_floating_text(animal_name + " slain!", global_position, Color(1.0, 0.3, 0.3))
+	AudioManager.play(AudioManager.Sound.HIT)
+	queue_free()
+
+## Client → host: forward a melee/ranged attack on a remote copy.
+@rpc("any_peer", "reliable")
+func _server_receive_animal_attack(aid: int, amount: int, crit: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	if _is_remote or animal_id != aid:
+		return
+	# Basic validation — attacker must be nearby
+	var attacker := get_tree().get_first_node_in_group("player")
+	if not attacker:
+		return
+	if global_position.distance_to(attacker.global_position) > 100.0:
+		return
+	take_damage(amount, attacker, crit)
+
+
 func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false) -> void:
+	# Client-side remote copy — forward attack to host for authoritative processing
+	if NetworkManager.is_network_active() and _is_remote:
+		rpc_id(1, "_server_receive_animal_attack", animal_id, amount, _is_critical)
+		return
+	
 	current_health -= amount
 	_update_health_bar()
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.3, 0.3), 3, 6.0)
@@ -314,9 +384,13 @@ func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false
 		tween.set_ease(Tween.EASE_OUT)
 	if current_health <= 0:
 		_die()
+	# Host: broadcast damage update to all clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_animal_damage", animal_id, current_health, amount, _is_critical, global_position, max_health)
 
 func _die() -> void:
 	# Drop meat and materials
+	_loot_drops.clear()
 	var drops: Array[Dictionary] = _get_kill_drops()
 	for drop in drops:
 		var item_id: String = drop.get("item_id", "")
@@ -326,6 +400,13 @@ func _die() -> void:
 		var chance: float = drop.get("chance", 1.0)
 		if randf() <= chance:
 			InventoryManager.add_item(item_id, amount)
+			_loot_drops.append({"item_id": item_id, "count": amount})
+	
+	# Host: broadcast death and loot to all clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_animal_died", animal_id, _loot_drops)
+	_loot_drops.clear()
+	
 	# Death effects
 	EffectSpawner.spawn_particles(global_position, Color(0.5, 0.0, 0.0), 6, 10.0)
 	EffectSpawner.spawn_floating_text(animal_name + " slain!", global_position, Color(1.0, 0.3, 0.3))
@@ -550,6 +631,12 @@ func _spawn_baby(partner: Animal) -> void:
 	get_parent().add_child(baby)
 	baby.setup(animal_type, baby_pos)
 	
+	# Broadcast baby spawn to remote clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var world := get_tree().get_first_node_in_group("world")
+		if world and world.has_method("_broadcast_animal_spawn"):
+			world._broadcast_animal_spawn(baby)
+	
 	# Effects — hearts and sparkles for the baby
 	EffectSpawner.spawn_hearts(baby_pos, 12, 16.0, -32.0)
 	EffectSpawner.spawn_sparkle(baby_pos, Color(1.0, 0.7, 0.9))
@@ -579,6 +666,8 @@ func _max_health_change() -> void:
 # ---------------------------------------------------------------------------
 
 func setup(p_type: String, p_home: Vector2, use_ai_sprite: bool = false) -> void:
+	animal_id = _next_animal_id
+	_next_animal_id += 1
 	animal_type = p_type
 	_home_pos = p_home
 	global_position = p_home
@@ -610,6 +699,90 @@ func setup(p_type: String, p_home: Vector2, use_ai_sprite: bool = false) -> void
 		_growth_progress = 0.0
 	add_to_group("animals")
 	_setup_done = true
+
+
+## Client-side initialization from host broadcast data.
+func setup_from_network(data: Dictionary) -> void:
+	animal_id = data.get("aid", 0)
+	animal_type = data.get("type", "chicken")
+	animal_name = data.get("name", "Animal")
+	behavior = data.get("behavior", 0) as int
+	move_speed = data.get("speed", 30.0)
+	body_color = _dict_to_color(data.get("body_c", {}))
+	accent_color = _dict_to_color(data.get("acc_c", {}))
+	secondary_color = _dict_to_color(data.get("sec_c", {}))
+	spot_color = _dict_to_color(data.get("spot_c", {}))
+	_body_shape = data.get("shape", 0)
+	_pattern = data.get("pattern", 0)
+	_home_pos = Vector2(data.get("hx", 0.0), data.get("hy", 0.0))
+	global_position = _home_pos
+	_move_radius = data.get("radius", 48.0)
+	_follow_offset = Vector2(data.get("fox", 0.0), data.get("foy", 0.0))
+	is_baby = data.get("baby", false)
+	_tamed = data.get("tamed", false)
+	_growth_progress = data.get("growth", 0.0)
+	current_health = data.get("hp", 20)
+	max_health = data.get("mhp", 20)
+	_last_interaction_day = data.get("int_day", -999)
+	_has_dropped_rare = data.get("rare", false)
+	_affection = data.get("affection", 0.0)
+	_is_remote = true
+	if is_baby:
+		scale = Vector2(0.5 + _growth_progress * 0.5, 0.5 + _growth_progress * 0.5)
+	else:
+		scale = Vector2.ONE
+	if label:
+		label.text = animal_name
+	_generate_procedural_sprite()
+	_setup_dialogue()
+	_pick_new_target()
+	_setup_done = true
+
+
+## Serialize this animal's full visual/gameplay state for network broadcast.
+func get_network_data() -> Dictionary:
+	return {
+		"aid": animal_id,
+		"type": animal_type,
+		"name": animal_name,
+		"behavior": behavior,
+		"speed": move_speed,
+		"body_c": _color_to_dict(body_color),
+		"acc_c": _color_to_dict(accent_color),
+		"sec_c": _color_to_dict(secondary_color),
+		"spot_c": _color_to_dict(spot_color),
+		"shape": _body_shape,
+		"pattern": _pattern,
+		"hx": _home_pos.x,
+		"hy": _home_pos.y,
+		"radius": _move_radius,
+		"fox": _follow_offset.x,
+		"foy": _follow_offset.y,
+		"baby": is_baby,
+		"tamed": _tamed,
+		"growth": _growth_progress,
+		"hp": current_health,
+		"mhp": max_health,
+		"int_day": _last_interaction_day,
+		"rare": _has_dropped_rare,
+		"affection": _affection,
+	}
+
+
+## Helper: convert a Color to a {r,g,b,a} dict for RPC.
+static func _color_to_dict(c: Color) -> Dictionary:
+	return {"r": c.r, "g": c.g, "b": c.b, "a": c.a}
+
+
+## Helper: convert a {r,g,b,a} dict from RPC data back to Color.
+static func _dict_to_color(d: Dictionary) -> Color:
+	return Color(
+		d.get("r", 1.0),
+		d.get("g", 1.0),
+		d.get("b", 1.0),
+		d.get("a", 1.0)
+	)
+
 
 ## Generates a fantasy species name, e.g. "Cinderplume Fowl" or
 ## "Frosthoof Bovine".  Each animal type has its own suffix pool so
@@ -2235,6 +2408,9 @@ func _update_contextual_prompt() -> void:
 			interaction_prompt = "Talk to " + animal_name
 
 func _process(delta: float) -> void:
+	if _is_remote:
+		return
+	
 	_idle_phase += delta * 2.0
 	var dist: float = global_position.distance_to(_target_pos)
 	var is_moving: bool = false
@@ -2347,6 +2523,13 @@ func _process(delta: float) -> void:
 		else:
 			if animated_sprite.animation != "idle":
 				animated_sprite.play("idle")
+	
+	# Host: broadcast position to remote clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_last_pos_sync_time += delta
+		if _last_pos_sync_time >= POS_SYNC_INTERVAL:
+			_last_pos_sync_time = 0.0
+			rpc("_sync_animal_pos", animal_id, global_position)
 
 func _walk_toward(delta: float) -> void:
 	var dir: Vector2 = (_target_pos - global_position).normalized()

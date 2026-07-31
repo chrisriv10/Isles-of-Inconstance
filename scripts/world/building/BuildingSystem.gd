@@ -628,6 +628,8 @@ func _setup_shed_storage(parent_node: Node, building_data: Dictionary, width: in
 	building_data["container_slots"] = container.slots
 
 	interactable.set_meta("container_inventory", container)
+	var cell: Vector2i = building_data.get("cell", Vector2i())
+	interactable.set_meta("chest_key", "%d,%d" % [cell.x, cell.y])
 	interactable.interacted.connect(_on_shed_interacted.bind(interactable))
 
 
@@ -732,7 +734,8 @@ func _on_shed_interacted(_interactor: Node, interactable: Area2D) -> void:
 	var chest_ui: Node = tree.get_first_node_in_group("chest_storage_ui")
 	var container: ContainerInventory = interactable.get_meta("container_inventory", null)
 	if chest_ui and chest_ui.has_method("open_for") and container:
-		chest_ui.open_for(container, "Storage Shed")
+		var chest_key: String = interactable.get_meta("chest_key", "")
+		chest_ui.open_for(container, "Storage Shed", Callable(), chest_key)
 
 
 func _draw_building_sprite(img: Image, data: Dictionary, _img_size: int) -> void:

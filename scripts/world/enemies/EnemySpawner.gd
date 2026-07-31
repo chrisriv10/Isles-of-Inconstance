@@ -19,6 +19,9 @@ var _is_foggy: bool = false
 var _player_ref: CharacterBody2D = null
 var _weather_system: WeatherSystem = null
 
+# Multiplayer
+var _next_enemy_id: int = 1
+
 
 func _ready() -> void:
 	add_to_group("enemy_spawner")
@@ -47,6 +50,10 @@ func _on_weather_updated(weather: WeatherSystem.WeatherType) -> void:
 
 
 func _process(delta: float) -> void:
+	# Multiplayer: only host spawns enemies
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
+	
 	if GameManager.inside_interior:
 		return
 	# Allow spawning during foggy weather even in the daytime
@@ -145,7 +152,17 @@ func _spawn_enemy() -> void:
 			enemy = FrostWisp.new()
 	
 	enemy.global_position = spawn_pos
+	enemy.enemy_id = _next_enemy_id
+	enemy.name = "Enemy_%d" % _next_enemy_id
+	_next_enemy_id += 1
+	
 	add_child(enemy)
+	
+	# Broadcast spawn to remote clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var type_name: String = enemy.get_script().get_global_name()
+		rpc("_receive_spawn_enemy", type_name, spawn_pos.x, spawn_pos.y,
+			enemy.enemy_id, enemy.current_health, enemy.max_health)
 
 
 ## Spawn an enemy at a specific position for the pirate raid event.
@@ -193,6 +210,9 @@ func _apply_pirate_sprite(enemy: GhostEnemy) -> void:
 
 
 func _despawn_all() -> void:
+	# Multiplayer: only host manages despawning
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if enemy and is_instance_valid(enemy):
 			# Don't despawn bosses or pirates — they persist until killed
@@ -201,13 +221,64 @@ func _despawn_all() -> void:
 			# During fog, keep Caspers alive (fog transition handles them separately)
 			if _is_foggy and enemy is GhostEnemy:
 				continue
+			_notify_despawn(enemy)
 			enemy.queue_free()
 
 
 ## Despawns only GhostEnemy (Casper) enemies — called when fog lifts.
 func _despawn_all_caspers() -> void:
+	# Multiplayer: only host manages despawning
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if enemy and is_instance_valid(enemy) and enemy is GhostEnemy:
 			if enemy.has_meta("is_pirate"):
-				continue  # Don't despawn pirates
+				continue
+			_notify_despawn(enemy)
 			enemy.queue_free()
+
+
+## Client: receive a spawn broadcast from the host and create a remote copy.
+@rpc("authority", "reliable")
+func _receive_spawn_enemy(type_name: String, pos_x: float, pos_y: float, eid: int, hp: int, max_hp: int) -> void:
+	if multiplayer.is_server():
+		return
+	var enemy: Enemy
+	match type_name:
+		"GhostEnemy":
+			enemy = GhostEnemy.new()
+		"SporelingEnemy":
+			enemy = SporelingEnemy.new()
+		"CinderImp":
+			enemy = CinderImp.new()
+		"ShadowHound":
+			enemy = ShadowHound.new()
+		"FrostWisp":
+			enemy = FrostWisp.new()
+		_:
+			return
+	
+	enemy.enemy_id = eid
+	enemy.name = "Enemy_%d" % eid
+	enemy._is_remote = true
+	enemy.global_position = Vector2(pos_x, pos_y)
+	add_child(enemy)
+	enemy.current_health = hp
+	enemy.max_health = max_hp
+	enemy._update_health_bar()
+
+
+## Host: tell clients to remove a remote copy during despawn events.
+func _notify_despawn(enemy: Enemy) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server() and enemy.enemy_id > 0:
+		rpc("_receive_despawn_enemy", enemy.enemy_id)
+
+
+## Client: remove a remote copy that the host has despawned.
+@rpc("authority", "reliable")
+func _receive_despawn_enemy(eid: int) -> void:
+	if multiplayer.is_server():
+		return
+	var enemy := get_node_or_null("Enemy_%d" % eid) as Enemy
+	if enemy:
+		enemy.queue_free()

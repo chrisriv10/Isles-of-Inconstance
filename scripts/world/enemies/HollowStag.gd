@@ -68,6 +68,8 @@ func _load_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 	
 	_phase_timer += delta
 	_barrage_cooldown = maxf(_barrage_cooldown - delta, 0.0)
@@ -218,7 +220,9 @@ func _spectral_howl() -> void:
 
 func _die() -> void:
 	InventoryManager.add_item("stags_essence", 1)
+	_queue_loot("stags_essence", 1)
 	InventoryManager.add_item("mythril_ingot", 1)
+	_queue_loot("mythril_ingot", 1)
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
 	if mgr and mgr.has_method("on_boss_defeated"):
 		mgr.on_boss_defeated()

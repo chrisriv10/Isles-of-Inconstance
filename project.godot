@@ -31,7 +31,17 @@ LevelManager="*res://scripts/autoload/LevelManager.gd"
 PetManager="*res://scripts/autoload/PetManager.gd"
 QuestManager="*res://scripts/autoload/QuestManager.gd"
 NetworkManager="*res://scripts/autoload/NetworkManager.gd"
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+Ezcha="*uid://b6odi12jokac"
+EOSGRuntime="*res://addons/epic-online-services-godot/runtime.gd"
+HPlatform="*res://addons/epic-online-services-godot/heos/hplatform.gd"
+HAuth="*res://addons/epic-online-services-godot/heos/hauth.gd"
+HAchievements="*res://addons/epic-online-services-godot/heos/hachievements.gd"
+HFriends="*res://addons/epic-online-services-godot/heos/hfriends.gd"
+HStats="*res://addons/epic-online-services-godot/heos/hstats.gd"
+HLeaderboards="*res://addons/epic-online-services-godot/heos/hleaderboards.gd"
+HLobbies="*res://addons/epic-online-services-godot/heos/hlobbies.gd"
+HP2P="*res://addons/epic-online-services-godot/heos/hp2p.gd"
+HSessions="*res://addons/epic-online-services-godot/heos/hsessions.gd"
 
 [debug]
 
@@ -44,14 +54,14 @@ gdscript/warnings/infer_unsafe_cast="false"
 
 [display]
 
-window/size/viewport_width="1152"
+window/size/viewport_width=1152.0
 window/size/viewport_height="648"
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
+enabled=PackedStringArray("res://addons/epic-online-services-godot/plugin.cfg", "res://addons/ezcha_network/plugin.cfg")
 
 [gui]
 

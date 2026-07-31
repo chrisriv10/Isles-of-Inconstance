@@ -64,6 +64,10 @@ func _is_lantern_nearby() -> bool:
 	return false
 
 func _physics_process(delta: float) -> void:
+	# Remote copy — skip AI, position is synced by host
+	if NetworkManager.is_network_active() and _is_remote:
+		return
+	
 	# Lantern repulsion: flee from player if they hold a lantern nearby
 	if _is_lantern_nearby() and state != State.DEAD:
 		state = State.IDLE

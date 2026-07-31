@@ -28,6 +28,7 @@ var _remote_players: Dictionary = {}
 # World sync state
 var _world_generated: bool = false
 var _pending_seed_peers: Array[int] = []
+var _mp_setup_done: bool = false
 
 func _ready() -> void:
 	# Create weather visual effects overlay (rain, lightning, fog)
@@ -144,6 +145,13 @@ func _ready() -> void:
 	# ObjectivesPanel self-registers in its own _ready()
 
 	# Multiplayer setup
+	NetworkManager.connection_succeeded.connect(_on_network_session_started)
+	_setup_multiplayer()
+
+
+## Called when a network session starts (host or client) after Main was
+## already loaded at the main menu, where network mode was still NONE.
+func _on_network_session_started(_peer_id: int) -> void:
 	_setup_multiplayer()
 
 
@@ -401,8 +409,11 @@ func _try_open_restoration_panel() -> void:
 # ── Multiplayer ────────────────────────────────────────────────────────
 
 func _setup_multiplayer() -> void:
+	if _mp_setup_done:
+		return
 	if not NetworkManager.is_network_active():
 		return
+	_mp_setup_done = true
 
 	var my_id := multiplayer.get_unique_id()
 	player.set_multiplayer_authority(my_id)
@@ -522,6 +533,10 @@ func _on_peer_connected(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
 	_instantiate_remote_player(peer_id)
+	# Broadcast our host stats so the new peer gets current values immediately
+	GameManager._try_broadcast_player_stats()
+	# Tell other existing clients to broadcast their stats too
+	rpc("_request_stat_broadcast")
 
 
 ## Called on the host when a peer disconnects.

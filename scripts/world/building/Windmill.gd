@@ -80,4 +80,5 @@ func _on_interacted(_interactor: Node) -> void:
 		return
 	var chest_ui: Node = tree.get_first_node_in_group("chest_storage_ui")
 	if chest_ui and chest_ui.has_method("open_for") and _container:
-		chest_ui.open_for(_container, "Windmill Storage")
+		var chest_key: String = "%d,%d" % [_building_data.cell.x, _building_data.cell.y]
+		chest_ui.open_for(_container, "Windmill Storage", Callable(), chest_key)

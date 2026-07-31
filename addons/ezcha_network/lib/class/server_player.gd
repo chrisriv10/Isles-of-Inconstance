@@ -1,0 +1,187 @@
+extends RefCounted
+class_name EzchaServerPlayer
+## A helper class for managing players on dedicated servers.
+##
+## You shouldn't use this client-side or when making a singleplayer/relay based game.
+## In those cases you should use Ezcha.client instead.
+
+## Emitted once a session token has been authenticated.
+signal authentication_completed(successful: bool)
+
+## Emitted when a trophy grant is queued from the grant_trophy function.
+## trophy_data will be null if the grant could not be queued.
+signal trophy_grant_completed(trophy_id: String, successful: bool, trophy_data: EzchaTrophy)
+
+## Emitted when a leaderboard update is queued from the update_score function.
+signal leaderboard_update_completed(leaderboard_id: String, successful: bool)
+
+## Emitted after a datastore value is requested and received
+signal datastore_value_received(key: String, value: String)
+
+## Emitted after a datastore value update is posted.
+signal datastore_value_posted(key: String, successful: bool)
+
+## The user data of the player.
+## Only available after authenticating.
+var user: EzchaUser = null
+
+## The trophies that the user has obtained from this game.
+var trophies_obtained: Array[EzchaTrophyObtained] = []
+
+## The leaderboard entries that the currently authenticated user has for this game.
+var leaderboard_entries: Array[EzchaLeaderboardEntry] = []
+
+## If true the user should have access to any moderation tools.
+var moderation_tools: bool = false
+
+var _ezcha: EzchaSingleton = null
+var _obtained_trophy_ids: PackedStringArray = PackedStringArray()
+var _pending_trophy_ids: PackedStringArray = PackedStringArray()
+var _authenticated: bool = false
+
+# Lifecycle
+
+func _init() -> void:
+	_ezcha = EzchaSingleton._get_instance()
+
+# Interface
+
+## Authenticates a session token and loads player information.
+##
+## (Async) Returns true if authentication was successful.
+##
+## The authentication_completed signal is emitted on completion.
+func authenticate(session_token: String) -> bool:
+	if (_authenticated): return true
+	var response: EzchaSessionValidationResponse = await _ezcha.sessions.post_validation(
+		session_token, _ezcha.get_game_id()
+	).async()
+	if (!response.is_successful()):
+		authentication_completed.emit(false)
+		return false
+	_authenticated = true
+	user = response.user
+	trophies_obtained = response.trophies_obtained
+	for trophy in trophies_obtained:
+		_obtained_trophy_ids.append(trophy.id)
+	leaderboard_entries = response.leaderboard_entries
+	moderation_tools = response.moderation_tools
+	authentication_completed.emit(true)
+	return true
+
+## Returns true if the player has authenticated and user data is available.
+func is_authenticated() -> bool:
+	return _authenticated
+
+## Returns true if the player has the trophy specified.
+func has_trophy(trophy_id: String, include_pending: bool = true) -> bool:
+	if (include_pending && _pending_trophy_ids.has(trophy_id)): return true
+	return _obtained_trophy_ids.has(trophy_id)
+
+## Returns the trophy if the player has obtained it, null otherwise.
+func get_trophy(trophy_id: String) -> EzchaTrophyObtained:
+	for trophy: EzchaTrophyObtained in trophies_obtained:
+		if (trophy.id == trophy_id): return trophy
+	return null
+
+## Grants a trophy to the currently authenticated user.
+##
+## (Async) Returns true if the trophy grant was queued.
+func grant_trophy(trophy_id: String) -> bool:
+	if (!_authenticated):
+		printerr(EzchaOpts._PRINT_PREFIX + "User must be authenticated before granting trophies.")
+		return false
+	if (user.guest):
+		printerr(EzchaOpts._PRINT_PREFIX + "Guests cannot be granted trophies.")
+		return false
+	if (has_trophy(trophy_id, true)):
+		printerr(EzchaOpts._PRINT_PREFIX + "User has already obtained this trophy.")
+		return false
+	_pending_trophy_ids.append(trophy_id)
+	var response: EzchaTrophyQueuedResponse = await _ezcha.trophies.post_grant_server(
+		trophy_id, user.id
+	).async()
+	var idx: int = _pending_trophy_ids.find(trophy_id)
+	if (idx > -1): _pending_trophy_ids.remove_at(idx)
+	if (!response.is_successful() || !response.queued):
+		trophy_grant_completed.emit(trophy_id, false, null)
+		return false
+	trophies_obtained.append(response.trophy)
+	_obtained_trophy_ids.append(response.trophy.id)
+	trophy_grant_completed.emit(trophy_id, true, response.trophy)
+	return true
+
+## Checks if the player has a score on a leaderboard.
+func has_score(leaderboard_id: String) -> bool:
+	for entry in leaderboard_entries:
+		if (entry.leaderboard.id == leaderboard_id): return true
+	return false
+
+## Returns the players's score on a specific leaderboard.
+func get_score(leaderboard_id: String, defaults_to: float = 0.0) -> float:
+	for entry in leaderboard_entries:
+		if (entry.leaderboard.id == leaderboard_id): return entry.score
+	return defaults_to
+
+## Updates a leaderboard entry belonging to the player.
+##
+## (Async) Returns true if the score update was queued.
+func update_score(leaderboard_id: String, score: float, mode: EzchaLeaderboardsAPI.UpdateMode = EzchaLeaderboardsAPI.UpdateMode.SET) -> bool:
+	if (!_authenticated):
+		printerr(EzchaOpts._PRINT_PREFIX + "User must be authenticated before tracking scores.")
+		return false
+	if (user.guest):
+		printerr(EzchaOpts._PRINT_PREFIX + "Guests cannot track scores.")
+		return false
+	var response: EzchaLeaderboardQueuedResponse = await _ezcha.leaderboards.post_entry_server(
+		leaderboard_id, user.id, score, mode
+	).async()
+	if (!response.is_successful() || !response.queued):
+		leaderboard_update_completed.emit(leaderboard_id, false)
+		return false
+	leaderboard_update_completed.emit(leaderboard_id, true)
+	return true
+
+## Get a datastore value belonging to the currently authenticated player.
+## The datastore_value_received signal is emitted when the value is received.
+##
+## (Async) Returns a string value. The value will be empty if deleted or not yet set.
+func get_datastore(key: String) -> String:
+	if (!_authenticated):
+		printerr(
+			EzchaOpts._PRINT_PREFIX + "User must be authenticated before accessing datastores."
+		)
+		return ""
+	if (user.guest):
+		printerr(EzchaOpts._PRINT_PREFIX + "Guests cannot access datastores.")
+		return ""
+	var response: EzchaDatastoreValueResponse = await _ezcha.datastores.get_server(
+		user.id, key
+	).async()
+	if (!response.is_successful()):
+		datastore_value_received.emit(key, "")
+		return ""
+	datastore_value_received.emit(key, response.value)
+	return response.value
+
+## Update a datastore value belonging to the currently authenticated player.
+## Limit of 5 keys per user, limit of 16384 characters per value.
+## Set the value to an empty string to delete the key.
+## The datastore_value_posted signal is emitted on completion.
+##
+## (Async) Returns true if the value was successfully updated.
+func set_datastore(key: String, value: String) -> bool:
+	if (!_authenticated):
+		printerr(
+			EzchaOpts._PRINT_PREFIX + "User must be authenticated before accessing datastores."
+		)
+		return false
+	if (user.guest):
+		printerr(EzchaOpts._PRINT_PREFIX + "Guests cannot access datastores.")
+		return false
+	var response: EzchaResponse = await _ezcha.datastores.post_server(user.id, key, value).async()
+	if (!response.is_successful()):
+		datastore_value_posted.emit(key, false)
+		return false
+	datastore_value_posted.emit(key, true)
+	return true

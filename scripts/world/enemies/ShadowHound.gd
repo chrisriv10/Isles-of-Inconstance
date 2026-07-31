@@ -48,6 +48,8 @@ func _load_hound_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 
 	_lunge_timer = maxf(_lunge_timer - delta, 0.0)
 

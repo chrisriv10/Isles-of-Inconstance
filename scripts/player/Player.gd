@@ -73,6 +73,12 @@ const MOVE_HUNGER_DRAIN_INTERVAL: float = 2.5
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var held_item: Sprite2D = $AnimatedSprite2D/HeldItem
 @onready var dialogue_bubble: Node2D = $DialogueBubble
+
+# Remote player health bar (built in code, not in scene)
+var _remote_hp_bar_bg: ColorRect = null
+var _remote_hp_bar_fill: ColorRect = null
+var _remote_pet_node: Node2D = null
+var _remote_last_armor_set: String = ""
 # @onready var armor_chestplate — removed, armor uses full spritesheet swap
 
 # Armor spritesheets — separate walk (192x96) and idle (192x96) matching the base
@@ -230,6 +236,10 @@ func _ready() -> void:
 	_gingerbread_sparkle_timer.timeout.connect(_on_gingerbread_sparkle_tick)
 	add_child(_gingerbread_sparkle_timer)
 
+	# Remote health bar (for non-authority copies shown to other players)
+	if NetworkManager.is_network_active() and not is_multiplayer_authority():
+		_ensure_remote_health_bar()
+
 
 ## Show a dialogue bubble above the player's head.
 func show_dialogue(text: String, duration: float = 3.5) -> void:
@@ -272,6 +282,179 @@ func _setup_animation() -> void:
 	frames.set_animation_loop("walk", true)
 	sprite.sprite_frames = frames
 	sprite.play("idle")
+
+
+func _ensure_remote_health_bar() -> void:
+	if _remote_hp_bar_bg != null:
+		return
+	var bar_w := 24.0
+	var bar_h := 4.0
+	var bg := ColorRect.new()
+	bg.name = "RemoteHPBarBG"
+	bg.size = Vector2(bar_w, bar_h)
+	bg.position = Vector2(-bar_w / 2.0, -32)
+	bg.color = Color(0.1, 0.1, 0.1, 0.6)
+	add_child(bg)
+	_remote_hp_bar_bg = bg
+	var fill := ColorRect.new()
+	fill.name = "RemoteHPBarFill"
+	fill.size = Vector2(bar_w, bar_h)
+	fill.position = Vector2(-bar_w / 2.0, -32)
+	fill.color = Color(0.3, 1.0, 0.3, 0.85)
+	add_child(fill)
+	_remote_hp_bar_fill = fill
+
+
+func _update_remote_health_bar() -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if not is_instance_valid(_remote_hp_bar_fill):
+		return
+	var authority: int = get_multiplayer_authority()
+	var stats: Dictionary = GameManager.remote_player_stats.get(authority, {})
+	var hp: int = stats.get("health", -1)
+	var max_hp: int = stats.get("max_health", 1)
+	if hp < 0:
+		_remote_hp_bar_fill.visible = false
+		_remote_hp_bar_bg.visible = false
+		return
+
+	# Hide remote player when they're inside an interior (mine, expedition, building)
+	var interior: bool = stats.get("inside_interior", false)
+	if interior:
+		visible = false
+		if _remote_pet_node:
+			_remote_pet_node.queue_free()
+			_remote_pet_node = null
+		return
+	else:
+		visible = true
+
+	_remote_hp_bar_fill.visible = true
+	_remote_hp_bar_bg.visible = true
+	var remote_name: String = stats.get("name", "")
+	var remote_level: int = stats.get("level", 1)
+	if not remote_name.is_empty():
+		name_label.text = remote_name + "  Lv" + str(remote_level)
+
+	# Apply armor set visual on remote copy
+	var armor_set: String = stats.get("armor_set", "")
+	_apply_remote_armor(armor_set)
+	var ratio := float(hp) / float(max_hp)
+	var bar_w := 24.0
+	_remote_hp_bar_fill.size.x = ratio * bar_w
+	if ratio > 0.6:
+		_remote_hp_bar_fill.color = Color(0.3, 1.0, 0.3, 0.85)
+	elif ratio > 0.3:
+		_remote_hp_bar_fill.color = Color(1.0, 0.8, 0.2, 0.85)
+	else:
+		_remote_hp_bar_fill.color = Color(1.0, 0.2, 0.2, 0.85)
+
+	# Remote pet visual
+	var active_pet_id: String = stats.get("pet_id", "")
+	if active_pet_id.is_empty():
+		if _remote_pet_node:
+			_remote_pet_node.queue_free()
+			_remote_pet_node = null
+	else:
+		if not _remote_pet_node or str(_remote_pet_node.get("pet_id") if _remote_pet_node else "") != active_pet_id:
+			if _remote_pet_node:
+				_remote_pet_node.queue_free()
+			var pet_scene := preload("res://scenes/Pet.tscn")
+			var pet: Node2D = pet_scene.instantiate()
+			pet._is_remote = true
+			if pet.has_method("setup"):
+				pet.setup(active_pet_id, self)
+			add_child(pet)
+			_remote_pet_node = pet
+
+
+func _apply_remote_armor(set_type: String) -> void:
+	if _remote_last_armor_set == set_type:
+		return
+	_remote_last_armor_set = set_type
+
+	if set_type.is_empty():
+		_setup_animation()
+		sprite.play("idle")
+		return
+
+	var walk_tex: Texture2D
+	var idle_tex: Texture2D
+	if set_type == "iron":
+		if not ARMOR_WALK_IRON: ARMOR_WALK_IRON = load("res://assets/generated/player_walk_iron.png")
+		if not ARMOR_IDLE_IRON: ARMOR_IDLE_IRON = load("res://assets/generated/player_idle_iron.png")
+		walk_tex = ARMOR_WALK_IRON; idle_tex = ARMOR_IDLE_IRON
+	elif set_type == "leather":
+		if not ARMOR_WALK_LEATHER: ARMOR_WALK_LEATHER = load("res://assets/generated/player_walk_leather.png")
+		if not ARMOR_IDLE_LEATHER: ARMOR_IDLE_LEATHER = load("res://assets/generated/player_idle_leather.png")
+		walk_tex = ARMOR_WALK_LEATHER; idle_tex = ARMOR_IDLE_LEATHER
+	elif set_type == "copper":
+		if not ARMOR_WALK_COPPER: ARMOR_WALK_COPPER = load("res://assets/generated/player_walk_copper.png")
+		if not ARMOR_IDLE_COPPER: ARMOR_IDLE_COPPER = load("res://assets/generated/player_idle_copper.png")
+		walk_tex = ARMOR_WALK_COPPER; idle_tex = ARMOR_IDLE_COPPER
+	elif set_type == "silver":
+		if not ARMOR_WALK_SILVER: ARMOR_WALK_SILVER = load("res://assets/generated/player_walk_silver.png")
+		if not ARMOR_IDLE_SILVER: ARMOR_IDLE_SILVER = load("res://assets/generated/player_idle_silver.png")
+		walk_tex = ARMOR_WALK_SILVER; idle_tex = ARMOR_IDLE_SILVER
+	elif set_type == "gold":
+		if not ARMOR_WALK_GOLD: ARMOR_WALK_GOLD = load("res://assets/generated/player_walk_gold.png")
+		if not ARMOR_IDLE_GOLD: ARMOR_IDLE_GOLD = load("res://assets/generated/player_idle_gold.png")
+		walk_tex = ARMOR_WALK_GOLD; idle_tex = ARMOR_IDLE_GOLD
+	elif set_type == "steel":
+		if not ARMOR_WALK_STEEL: ARMOR_WALK_STEEL = load("res://assets/generated/player_walk_steel.png")
+		if not ARMOR_IDLE_STEEL: ARMOR_IDLE_STEEL = load("res://assets/generated/player_idle_steel.png")
+		walk_tex = ARMOR_WALK_STEEL; idle_tex = ARMOR_IDLE_STEEL
+	elif set_type == "mythril":
+		if not ARMOR_WALK_MYTHRIL: ARMOR_WALK_MYTHRIL = load("res://assets/generated/player_walk_mythril.png")
+		if not ARMOR_IDLE_MYTHRIL: ARMOR_IDLE_MYTHRIL = load("res://assets/generated/player_idle_mythril.png")
+		walk_tex = ARMOR_WALK_MYTHRIL; idle_tex = ARMOR_IDLE_MYTHRIL
+	elif set_type == "diamond":
+		if not ARMOR_WALK_DIAMOND: ARMOR_WALK_DIAMOND = load("res://assets/generated/player_walk_diamond.png")
+		if not ARMOR_IDLE_DIAMOND: ARMOR_IDLE_DIAMOND = load("res://assets/generated/player_idle_diamond.png")
+		walk_tex = ARMOR_WALK_DIAMOND; idle_tex = ARMOR_IDLE_DIAMOND
+	elif set_type == "ruby":
+		if not ARMOR_WALK_RUBY: ARMOR_WALK_RUBY = load("res://assets/generated/player_walk_ruby.png")
+		if not ARMOR_IDLE_RUBY: ARMOR_IDLE_RUBY = load("res://assets/generated/player_idle_ruby.png")
+		walk_tex = ARMOR_WALK_RUBY; idle_tex = ARMOR_IDLE_RUBY
+	elif set_type == "obsidian":
+		if not ARMOR_WALK_OBSIDIAN: ARMOR_WALK_OBSIDIAN = load("res://assets/generated/player_walk_obsidian.png")
+		if not ARMOR_IDLE_OBSIDIAN: ARMOR_IDLE_OBSIDIAN = load("res://assets/generated/player_idle_obsidian.png")
+		walk_tex = ARMOR_WALK_OBSIDIAN; idle_tex = ARMOR_IDLE_OBSIDIAN
+	elif set_type == "gingerbread":
+		if not ARMOR_WALK_GINGERBREAD: ARMOR_WALK_GINGERBREAD = load("res://assets/gingerbread_set/player_walk_gingerbread.png")
+		walk_tex = ARMOR_WALK_GINGERBREAD; idle_tex = ARMOR_WALK_GINGERBREAD
+	else:
+		_setup_animation(); sprite.play("idle"); return
+
+	if not walk_tex or not idle_tex:
+		return
+	var frame_size: int = 48
+	var frames := SpriteFrames.new()
+	frames.add_animation("idle")
+	frames.add_animation("walk")
+	var frame_start: int = 1 if set_type == "gingerbread" else 0
+	for i in range(frame_start, 8):
+		var idle_frame := AtlasTexture.new()
+		idle_frame.atlas = idle_tex
+		idle_frame.region = Rect2((i % 4) * frame_size, floori(i / 4) * frame_size, frame_size, frame_size)
+		frames.add_frame("idle", idle_frame)
+		var walk_frame := AtlasTexture.new()
+		walk_frame.atlas = walk_tex
+		walk_frame.region = Rect2((i % 4) * frame_size, floori(i / 4) * frame_size, frame_size, frame_size)
+		frames.add_frame("walk", walk_frame)
+	frames.set_animation_speed("idle", 6.0)
+	frames.set_animation_speed("walk", 8.0)
+	frames.set_animation_loop("idle", true)
+	frames.set_animation_loop("walk", true)
+	sprite.sprite_frames = frames
+	sprite.play("idle")
+
+
+func _process(_delta: float) -> void:
+	if NetworkManager.is_network_active() and not is_multiplayer_authority():
+		_update_remote_health_bar()
+
 
 func _physics_process(delta: float) -> void:
 	# Skip physics for remote players — they receive position via RPC
@@ -410,7 +593,8 @@ func _physics_process(delta: float) -> void:
 
 	# Sync position to remote peers if multiplayer is active
 	if NetworkManager.is_network_active():
-		rpc("_sync_remote_state", global_position, sprite.flip_h, velocity)
+		var is_moving: bool = velocity.length_squared() > 1.0
+		rpc("_sync_remote_state", global_position, facing_direction.x, facing_direction.y, sprite.flip_h, is_moving)
 
 ## Prevents the player from moving into non-walkable tiles (e.g. water).
 ## Checks the tile one step ahead in each axis and zeroes out movement
@@ -2418,6 +2602,9 @@ func _play_tool_swing() -> void:
 	if _tool_swing_tween and _tool_swing_tween.is_valid():
 		_tool_swing_tween.kill()
 	
+	if NetworkManager.is_network_active():
+		rpc("_sync_tool_swing")
+	
 	var swing_direction := facing_direction
 	var rotation_amount := 15.0 if swing_direction.x != 0 else 10.0
 	
@@ -2783,9 +2970,24 @@ func _on_gingerbread_sparkle_tick() -> void:
 ## Received by all peers to update a remote player's visible state.
 ## Only the authority sends this; all others apply the interpolated state.
 @rpc("unreliable", "any_peer")
-func _sync_remote_state(pos: Vector2, facing_left: bool, vel: Vector2) -> void:
+func _sync_remote_state(pos: Vector2, facing_x: float, facing_y: float, facing_left: bool, is_moving: bool) -> void:
 	if is_multiplayer_authority():
 		return
 	global_position = pos
+	facing_direction = Vector2(facing_x, facing_y)
 	sprite.flip_h = facing_left
-	velocity = vel
+	held_item.flip_h = facing_left
+	_update_held_item_position()
+	if is_moving:
+		if sprite.sprite_frames and sprite.animation != "walk":
+			sprite.play("walk")
+	else:
+		if sprite.sprite_frames and sprite.animation != "idle":
+			sprite.play("idle")
+
+
+@rpc("unreliable", "authority")
+func _sync_tool_swing() -> void:
+	if is_multiplayer_authority():
+		return
+	_play_tool_swing()

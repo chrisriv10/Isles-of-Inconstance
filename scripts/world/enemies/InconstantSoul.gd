@@ -83,6 +83,8 @@ func _load_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 	
 	var hp_ratio := float(current_health) / float(max_health)
 	if hp_ratio <= PHASE_HEALTH_2:
@@ -496,6 +498,7 @@ func _die() -> void:
 	
 	# ── Loot & completion ──
 	InventoryManager.add_item("soul_of_inconstance", 1)
+	_queue_loot("soul_of_inconstance", 1)
 	
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
 	if mgr and mgr.has_method("on_boss_defeated"):

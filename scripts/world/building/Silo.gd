@@ -13,22 +13,25 @@ var _container: ContainerInventory = null
 var _interactable: Area2D = null
 
 
+var _building_data: Dictionary = {}
+
+
 func _ready() -> void:
 	# Create the crop-only storage container
 	_container = ContainerInventory.new(36)
 	
 	# Restore from save data if available
-	var building_data := _find_my_building_data()
-	if building_data and building_data.has("silo_slots"):
-		var saved_slots: Array = building_data["silo_slots"]
+	_building_data = _find_my_building_data()
+	if _building_data and _building_data.has("silo_slots"):
+		var saved_slots: Array = _building_data["silo_slots"]
 		if saved_slots.size() > 0:
 			_container.slots = saved_slots.duplicate(true)
 			if _container.slots.size() > _container.capacity:
 				_container.slots.resize(_container.capacity)
 	
 	# Link container slots back to building_data so serialize() captures changes
-	if building_data:
-		building_data["silo_slots"] = _container.slots
+	if _building_data:
+		_building_data["silo_slots"] = _container.slots
 	
 	# Create interaction area
 	_setup_interactable()
@@ -180,4 +183,8 @@ func _on_interacted(_interactor: Node) -> void:
 		return
 	var chest_ui: Node = tree.get_first_node_in_group("chest_storage_ui")
 	if chest_ui and chest_ui.has_method("open_for") and _container:
-		chest_ui.open_for(_container, "Crop Silo", deposit_all_crops)
+		var chest_key: String = ""
+		if _building_data.has("cell"):
+			var cell: Vector2i = _building_data["cell"]
+			chest_key = "%d,%d" % [cell.x, cell.y]
+		chest_ui.open_for(_container, "Crop Silo", deposit_all_crops, chest_key)

@@ -27,6 +27,19 @@ func _ready() -> void:
 	# visible behind MainMenu AND SaveSelectUI regardless of menu states.
 	call_deferred("_place_persistent_background")
 	call_deferred("_connect_signals")
+	call_deferred("_check_cli_join")
+
+
+## Standalone clients launched with --eos-join=<CODE> route through the
+## normal join flow so the game starts after connecting.
+func _check_cli_join() -> void:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--eos-join="):
+			var code: String = arg.get_slice("=", 1).strip_edges()
+			if not code.is_empty():
+				print("Bootstrap: CLI join code: ", code)
+				_on_join_online(code)
+			break
 
 
 func _setup_emoji_font_fallback() -> void:
@@ -77,6 +90,8 @@ func _connect_signals() -> void:
 		main_menu.quit_requested.connect(_on_quit)
 		main_menu.host_game_requested.connect(_on_host_game)
 		main_menu.join_game_requested.connect(_on_join_game)
+		main_menu.host_online_requested.connect(_on_host_online)
+		main_menu.join_online_requested.connect(_on_join_online)
 	
 	if save_select_ui:
 		save_select_ui.save_selected.connect(_on_continue)
@@ -121,6 +136,20 @@ func _on_join_game(ip: String) -> void:
 	_connect_mp_success_signal(_on_join_success)
 	_connect_mp_fail_signal()
 	NetworkManager.join(ip)
+
+func _on_host_online(p_seed: int, p_mode: int = GameManager.GameMode.SURVIVAL) -> void:
+	print("Bootstrap: Host Online requested, seed=", p_seed, " mode=", p_mode)
+	GameManager.set_game_mode(p_mode)
+	_pending_new_game_seed = p_seed
+	_connect_mp_success_signal(_on_host_started)
+	_connect_mp_fail_signal()
+	NetworkManager.host_via_eos()
+
+func _on_join_online(join_code: String) -> void:
+	print("Bootstrap: Join Online requested, code=", join_code)
+	_connect_mp_success_signal(_on_join_success)
+	_connect_mp_fail_signal()
+	NetworkManager.join_via_eos_code(join_code)
 
 func _on_join_success(peer_id: int) -> void:
 	print("Bootstrap: Joined game successfully, peer ID: ", peer_id)
@@ -564,6 +593,10 @@ func _on_exit_to_menu() -> void:
 
 	# Save current game state before exiting
 	SaveManager.save_game()
+
+	# Disconnect from multiplayer session if active
+	if NetworkManager.is_network_active():
+		NetworkManager.disconnect_from_server()
 	
 	_hide_game_and_show_menu()
 	

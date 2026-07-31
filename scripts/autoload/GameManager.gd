@@ -96,6 +96,12 @@ var best_quality_tier: int = 0
 var health: int = MAX_HEALTH
 var hunger: int = MAX_HUNGER
 
+# Multiplayer: remote player stats keyed by peer_id
+# Each value: {"health": int, "max_health": int, "hunger": int, "max_hunger": int}
+var remote_player_stats: Dictionary = {}
+var _last_stat_sync_time: float = 0.0
+const _STAT_SYNC_COOLDOWN: float = 0.3  # at most ~3 broadcasts per second
+
 # ── Armor system ──
 # Armor piece slots the player can equip. Each maps slot -> item_id or "" for empty.
 var equipped_armor: Dictionary = {
@@ -228,10 +234,12 @@ static func _armor_slot_for(item_id: String) -> String:
 func reset_health() -> void:
 	health = MAX_HEALTH
 	health_changed.emit(health, MAX_HEALTH)
+	_try_broadcast_player_stats()
 
 func reset_hunger() -> void:
 	hunger = MAX_HUNGER
 	hunger_changed.emit(hunger, MAX_HUNGER)
+	_try_broadcast_player_stats()
 
 func take_damage(amount: int) -> void:
 	if is_creative() and creative_infinite_health:
@@ -265,6 +273,7 @@ func take_damage(amount: int) -> void:
 	var damage_dealt: int = amount
 	health = max(0, health - damage_dealt)
 	health_changed.emit(health, MAX_HEALTH)
+	_try_broadcast_player_stats()
 	# Show damage as floating text near player (rises and fades like item pickups)
 	if original_amount > 0:
 		var pos: Vector2 = player.global_position if player else Vector2.ZERO
@@ -281,6 +290,7 @@ func take_damage(amount: int) -> void:
 func heal(amount: int) -> void:
 	health = min(MAX_HEALTH, health + amount)
 	health_changed.emit(health, MAX_HEALTH)
+	_try_broadcast_player_stats()
 
 func change_hunger(amount: int) -> void:
 	if is_creative() and creative_no_hunger and amount < 0:
@@ -289,6 +299,7 @@ func change_hunger(amount: int) -> void:
 	if is_creative() and creative_no_hunger and hunger < MAX_HUNGER:
 		hunger = MAX_HUNGER  # always refill in creative
 	hunger_changed.emit(hunger, MAX_HUNGER)
+	_try_broadcast_player_stats()
 
 ## Called when the player's level changes. Updates max HP and
 ## heals the player by the difference so leveling feels rewarding.
@@ -302,6 +313,7 @@ func _on_level_up(_new_level: int) -> void:
 		health = mini(MAX_HEALTH, health + hp_gain)
 	health_changed.emit(health, MAX_HEALTH)
 	hunger_changed.emit(hunger, MAX_HUNGER)
+	_try_broadcast_player_stats()
 
 
 ## Force-recalculate max stats from LevelManager (used on save load).
@@ -312,6 +324,7 @@ func refresh_max_stats() -> void:
 	hunger = mini(hunger, MAX_HUNGER)
 	health_changed.emit(health, MAX_HEALTH)
 	hunger_changed.emit(hunger, MAX_HUNGER)
+	_try_broadcast_player_stats()
 
 
 func _hunger_tick() -> void:
@@ -352,7 +365,7 @@ func _on_player_died() -> void:
 	hunger = MAX_HUNGER
 	health_changed.emit(health, MAX_HEALTH)
 	hunger_changed.emit(hunger, MAX_HUNGER)
-	
+	_try_broadcast_player_stats()
 	var player := get_tree().get_first_node_in_group("player")
 	if player:
 		# Teleport to overworld spawn (the player's starting island)
@@ -380,6 +393,7 @@ func is_hardcore() -> bool:
 	return game_mode == GameMode.HARDCORE
 
 var _minute_timer: float = 0.0
+var _time_sync_timer: float = 0.0
 
 func _ready() -> void:
 	day_night = DayNightCycle.new()
@@ -412,6 +426,13 @@ func _process(delta: float) -> void:
 	if _minute_timer >= real_seconds_per_game_minute:
 		_minute_timer = 0.0
 		_advance_minute()
+	
+	# Host: periodically broadcast time state to clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_time_sync_timer += delta
+		if _time_sync_timer >= 15.0:
+			_time_sync_timer = 0.0
+			_broadcast_time_state()
 
 func _advance_minute() -> void:
 	current_minute_of_day += 1
@@ -456,6 +477,40 @@ func _advance_minute() -> void:
 		day_changed.emit(current_day)
 		# Auto-save on day change
 		SaveManager.save_game()
+		# Host: broadcast day rollover to clients
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_broadcast_time_state()
+
+
+# ── Multiplayer time sync ────────────────────────────────────────────────
+
+func _get_season_state() -> int:
+	return season_system.current_season if season_system else 0
+
+func _get_weather_state() -> int:
+	return weather_system.current_weather if weather_system else 0
+
+
+## Host: broadcast current time/season/weather state to all clients.
+func _broadcast_time_state() -> void:
+	rpc("_receive_time_state", current_day, current_minute_of_day,
+		day_night.current_phase if day_night else 0,
+		_get_season_state(), _get_weather_state())
+
+
+## Client: receive and apply time state from host.
+@rpc("authority", "reliable", "call_local")
+func _receive_time_state(day: int, min_of_day: int, phase: int, season: int, weather: int) -> void:
+	if multiplayer.is_server():
+		return  # host already has the real state
+	current_day = day
+	current_minute_of_day = min_of_day
+	if day_night:
+		day_night.current_phase = phase
+	if season_system:
+		season_system.current_season = season
+	if weather_system:
+		weather_system.current_weather = weather
 	
 	var hour := get_hour()
 	var minute := get_minute()
@@ -468,6 +523,9 @@ func _advance_minute() -> void:
 			phase_changed.emit(new_phase)
 			if new_phase == DayNightCycle.Phase.NIGHT:
 				AudioManager.play(AudioManager.Sound.NIGHT_START)
+			# Host: broadcast phase change to clients
+			if NetworkManager.is_network_active() and multiplayer.is_server():
+				_broadcast_time_state()
 
 func get_hour() -> int:
 	return floori(current_minute_of_day / 60.0)
@@ -482,6 +540,8 @@ func get_time_string() -> String:
 func set_time(hour: int, minute: int) -> void:
 	current_minute_of_day = hour * 60 + minute
 	time_changed.emit(get_hour(), get_minute())
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_broadcast_time_state()
 
 ## Marks the game as completed (final boss defeated). Shows a permanent
 ## celebration toast and sets a save flag that persists across sessions.
@@ -592,6 +652,159 @@ func try_show_dialogue(flag_id: String, text: String, duration: float = 3.5) -> 
 	return true
 
 
+# ── Multiplayer player stats sync ─────────────────────────────────────────
+
+## Broadcast current health/hunger to all peers. Rate-limited to
+## avoid flooding the network during rapid damage/heal events.
+func _try_broadcast_player_stats() -> void:
+	if not NetworkManager.is_network_active():
+		return
+	var now: float = Time.get_ticks_msec() / 1000.0
+	if now - _last_stat_sync_time < _STAT_SYNC_COOLDOWN:
+		return
+	_last_stat_sync_time = now
+	var pet_id: String = ""
+	if Engine.has_singleton("PetManager"):
+		var pm: Node = Engine.get_singleton("PetManager")
+		var _pm_val: Variant = pm.get("active_pet_id")
+		pet_id = str(_pm_val)
+	var interior: int = 1 if inside_interior else 0
+	var armor: String = compute_armor_set()
+	var lvl: int = 1
+	if Engine.has_singleton("LevelManager"):
+		var lm: Node = Engine.get_singleton("LevelManager")
+		if lm.has_method("get_current_level"):
+			lvl = lm.get_current_level()
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, armor, lvl)
+
+
+@rpc("unreliable", "any_peer")
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, armor_set: String = "", level: int = 1) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == multiplayer.get_unique_id():
+		return  # ignore our own broadcast
+	remote_player_stats[sender] = {
+		"health": hp,
+		"max_health": max_hp,
+		"hunger": hgr,
+		"max_hunger": max_hgr,
+		"name": name,
+		"pet_id": pet_id,
+		"inside_interior": interior != 0,
+		"armor_set": armor_set,
+		"level": level,
+	}
+
+
+## Returns the full matching armor set name ("iron", "steel", etc.) or "" if incomplete/mismatched.
+func compute_armor_set() -> String:
+	var first_material: String = ""
+	for slot: String in ["helmet", "chestplate", "leggings", "boots"]:
+		var item_id: String = equipped_armor.get(slot, "")
+		if item_id.is_empty():
+			return ""
+		var material: String = ""
+		if item_id.begins_with("iron_"):
+			material = "iron"
+		elif item_id.begins_with("leather_"):
+			material = "leather"
+		elif item_id.begins_with("copper_"):
+			material = "copper"
+		elif item_id.begins_with("silver_"):
+			material = "silver"
+		elif item_id.begins_with("gold_"):
+			material = "gold"
+		elif item_id.begins_with("steel_"):
+			material = "steel"
+		elif item_id.begins_with("mythril_"):
+			material = "mythril"
+		elif item_id.begins_with("diamond_"):
+			material = "diamond"
+		elif item_id.begins_with("ruby_"):
+			material = "ruby"
+		elif item_id.begins_with("obsidian_"):
+			material = "obsidian"
+		elif item_id.begins_with("gingerbread_"):
+			material = "gingerbread"
+		else:
+			return ""
+		if first_material.is_empty():
+			first_material = material
+		elif material != first_material:
+			return ""
+	return first_material
+
+
+@rpc("authority", "reliable")
+func _request_stat_broadcast() -> void:
+	if multiplayer.is_server():
+		return
+	_try_broadcast_player_stats()
+
+
+## Host forwards enemy damage to the targeted remote player.
+@rpc("authority", "reliable")
+func _receive_remote_enemy_damage(amount: int) -> void:
+	if multiplayer.is_server():
+		return
+	take_damage(amount)
+
+
+# ── Multiplayer chest sync ───────────────────────────────────────────────
+
+## Client: request the latest chest data from the host when opening a chest.
+func request_chest_data(key: String) -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_send_chest_data", key)
+
+
+@rpc("any_peer", "reliable")
+func _server_send_chest_data(key: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var slots: Array = chest_inventories.get(key, [])
+	rpc_id(multiplayer.get_remote_sender_id(), "_receive_chest_data", key, slots)
+
+
+@rpc("authority", "reliable")
+func _receive_chest_data(key: String, slots: Array) -> void:
+	if multiplayer.is_server():
+		return
+	chest_inventories[key] = slots
+	var chest_ui := get_tree().get_first_node_in_group("chest_storage_ui")
+	if chest_ui and chest_ui.is_open and chest_ui._container:
+		chest_ui._container.slots = slots.duplicate(true)
+		chest_ui._container.changed.emit()
+
+
+## Called when a chest UI closes. Sends the final slots to the host.
+func sync_chest_on_close(key: String, slots: Array) -> void:
+	if multiplayer.is_server():
+		chest_inventories[key] = slots.duplicate(true)
+		rpc("_broadcast_chest_update", key, slots)
+	else:
+		rpc_id(1, "_server_sync_chest_on_close", key, slots)
+
+
+@rpc("any_peer", "reliable")
+func _server_sync_chest_on_close(key: String, slots: Array) -> void:
+	if not multiplayer.is_server():
+		return
+	chest_inventories[key] = slots.duplicate(true)
+	rpc("_broadcast_chest_update", key, slots)
+
+
+@rpc("authority", "reliable")
+func _broadcast_chest_update(key: String, slots: Array) -> void:
+	if multiplayer.is_server():
+		return
+	chest_inventories[key] = slots
+	var chest_ui := get_tree().get_first_node_in_group("chest_storage_ui")
+	if chest_ui and chest_ui.is_open and chest_ui._container:
+		chest_ui._container.slots = slots.duplicate(true)
+		chest_ui._container.changed.emit()
+
+
 # --- Creative mode helpers ---
 
 func toggle_creative_time_pause() -> void:
@@ -612,3 +825,5 @@ func advance_days(count: int = 1) -> void:
 	# ensure we're at a reasonable hour after fast-forward
 	current_minute_of_day = 6 * 60  # reset to 06:00
 	time_changed.emit(get_hour(), get_minute())
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_broadcast_time_state()

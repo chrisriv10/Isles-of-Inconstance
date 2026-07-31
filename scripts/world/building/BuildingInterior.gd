@@ -474,7 +474,8 @@ func _load_chest_contents() -> void:
 func _on_storage_interacted(_interactor: Node) -> void:
 	var chest_ui: CanvasLayer = get_tree().get_first_node_in_group("chest_storage_ui") as CanvasLayer
 	if chest_ui and _chest_inventory:
-		chest_ui.open_for(_chest_inventory, "Storage Chest")
+		var chest_key: String = "%d,%d" % [building_cell.x, building_cell.y]
+		chest_ui.open_for(_chest_inventory, "Storage Chest", Callable(), chest_key)
 
 func _add_table(pos: Vector2) -> Interactable:
 	var table := _add_interactable_furniture(pos, FURNITURE_TABLE, "Examine", 24, 16)

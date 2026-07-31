@@ -250,6 +250,25 @@ func _complete_harvesting() -> void:
 	if sprite_node:
 		sprite_node.modulate = Color(0.5, 0.5, 0.3)
 	interaction_prompt = "Regrowing..."
+	
+	# Notify remote peers so they see the bush as harvested
+	if NetworkManager.is_network_active():
+		var world = get_tree().current_scene
+		if world and world.has_method("notify_bush_harvested"):
+			world.notify_bush_harvested(global_position)
+
+
+## Called remotely by World.gd to mark this bush as harvested without
+## running the gameplay/inventory logic.
+func set_harvested() -> void:
+	_harvested = true
+	_is_harvesting = false
+	_progress_bg.visible = false
+	_progress_fill.visible = false
+	var sprite_node: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
+	if sprite_node:
+		sprite_node.modulate = Color(0.5, 0.5, 0.3)
+	interaction_prompt = "Regrowing..."
 
 func _on_day_passed(_day: int) -> void:
 	if _harvested:

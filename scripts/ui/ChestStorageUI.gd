@@ -14,6 +14,7 @@ var is_open: bool = false
 
 ## The container inventory we're currently viewing/editing.
 var _container: ContainerInventory = null
+var _chest_key: String = ""
 
 ## Optional callback for "Deposit All" button (e.g. silo deposit_all_crops).
 var _deposit_all_callback: Callable = Callable()
@@ -28,13 +29,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Opens this UI for a specific chest container.
 ## If deposit_all_cb is provided, shows a "Deposit All" button that calls it.
-func open_for(container: ContainerInventory, title: String = "Storage Chest", deposit_all_cb: Callable = Callable()) -> void:
+## chest_key is used for multiplayer sync of interior chest inventories.
+func open_for(container: ContainerInventory, title: String = "Storage Chest",
+			  deposit_all_cb: Callable = Callable(), chest_key: String = "") -> void:
 	# Disconnect from previous container first if it's different
 	if _container != null and _container != container:
 		if _container.changed.is_connected(_on_container_changed):
 			_container.changed.disconnect(_on_container_changed)
 
 	_container = container
+	_chest_key = chest_key
 
 	# Safely connect — avoid "already connected" errors
 	if not _container.changed.is_connected(_on_container_changed):
@@ -56,6 +60,10 @@ func open_for(container: ContainerInventory, title: String = "Storage Chest", de
 	# Show or hide the "Deposit All" button
 	_update_deposit_all_button()
 
+	# Multiplayer: request latest chest data from host
+	if NetworkManager.is_network_active() and not multiplayer.is_server() and chest_key != "":
+		GameManager.request_chest_data(chest_key)
+
 	UITweenHelper.animate_open(panel, 0.25, 20.0)
 	refresh()
 
@@ -65,6 +73,10 @@ func close() -> void:
 		return
 	is_open = false
 	_deposit_all_callback = Callable()
+
+	# Multiplayer: sync chest contents to host
+	if NetworkManager.is_network_active() and _chest_key != "" and _container != null:
+		GameManager.sync_chest_on_close(_chest_key, _container.slots)
 
 	if _container and _container.changed.is_connected(_on_container_changed):
 		_container.changed.disconnect(_on_container_changed)

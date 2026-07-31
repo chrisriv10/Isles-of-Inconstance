@@ -52,6 +52,8 @@ func _load_cinder_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	if state == State.DEAD:
 		return
+	if NetworkManager.is_network_active() and _is_remote:
+		return
 
 	_fireball_timer = maxf(_fireball_timer - delta, 0.0)
 

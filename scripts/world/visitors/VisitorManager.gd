@@ -52,11 +52,19 @@ var _arrival_scheduled: bool = false
 ## Whether the nighttime hotel-directing has already been done today
 var _night_hotel_triggered: bool = false
 
+## Whether this is a remote copy (client) — skip decision logic
+var _is_remote: bool = false
+
+
 func _ready() -> void:
 	add_to_group("visitor_manager")
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		_is_remote = true
 
 ## Called each day from World._on_day_changed.
 func advance_day(_day: int) -> void:
+	if _is_remote:
+		return
 	_days_since_last_visit += 1
 	_deployed_today = false
 	_recalled_today = false
@@ -70,7 +78,7 @@ func advance_day(_day: int) -> void:
 
 ## Called from World._process each frame to handle time-of-day triggers.
 func check_time(hour: int) -> void:
-	if not is_inside_tree():
+	if _is_remote or not is_inside_tree():
 		return
 	
 	# Arrival window: spawn a ship if scheduled and it's arrival time
@@ -98,6 +106,7 @@ func check_time(hour: int) -> void:
 				# Clear daytime hotel guests (they've generated their income)
 				_clear_hotel_guests()
 				_active_ship.recall_npcs()
+				_broadcast_ship_departure()
 		elif hour >= DEPARTURE_HOUR_MAX and not _departed_today:
 			_departed_today = true
 			if not _recalled_today:
@@ -108,6 +117,7 @@ func check_time(hour: int) -> void:
 			# checked-in ones). Don't clear hotel guests here — nighttime guests
 			# stay overnight and are handled on the next arrival or departure.
 			_active_ship.recall_npcs()
+			_broadcast_ship_departure()
 
 ## Spawn a visitor ship at the dock.
 func _spawn_ship() -> void:
@@ -154,6 +164,40 @@ func _on_visitors_disembarked() -> void:
 	if not _active_ship or not _active_ship.is_inside_tree():
 		return
 	_register_hotel_guests()
+
+	# Broadcast NPC roster to remote clients
+	if not _is_remote:
+		var roster := _build_roster_data()
+		if not roster.is_empty():
+			var world := get_tree().get_first_node_in_group("world")
+			if world and world.has_method("notify_visitor_arrived"):
+				world.notify_visitor_arrived(roster)
+
+## Build serialisable roster data from the active ship's NPCs.
+func _build_roster_data() -> Array[Dictionary]:
+	if not _active_ship or not _active_ship.has_method("get_visitor_npcs"):
+		return []
+	var npcs: Array = _active_ship.get_visitor_npcs()
+	var result: Array[Dictionary] = []
+	for npc in npcs:
+		if not is_instance_valid(npc):
+			continue
+		result.append({
+			"type": npc.npc_type,
+			"name": npc._npc_display_name,
+			"tex": npc._npc_texture_variant,
+		})
+	return result
+
+
+## Broadcast ship departure to remote clients.
+func _broadcast_ship_departure() -> void:
+	if _is_remote:
+		return
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_visitor_departed"):
+		world.notify_visitor_departed()
+
 
 ## Find all placed hotel buildings and register guests.
 ## Each NPC has a HOTEL_REGISTER_CHANCE to become a paying guest,

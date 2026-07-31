@@ -150,6 +150,7 @@ func _init() -> void:
 	visitor_manager = VisitorManager.new()
 
 func _ready() -> void:
+	add_to_group("world")
 	GameManager.day_changed.connect(_on_day_changed)
 	UpgradeManager.upgrade_purchased.connect(_on_upgrade_purchased)
 	generate_world()
@@ -747,6 +748,10 @@ func _till_cell(cell: Vector2i) -> bool:
 		til_mgr.on_tile_tilled()
 	LevelManager.add_xp_source("till")
 	
+	# Sync to remote peers
+	if NetworkManager.is_network_active():
+		rpc("_sync_till_cell", cell)
+	
 	return true
 
 func water_tile(world_pos: Vector2) -> bool:
@@ -780,6 +785,10 @@ func _water_cell(cell: Vector2i) -> bool:
 	# Effects
 	EffectSpawner.spawn_water_droplets(cell_to_world(cell))
 	AudioManager.play(AudioManager.Sound.WATER)
+	
+	# Sync to remote peers
+	if NetworkManager.is_network_active():
+		rpc("_sync_water_cell", cell)
 	
 	return true
 
@@ -920,6 +929,10 @@ func _plant_seed_cell(cell: Vector2i, crop_id: String) -> bool:
 	# Effects
 	AudioManager.play(AudioManager.Sound.PLANT)
 	
+	# Sync to remote peers
+	if NetworkManager.is_network_active():
+		rpc("_sync_plant_cell", cell, effective_crop_id)
+	
 	return true
 
 func harvest_crop(world_pos: Vector2) -> bool:
@@ -1056,6 +1069,7 @@ func harvest_crop(world_pos: Vector2) -> bool:
 	if crop_data.regrows:
 		crop.harvest()
 		_soil_data[cell].days_grown = crop_data.regrow_days
+		_sync_harvest_if_active(cell, 1)
 	else:
 		# Sprout chance: 30% base. Higher with quality soil/fertilizer.
 		var sprout_chance := 0.3
@@ -1078,11 +1092,13 @@ func harvest_crop(world_pos: Vector2) -> bool:
 			if soil and (soil.fertilizer or soil.is_composted):
 				if randf() < 0.10:
 					_trigger_sprout_mutation(cell, crop_data)
+			_sync_harvest_if_active(cell, 2)
 		else:
 			crop.queue_free()
 			_crop_nodes.erase(cell)
 			_soil_data[cell].crop_id = ""
 			_soil_data[cell].days_grown = 0
+			_sync_harvest_if_active(cell, 0)
 	
 	# Compost bin passive effect: 40% chance to generate compost from crop waste
 	if _is_near_compost_bin(cell):
@@ -2106,6 +2122,29 @@ func _scatter_animals() -> void:
 		var animal: Animal = ANIMAL_SCENE.instantiate()
 		objects_root.add_child(animal)
 		animal.setup(p_type, cell_to_world(positions[i]))
+		_broadcast_animal_spawn(animal)
+
+
+## Helper: collect an animal's visual and gameplay state into a dictionary
+## and broadcast it so remote clients create a matching copy.
+func _broadcast_animal_spawn(animal: Animal) -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var data: Dictionary = animal.get_network_data()
+	rpc("_sync_spawn_animal", data)
+
+
+## Host → all clients: spawn an animal on remote copies.
+@rpc("authority", "call_local")
+func _sync_spawn_animal(data: Dictionary) -> void:
+	if multiplayer.is_server():
+		return  # Host already has the real animal
+	if not objects_root or not is_instance_valid(objects_root):
+		return  # World not ready yet
+	var animal: Animal = ANIMAL_SCENE.instantiate()
+	objects_root.add_child(animal)
+	animal.setup_from_network(data)
+
 
 ## Spawns a couple of starter animals on walkable land near the player's
 ## starting position so they encounter animals immediately without having
@@ -2129,6 +2168,7 @@ func spawn_starter_animals_near(world_pos: Vector2) -> void:
 			var animal: Animal = ANIMAL_SCENE.instantiate()
 			objects_root.add_child(animal)
 			animal.setup(starter_type, cell_to_world(cell))
+			_broadcast_animal_spawn(animal)
 			placed += 1
 
 ## Periodic animal respawn check. Fires every ~60 seconds.
@@ -2193,6 +2233,7 @@ func _on_animal_respawn_timer() -> void:
 			var animal: Animal = ANIMAL_SCENE.instantiate()
 			objects_root.add_child(animal)
 			animal.setup(p_type, spawn_pos)
+			_broadcast_animal_spawn(animal)
 			break
 
 
@@ -2570,21 +2611,7 @@ func try_place_building(cell: Vector2i) -> bool:
 	InventoryManager.remove_item(build_item_id, 1)
 
 	# Register special building types
-	if build_type == BuildingSystem.BuildingType.GREENHOUSE:
-		var gh_data: Dictionary = BuildingSystem.BUILDING_DATA.get(BuildingSystem.BuildingType.GREENHOUSE, {})
-		var gh_w: int = gh_data.get("width", 6)
-		var gh_h: int = gh_data.get("height", 4)
-		for dx in range(gh_w):
-			for dy in range(gh_h):
-				var gh_cell := cell + Vector2i(dx, dy)
-				if not gh_cell in _greenhouse_cells:
-					_greenhouse_cells.append(gh_cell)
-	elif build_type == BuildingSystem.BuildingType.SCARECROW:
-		if not cell in _scarecrow_cells:
-			_scarecrow_cells.append(cell)
-	elif build_type == BuildingSystem.BuildingType.COMPOST_BIN:
-		if not cell in _compost_bin_cells:
-			_compost_bin_cells.append(cell)
+	_register_special_building(build_type, cell)
 
 	var data: Dictionary = BuildingSystem.BUILDING_DATA.get(build_type, {})
 	var name_str: String = data.get("name", "Building")
@@ -2603,6 +2630,11 @@ func try_place_building(cell: Vector2i) -> bool:
 
 	if not keep_mode:
 		exit_build_mode()
+
+	# Sync to remote peers
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_place_building", build_type, cell)
+
 	return true
 
 ## Picks up a placed building at the given cell, refunding the kit item.
@@ -2628,25 +2660,8 @@ func try_pickup_building(cell: Vector2i) -> bool:
 		return false
 
 	# Clean up special tracking arrays
-	if b_type == BuildingSystem.BuildingType.GREENHOUSE:
-		# Remove all cells this greenhouse occupies
-		var gh_data: Dictionary = BuildingSystem.BUILDING_DATA.get(BuildingSystem.BuildingType.GREENHOUSE, {})
-		var gh_w: int = gh_data.get("width", 6)
-		var gh_h: int = gh_data.get("height", 4)
-		for dx in range(gh_w):
-			for dy in range(gh_h):
-				var gh_cell := cell + Vector2i(dx, dy)
-				var idx: int = _greenhouse_cells.find(gh_cell)
-				if idx >= 0:
-					_greenhouse_cells.remove_at(idx)
-	elif b_type == BuildingSystem.BuildingType.SCARECROW:
-		var idx: int = _scarecrow_cells.find(cell)
-		if idx >= 0:
-			_scarecrow_cells.remove_at(idx)
-	elif b_type == BuildingSystem.BuildingType.COMPOST_BIN:
-		var idx: int = _compost_bin_cells.find(cell)
-		if idx >= 0:
-			_compost_bin_cells.remove_at(idx)
+	# Clean up special tracking arrays
+	_unregister_special_building(b_type, cell)
 
 	# Remove the building node and data
 	building_system.remove_building(cell, self)
@@ -2659,6 +2674,11 @@ func try_pickup_building(cell: Vector2i) -> bool:
 	ToastNotification.show_toast("Picked up %s!" % name_str, ToastNotification.ToastType.SUCCESS)
 	AudioManager.play(AudioManager.Sound.PICKUP_ITEM)
 	LevelManager.add_xp_source("build")
+
+	# Sync to remote peers
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_remove_building", cell, b_type)
+
 	return true
 
 # ---------------------------------------------------------------------------
@@ -3809,3 +3829,195 @@ func _sync_remove_cell_object(cell: Vector2i) -> void:
 			if child_cell == cell:
 				child.queue_free()
 				return
+
+
+## Called by a Bush node after successful harvest. Broadcasts the cell
+## to all clients so they can mark the matching bush as harvested.
+func notify_bush_harvested(world_pos: Vector2) -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if not multiplayer.is_server():
+		return
+	var cell := world_to_cell(world_pos)
+	rpc("_sync_bush_harvested", cell)
+
+
+## Received by clients to mark a bush as harvested at the given cell.
+@rpc("authority", "call_local")
+func _sync_bush_harvested(cell: Vector2i) -> void:
+	for child in objects_root.get_children():
+		if child is Bush and is_instance_valid(child):
+			var child_cell := world_to_cell(child.global_position)
+			if child_cell == cell:
+				child.set_harvested()
+				return
+
+
+## Sync helpers — called by host after successful farming actions.
+func _sync_harvest_if_active(cell: Vector2i, action: int) -> void:
+	if NetworkManager.is_network_active():
+		rpc("_sync_harvest_cell", cell, action)
+
+
+@rpc("authority", "call_local")
+func _sync_till_cell(cell: Vector2i) -> void:
+	_till_cell(cell)
+
+
+@rpc("authority", "call_local")
+func _sync_water_cell(cell: Vector2i) -> void:
+	_water_cell(cell)
+
+
+@rpc("authority", "call_local")
+func _sync_plant_cell(cell: Vector2i, crop_id: String) -> void:
+	if _soil_data.has(cell) and _soil_data[cell].is_tilled and _soil_data[cell].crop_id == "":
+		_plant_seed_cell(cell, crop_id)
+
+
+## action: 0 = removed, 1 = regrow, 2 = sprout
+@rpc("authority", "call_local")
+func _sync_harvest_cell(cell: Vector2i, action: int) -> void:
+	if not _crop_nodes.has(cell):
+		return
+	var crop: Crop = _crop_nodes[cell]
+	match action:
+		0:
+			crop.queue_free()
+			_crop_nodes.erase(cell)
+			if _soil_data.has(cell):
+				_soil_data[cell].crop_id = ""
+		1:
+			crop.harvest()
+			var crop_data: CropData = DataManager.get_crop(crop.crop_id)
+			if crop_data:
+				_soil_data[cell].days_grown = crop_data.regrow_days
+		2:
+			crop.reset_to_sprout()
+			_soil_data[cell].days_grown = 0
+
+
+## Registers a special building type in its tracking array.
+func _register_special_building(b_type: int, cell: Vector2i) -> void:
+	if b_type == BuildingSystem.BuildingType.GREENHOUSE:
+		var gh_data: Dictionary = BuildingSystem.BUILDING_DATA.get(BuildingSystem.BuildingType.GREENHOUSE, {})
+		var gh_w: int = gh_data.get("width", 6)
+		var gh_h: int = gh_data.get("height", 4)
+		for dx in range(gh_w):
+			for dy in range(gh_h):
+				var gh_cell := cell + Vector2i(dx, dy)
+				if not gh_cell in _greenhouse_cells:
+					_greenhouse_cells.append(gh_cell)
+	elif b_type == BuildingSystem.BuildingType.SCARECROW:
+		if not cell in _scarecrow_cells:
+			_scarecrow_cells.append(cell)
+	elif b_type == BuildingSystem.BuildingType.COMPOST_BIN:
+		if not cell in _compost_bin_cells:
+			_compost_bin_cells.append(cell)
+
+
+## Unregisters a special building type from its tracking array.
+func _unregister_special_building(b_type: int, cell: Vector2i) -> void:
+	if b_type == BuildingSystem.BuildingType.GREENHOUSE:
+		var gh_data: Dictionary = BuildingSystem.BUILDING_DATA.get(BuildingSystem.BuildingType.GREENHOUSE, {})
+		var gh_w: int = gh_data.get("width", 6)
+		var gh_h: int = gh_data.get("height", 4)
+		for dx in range(gh_w):
+			for dy in range(gh_h):
+				var gh_cell := cell + Vector2i(dx, dy)
+				var idx: int = _greenhouse_cells.find(gh_cell)
+				if idx >= 0:
+					_greenhouse_cells.remove_at(idx)
+	elif b_type == BuildingSystem.BuildingType.SCARECROW:
+		var idx: int = _scarecrow_cells.find(cell)
+		if idx >= 0:
+			_scarecrow_cells.remove_at(idx)
+	elif b_type == BuildingSystem.BuildingType.COMPOST_BIN:
+		var idx: int = _compost_bin_cells.find(cell)
+		if idx >= 0:
+			_compost_bin_cells.remove_at(idx)
+
+
+## Received by clients to place a building at the given cell.
+@rpc("authority", "call_local")
+func _sync_place_building(b_type: int, cell: Vector2i) -> void:
+	building_system.place_building(b_type, cell, 0, self, false)
+	_register_special_building(b_type, cell)
+
+
+## Received by clients to remove a building at the given cell.
+@rpc("authority", "call_local")
+func _sync_remove_building(cell: Vector2i, b_type: int) -> void:
+	building_system.remove_building(cell, self)
+	_unregister_special_building(b_type, cell)
+
+
+# ── Visitor ship sync ───────────────────────────────────────────────────
+
+## Called by VisitorManager on the host after NPCs disembark.
+## Broadcasts the NPC roster to all clients.
+func notify_visitor_arrived(roster: Array) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_spawn_visitor_ship", roster)
+
+
+## Called by VisitorManager on the host when the ship departs.
+func notify_visitor_departed() -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_depart_visitor_ship")
+
+
+## Received by clients to spawn a visitor ship with matching NPCs.
+@rpc("authority", "call_local")
+func _sync_spawn_visitor_ship(roster: Array) -> void:
+	if multiplayer.is_server():
+		return
+	const SHIP_SCENE := preload("res://scenes/world/visitors/VisitorShip.tscn")
+	const NPC_SCENE := preload("res://scenes/world/visitors/VisitorNPC.tscn")
+	var dock_pos: Vector2 = get_dock_position()
+	var dock_node: Dock = get_dock()
+	if dock_pos == Vector2.ZERO or not dock_node:
+		return
+	var ship: VisitorShip = SHIP_SCENE.instantiate() as VisitorShip
+	ship.dock_position = dock_pos
+	ship.global_position = dock_pos + ship.berth_offset
+	ship.is_docked = true
+	# Store dock_node reference for NPC spawn position
+	var world_root: Node = get_tree().current_scene
+	if world_root:
+		world_root.add_child(ship)
+	for entry in roster:
+		var ntype: int = entry.get("type", 0)
+		var npc := NPC_SCENE.instantiate() as VisitorNPC
+		npc.npc_type = ntype
+		npc.home_position = ship.global_position + Vector2(8, 60)
+		npc.dock_position = dock_pos
+		npc.global_position = ship.global_position + Vector2(8, 60)
+		world_root.add_child(npc)
+		# Override RNG-chosen values with synced ones
+		npc._npc_display_name = entry.get("name", VisitorNPC.get_npc_name(ntype))
+		npc._npc_texture_variant = entry.get("tex", 0)
+		if is_instance_valid(npc.label):
+			npc.label.text = npc._npc_display_name
+		var tex_pool: Array[String] = VisitorNPC.get_npc_texture_paths(ntype)
+		if tex_pool.size() > npc._npc_texture_variant:
+			var tex_path: String = tex_pool[npc._npc_texture_variant]
+			if ResourceLoader.exists(tex_path):
+				npc.sprite.texture = load(tex_path)
+		npc.start_wandering()
+
+
+## Received by clients to remove the visitor ship and all NPCs.
+@rpc("authority", "call_local")
+func _sync_depart_visitor_ship() -> void:
+	if multiplayer.is_server():
+		return
+	# Remove all visitor NPCs
+	for npc in get_tree().get_nodes_in_group("visitor_npcs"):
+		if is_instance_valid(npc):
+			npc.queue_free()
+	# Remove the ship
+	var ships: Array[Node] = get_tree().get_nodes_in_group("visitor_ships")
+	for ship in ships:
+		if is_instance_valid(ship):
+			ship.queue_free()
