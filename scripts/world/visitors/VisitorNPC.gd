@@ -317,22 +317,30 @@ func _move_toward(target: Vector2, delta: float) -> void:
 	var dir := (target - global_position).normalized()
 	var step: Vector2 = dir * speed * delta
 	var new_pos: Vector2 = global_position + step
-	# Check if the new position is clear (same walls that block the player)
-	if _can_move_to(new_pos):
+	# Check if the new position is clear (same walls that block the player).
+	# Water blocks wandering NPCs; returning NPCs may cross it to board.
+	if _can_move_to(new_pos) and (_is_returning or _is_walkable(new_pos)):
 		global_position = new_pos
 	else:
 		# Blocked — try moving on each axis separately (wall sliding)
 		var slide_x: Vector2 = Vector2(step.x, 0)
-		if _can_move_to(global_position + slide_x):
+		if _can_move_to(global_position + slide_x) and (_is_returning or _is_walkable(global_position + slide_x)):
 			global_position.x += slide_x.x
 		var slide_y: Vector2 = Vector2(0, step.y)
-		if _can_move_to(global_position + slide_y):
+		if _can_move_to(global_position + slide_y) and (_is_returning or _is_walkable(global_position + slide_y)):
 			global_position.y += slide_y.y
 	# Flip sprite to face direction
 	if dir.x < -0.1:
 		sprite.flip_h = true
 	elif dir.x > 0.1:
 		sprite.flip_h = false
+
+## Check if a position sits on walkable ground (not water). Falls back to
+## true when the world grid is unavailable.
+func _is_walkable(pos: Vector2) -> bool:
+	if not _world or not _world.has_method("is_cell_walkable"):
+		return true
+	return _world.is_cell_walkable(pos)
 
 ## Check if a position is free of walls/building blockers (same layers as player uses).
 func _can_move_to(pos: Vector2) -> bool:

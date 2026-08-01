@@ -95,13 +95,16 @@ func _deploy_npcs() -> void:
 		var ntype: int = npc_types[i]
 		var npc := NPC_SCENE.instantiate() as VisitorNPC
 		npc.npc_type = ntype
-		# Ship is above-left of the dock walkable area, so NPCs spawn
-		# below and right of the ship to reach the dock surface.
-		npc.home_position = global_position + Vector2(8 + i * 24, 72)
 		npc.dock_position = dock_position
 		
+		# The ship berths over water, so spawn NPCs on the dock walkway
+		# (spaced along its right edge toward the ship) instead of
+		# ship-relative offsets that land in the harbor and get stuck.
+		var spawn_pos := _find_dock_spawn_position(i)
+		npc.home_position = spawn_pos
+		
 		# Stagger spawns so NPCs walk off the ship one by one
-		npc.global_position = global_position + Vector2(8 + i * 24, 60)
+		npc.global_position = spawn_pos
 		npc.modulate.a = 0.0
 		world.add_child(npc)
 		
@@ -118,6 +121,25 @@ func _deploy_npcs() -> void:
 		_npc_roster.append({"type": ntype, "npc": npc})
 	
 	npcs_ashore = true
+
+## Find a walkable dock position for the i-th deploying NPC. Tries a spread
+## of candidates across the dock walkway, falling back to the dock origin
+## when nothing in range is walkable.
+func _find_dock_spawn_position(index: int) -> Vector2:
+	var world := get_tree().get_first_node_in_group("world")
+	var row: int = index / 4
+	var col: int = index % 4
+	var candidates: Array[Vector2] = [
+		dock_position + Vector2(col * 26.0, 20.0 + row * 18.0),
+		dock_position + Vector2(-16.0 + col * 26.0, 12.0 + row * 18.0),
+		dock_position,
+	]
+	for candidate in candidates:
+		if not world or not world.has_method("is_cell_walkable"):
+			return candidate
+		if world.is_cell_walkable(candidate):
+			return candidate
+	return dock_position
 
 ## Generate a random roster of 3-5 NPCs for this visit.
 ## Always includes at least one vendor and one explorer.
