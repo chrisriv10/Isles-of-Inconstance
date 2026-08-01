@@ -594,7 +594,7 @@ func _physics_process(delta: float) -> void:
 	# Sync position to remote peers if multiplayer is active
 	if NetworkManager.is_network_active():
 		var is_moving: bool = velocity.length_squared() > 1.0
-		rpc("_sync_remote_state", global_position, facing_direction.x, facing_direction.y, sprite.flip_h, is_moving)
+		rpc("_sync_remote_state", global_position, facing_direction.x, facing_direction.y, sprite.flip_h, is_moving, z_index)
 
 ## Prevents the player from moving into non-walkable tiles (e.g. water).
 ## Checks the tile one step ahead in each axis and zeroes out movement
@@ -2969,11 +2969,14 @@ func _on_gingerbread_sparkle_tick() -> void:
 
 ## Received by all peers to update a remote player's visible state.
 ## Only the authority sends this; all others apply the interpolated state.
+## z_index is synced so remote copies render above interior floors/walls the
+## same way the local player does when inside a building or mine.
 @rpc("unreliable", "any_peer")
-func _sync_remote_state(pos: Vector2, facing_x: float, facing_y: float, facing_left: bool, is_moving: bool) -> void:
+func _sync_remote_state(pos: Vector2, facing_x: float, facing_y: float, facing_left: bool, is_moving: bool, p_z_index: int) -> void:
 	if is_multiplayer_authority():
 		return
 	global_position = pos
+	z_index = p_z_index
 	facing_direction = Vector2(facing_x, facing_y)
 	sprite.flip_h = facing_left
 	held_item.flip_h = facing_left
