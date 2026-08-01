@@ -618,6 +618,9 @@ func _try_breed() -> void:
 			return
 
 func _spawn_baby(partner: Animal) -> void:
+	# Only the host breeds; clients get the baby via _sync_spawn_animal.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
 	# Create a baby animal at the midpoint
 	var baby_pos := (global_position + partner.global_position) / 2.0
 	var baby := ANIMAL_SCENE.instantiate()
@@ -628,12 +631,14 @@ func _spawn_baby(partner: Animal) -> void:
 	baby.current_health = max_health
 	baby.scale = Vector2(0.5, 0.5)
 	baby.global_position = baby_pos
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("register_animal_name"):
+		world.register_animal_name(baby)
 	get_parent().add_child(baby)
 	baby.setup(animal_type, baby_pos)
 	
 	# Broadcast baby spawn to remote clients
 	if NetworkManager.is_network_active() and multiplayer.is_server():
-		var world := get_tree().get_first_node_in_group("world")
 		if world and world.has_method("_broadcast_animal_spawn"):
 			world._broadcast_animal_spawn(baby)
 	
@@ -703,6 +708,9 @@ func setup(p_type: String, p_home: Vector2, use_ai_sprite: bool = false) -> void
 
 ## Client-side initialization from host broadcast data.
 func setup_from_network(data: Dictionary) -> void:
+	var node_name: String = data.get("node_name", "")
+	if node_name != "":
+		name = node_name
 	animal_id = data.get("aid", 0)
 	animal_type = data.get("type", "chicken")
 	animal_name = data.get("name", "Animal")
@@ -742,6 +750,7 @@ func setup_from_network(data: Dictionary) -> void:
 ## Serialize this animal's full visual/gameplay state for network broadcast.
 func get_network_data() -> Dictionary:
 	return {
+		"node_name": name,
 		"aid": animal_id,
 		"type": animal_type,
 		"name": animal_name,

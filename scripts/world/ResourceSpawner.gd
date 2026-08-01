@@ -5,6 +5,11 @@ extends RefCounted
 ## Each biome defines its resource mix via ResourceSpawnEntry entries,
 ## and this spawner instantiates them respecting spacing/clustering rules.
 
+## Monotonic per-worldgen instance counter so names never collide even when
+## the same (resource_id, cell) pair is placed more than once. Keeps node
+## paths deterministic across host and client.
+var _name_index: int = 0
+
 const RESOURCE_NODE_SCENE: PackedScene = preload("res://scenes/objects/ResourceNode.tscn")
 const TREE_SCENE: PackedScene = preload("res://scenes/objects/Tree.tscn")
 
@@ -167,6 +172,8 @@ func _place_resource(entry: ResourceSpawnEntry, cell: Vector2i, objects_root: No
 		var scene := load(scene_path) as PackedScene
 		if scene:
 			var instance := scene.instantiate()
+			instance.name = "%s_%d_%d_%d" % [entry.resource_id, cell.x, cell.y, _name_index]
+			_name_index += 1
 			objects_root.add_child(instance)
 			instance.global_position = cell_to_world_func.call(cell)
 			# Cherry trees spawned by the cherry grove biome get cherry blossom sprites
@@ -176,6 +183,8 @@ func _place_resource(entry: ResourceSpawnEntry, cell: Vector2i, objects_root: No
 	
 	# Fallback: use generic ResourceNode with a proper item id
 	var node := RESOURCE_NODE_SCENE.instantiate()
+	node.name = "%s_%d_%d_%d" % [entry.resource_id, cell.x, cell.y, _name_index]
+	_name_index += 1
 	node.item_id = RESOURCE_ITEM_MAP.get(entry.resource_id, entry.resource_id)
 	node.interaction_prompt = "Take " + entry.display_name
 	node.min_amount = 1

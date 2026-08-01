@@ -33,6 +33,12 @@ const LOG_STUMP_SCENE_PATH: String = "res://scripts/world/nature/LogStump.gd"
 @onready var objects_root: Node2D = $Objects
 @onready var tool_preview: ToolPreview = $ToolPreview
 
+# Monotonic counter for naming worldgen/runtime-spawned animals. Host and
+# client generate identical worlds from the same seed, so the worldgen
+# portion of these names always matches; runtime spawns carry their name in
+# the RPC payload (see register_animal_name / _broadcast_animal_spawn).
+var _next_animal_index: int = 0
+
 var _tile_grid: Array = []
 var _dock_cell: Vector2i = Vector2i(-1, -1)  # set during _spawn_boat
 var _biome_grid: Array = []  # parallel to _tile_grid, stores biome index into _biome_list (or -1 for water)
@@ -190,6 +196,7 @@ func _ready() -> void:
 
 func generate_world() -> void:
 	_clear_world()
+	_next_animal_index = 0
 	_generator = WorldGenerator.create(world_width, world_height, world_seed)
 	_tile_grid = _generator.generate_tile_grid()
 	# Initialize biome generator BEFORE painting ground, scattering, etc.
@@ -613,9 +620,11 @@ func _scatter_objects() -> void:
 	var iron_positions: Array = _pick_mountain_favored_positions(iron_ore_count, iron_rng, is_building_blocked)
 	# Track iron ore cells so trees and other objects avoid them
 	_ore_cells.clear()
-	for pos in iron_positions:
+	for i in range(iron_positions.size()):
+		var pos: Vector2 = iron_positions[i]
 		_ore_cells[pos] = true
 		var ore := RESOURCE_NODE_SCENE.instantiate()
+		ore.name = "Ore_%d" % i
 		ore.item_id = "iron_ore"
 		ore.interaction_prompt = "Mine Iron Ore"
 		ore.required_tool = Player.Tool.PICKAXE
@@ -1663,6 +1672,7 @@ func _scatter_trees() -> void:
 	var sparse_target := 15     # ~1.5% in sparse biomes
 
 	var biomes_placed: Dictionary = {}  # biome_index -> count placed
+	var tree_idx := 0
 
 	# First pass: count cells per biome INDEX so we know how many trees each gets
 	var biome_cell_counts: Dictionary = {}  # biome_index -> cell count
@@ -1819,6 +1829,8 @@ func _scatter_trees() -> void:
 
 			if is_cherry_grove:
 				var tree: TreeObject = TREE_SCENE.instantiate()
+				tree.name = "Tree_%d" % tree_idx
+				tree_idx += 1
 				tree.set_cherry()
 				objects_root.add_child(tree)
 				tree.global_position = cell_to_world(cell)
@@ -1836,11 +1848,15 @@ func _scatter_trees() -> void:
 
 			if is_fruit_tree:
 				var fruit_tree: Area2D = fruit_tree_scene.instantiate()
+				fruit_tree.name = "FruitTree_%d" % tree_idx
+				tree_idx += 1
 				fruit_tree.fruit_item_id = "berry"
 				objects_root.add_child(fruit_tree)
 				fruit_tree.global_position = cell_to_world(cell)
 			else:
 				var tree: Area2D = TREE_SCENE.instantiate()
+				tree.name = "Tree_%d" % tree_idx
+				tree_idx += 1
 				objects_root.add_child(tree)
 				tree.global_position = cell_to_world(cell)
 				tree.rotation = rng.randf_range(-0.15, 0.15)
@@ -1897,6 +1913,7 @@ func _spawn_chest() -> void:
 	
 	# Place chest right next to the shop stand
 	var chest := Chest.new()
+	chest.name = "StarterChest"
 	objects_root.add_child(chest)
 	chest.global_position = cell_to_world(Vector2i(centre_x + 2, centre_y + 1))
 
@@ -2120,6 +2137,7 @@ func _scatter_animals() -> void:
 	for i in range(min(positions.size(), animal_count)):
 		var p_type: String = shuffled_types[i / 2]
 		var animal: Animal = ANIMAL_SCENE.instantiate()
+		register_animal_name(animal)
 		objects_root.add_child(animal)
 		animal.setup(p_type, cell_to_world(positions[i]))
 		_broadcast_animal_spawn(animal)
@@ -2134,6 +2152,15 @@ func _broadcast_animal_spawn(animal: Animal) -> void:
 	rpc("_sync_spawn_animal", data)
 
 
+## Assigns a deterministic, unique node name to a newly spawned animal so
+## that per-node RPCs (e.g. _sync_animal_pos) resolve to the same path on
+## host and clients. Must be called before add_child(). Runtime spawns are
+## broadcast to clients with this name via get_network_data().
+func register_animal_name(animal: Node) -> void:
+	animal.name = "Animal_%d" % _next_animal_index
+	_next_animal_index += 1
+
+
 ## Host → all clients: spawn an animal on remote copies.
 @rpc("authority", "call_local")
 func _sync_spawn_animal(data: Dictionary) -> void:
@@ -2142,6 +2169,9 @@ func _sync_spawn_animal(data: Dictionary) -> void:
 	if not objects_root or not is_instance_valid(objects_root):
 		return  # World not ready yet
 	var animal: Animal = ANIMAL_SCENE.instantiate()
+	var node_name: String = data.get("node_name", "")
+	if node_name != "":
+		animal.name = node_name
 	objects_root.add_child(animal)
 	animal.setup_from_network(data)
 
@@ -2166,6 +2196,7 @@ func spawn_starter_animals_near(world_pos: Vector2) -> void:
 			if tile_id == "water" or tile_id.begins_with("edge") or tile_id.is_empty():
 				continue
 			var animal: Animal = ANIMAL_SCENE.instantiate()
+			register_animal_name(animal)
 			objects_root.add_child(animal)
 			animal.setup(starter_type, cell_to_world(cell))
 			_broadcast_animal_spawn(animal)
@@ -2177,6 +2208,10 @@ func spawn_starter_animals_near(world_pos: Vector2) -> void:
 func _on_animal_respawn_timer() -> void:
 	# Don't respawn if paused or in creative panel mode
 	if GameManager.creative_time_paused:
+		return
+	# Clients receive respawned animals via _sync_spawn_animal; never
+	# respawn locally on a client (would desync animal counts and names).
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		return
 	var animals := get_tree().get_nodes_in_group("animals")
 	var type_counts: Dictionary = {}  # "chicken" -> 2
@@ -2231,6 +2266,7 @@ func _on_animal_respawn_timer() -> void:
 				continue
 			
 			var animal: Animal = ANIMAL_SCENE.instantiate()
+			register_animal_name(animal)
 			objects_root.add_child(animal)
 			animal.setup(p_type, spawn_pos)
 			_broadcast_animal_spawn(animal)
@@ -2292,6 +2328,7 @@ func _scatter_mine_entrances() -> void:
 		
 		# Create entrance node: Sprite2D + Area2D trigger
 		var entrance := Node2D.new()
+		entrance.name = "MineEntrance_%d" % entrance_idx
 		entrance.position = world_pos
 		entrance.z_index = 1
 		entrance.set_meta("entrance_index", entrance_idx)
@@ -3654,6 +3691,7 @@ func _spawn_ruin_at(cell: Vector2i, def: TownManager.RuinDef) -> void:
 	
 	var world_pos := cell_to_world(cell)
 	ruin.global_position = world_pos
+	ruin.name = "Ruin_%s" % String(def.id)
 	ruin.initialize(def.id, def)
 	
 	# RuinStructure handles its own visuals — shows a unique ruin sprite
