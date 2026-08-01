@@ -2038,7 +2038,10 @@ func _try_melee_attack_at_pos(attack_pos: Vector2) -> void:
 			hit_enemies.append(e)
 			LevelManager.add_xp_source("hit_enemy")
 			var knock_str: float = 180.0 if is_crit else 120.0
-			var knock_dir: Vector2 = (e.global_position - global_position).normalized()
+			var knock_diff: Vector2 = e.global_position - global_position
+			var knock_dir: Vector2 = Vector2.ZERO
+			if knock_diff != Vector2.ZERO and is_finite(knock_diff.x) and is_finite(knock_diff.y):
+				knock_dir = knock_diff.normalized()
 			if e is CharacterBody2D:
 				e.velocity += knock_dir * knock_str
 	

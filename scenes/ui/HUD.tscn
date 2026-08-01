@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://0h54vtwosq0f" path="res://scripts/ui/HUD.gd" id="1"]
 [ext_resource type="Script" uid="uid://cl4ysjalxgnn0" path="res://scripts/ui/Hotbar.gd" id="2"]
 [ext_resource type="Script" uid="uid://63j2qcixcxoi" path="res://scripts/ui/ToastNotification.gd" id="3"]
+[ext_resource type="Shader" uid="uid://b5hgylhoo1b6v" path="res://shaders/vignette.gdshader" id="4"]
+
+[sub_resource type="ShaderMaterial" id="VignetteMaterial"]
+shader = ExtResource("4")
 
 [node name="HUD" type="CanvasLayer" unique_id=823216769]
 script = ExtResource("1")
@@ -15,6 +19,17 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="Vignette" type="ColorRect" parent="Root" unique_id=1572046831]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("VignetteMaterial")
+color = Color(1, 1, 1, 1)
 
 [node name="TopBar" type="PanelContainer" parent="Root" unique_id=2122551345]
 layout_mode = 1

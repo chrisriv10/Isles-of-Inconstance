@@ -481,6 +481,22 @@ func _advance_minute() -> void:
 	if NetworkManager.is_network_active() and multiplayer.is_server():
 		_broadcast_time_state()
 
+	# Emit per-minute time change so the HUD clock, day/night overlay, and
+	# other time-driven systems update (restored; was lost in the EOS MP commit).
+	var hour := get_hour()
+	var minute := get_minute()
+	time_changed.emit(hour, minute)
+
+	# Detect phase transitions (restored from pre-MP main): drives ambient
+	# music and night/day overlays via phase_changed.
+	if day_night:
+		var new_phase := day_night.get_phase_for_hour(hour)
+		if new_phase != day_night.current_phase:
+			day_night.current_phase = new_phase
+			phase_changed.emit(new_phase)
+			if new_phase == DayNightCycle.Phase.NIGHT:
+				AudioManager.play(AudioManager.Sound.NIGHT_START)
+
 
 # ── Multiplayer time sync ────────────────────────────────────────────────
 
@@ -542,6 +558,15 @@ func set_time(hour: int, minute: int) -> void:
 	time_changed.emit(get_hour(), get_minute())
 	if NetworkManager.is_network_active() and multiplayer.is_server():
 		_broadcast_time_state()
+	# Recompute phase so creative hour changes (and loads) immediately
+	# switch ambient music and phase-driven systems.
+	if day_night:
+		var new_phase := day_night.get_phase_for_hour(hour)
+		if new_phase != day_night.current_phase:
+			day_night.current_phase = new_phase
+			phase_changed.emit(new_phase)
+			if new_phase == DayNightCycle.Phase.NIGHT:
+				AudioManager.play(AudioManager.Sound.NIGHT_START)
 
 ## Marks the game as completed (final boss defeated). Shows a permanent
 ## celebration toast and sets a save flag that persists across sessions.

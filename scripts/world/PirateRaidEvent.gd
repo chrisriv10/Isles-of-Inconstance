@@ -443,7 +443,7 @@ func _spawn_pirate_enemy(pos: Vector2) -> Enemy:
 		enemy.current_health = 40
 		enemy.damage = 8
 		enemy.speed = 70.0
-		enemy.display_name = "Pirate Raider"
+		enemy.set_display_name("Pirate Raider")
 		# Replace ghost sprite with pirate raider sprite
 		# (enemy.sprite is available after _ready() via @onready var sprite: Sprite2D = $Sprite2D)
 		if enemy.sprite:

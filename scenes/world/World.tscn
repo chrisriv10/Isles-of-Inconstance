@@ -3,9 +3,28 @@
 [ext_resource type="Script" uid="uid://ck4ewr724b426" path="res://scripts/world/World.gd" id="1"]
 [ext_resource type="TileSet" uid="uid://c6b5bj8lc5xwn" path="res://tilesets/ground_tileset.tres" id="2"]
 [ext_resource type="Script" uid="uid://bvw8mhbcsnefr" path="res://scripts/world/ToolPreview.gd" id="3"]
+[ext_resource type="Script" uid="uid://ccay1bv4mlj7i" path="res://scripts/world/SkyBackground.gd" id="4"]
+[ext_resource type="Shader" uid="uid://nu1fhmk0ym6o" path="res://shaders/sky_gradient.gdshader" id="5"]
+
+[sub_resource type="ShaderMaterial" id="SkyGradientMaterial"]
+shader = ExtResource("5")
 
 [node name="World" type="Node2D" unique_id=1402690477 groups=["world"]]
 script = ExtResource("1")
+
+[node name="SkyLayer" type="CanvasLayer" parent="." unique_id=3109472185]
+layer = -10
+script = ExtResource("4")
+
+[node name="SkyRect" type="ColorRect" parent="SkyLayer" unique_id=3928017643]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("SkyGradientMaterial")
 
 [node name="GroundLayer" type="TileMapLayer" parent="." unique_id=454024027]
 tile_set = ExtResource("2")

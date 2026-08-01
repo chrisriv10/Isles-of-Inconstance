@@ -107,6 +107,16 @@ func _update_health_bar() -> void:
 	health_ratio_changed.emit(ratio)
 
 
+## Updates the enemy's display name and refreshes its name label.
+## Needed because _ready() renders the label from the base class default;
+## subclasses/variants that rename after _ready() must use this to keep
+## the on-screen label in sync.
+func set_display_name(new_name: String) -> void:
+	display_name = new_name
+	if _name_label:
+		_name_label.text = new_name
+
+
 func _ready() -> void:
 	add_to_group("enemies")
 	collision_layer = 1   # collide with world (TileMapLayer on layer 1)

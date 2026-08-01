@@ -12,6 +12,12 @@ class_name CameraController
 var _shake_tween: Tween
 var _punch_tween: Tween
 
+## Minimum gap (seconds) between shake restarts so hit-spam on multiple
+## enemies can't kill/rebuild the shake tween every frame (causes constant
+## side-to-side jitter and stutter from tween churn).
+const SHAKE_MIN_INTERVAL: float = 0.08
+var _last_shake_time: float = -999.0
+
 func _ready() -> void:
 	zoom = Vector2(zoom_level, zoom_level)
 	position_smoothing_enabled = smoothing_enabled
@@ -29,6 +35,10 @@ func _ready() -> void:
 
 ## Shake the camera with given strength and duration
 func shake(strength: float = 4.0, duration: float = 0.2) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _last_shake_time < SHAKE_MIN_INTERVAL:
+		return
+	_last_shake_time = now
 	if _shake_tween and _shake_tween.is_valid():
 		_shake_tween.kill()
 	

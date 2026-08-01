@@ -173,7 +173,7 @@ func spawn_enemy_at(pos: Vector2, _type: String = "pirate") -> Enemy:
 	enemy.global_position = pos
 	enemy.set_meta("is_pirate", true)
 	add_child(enemy)  # GhostEnemy._ready() fires here, sets ghost defaults (including display_name = "Casper")
-	enemy.display_name = "Pirate Raider"  # Must be set AFTER _ready() to override GhostEnemy's default
+	enemy.set_display_name("Pirate Raider")  # Must be set AFTER _ready() to override GhostEnemy's default
 	# Immediately override GhostEnemy._ready() defaults with pirate stats
 	enemy.max_health = 100
 	enemy.current_health = 100
@@ -269,8 +269,8 @@ func _receive_spawn_enemy(type_name: String, pos_x: float, pos_y: float, eid: in
 
 
 ## Host: tell clients to remove a remote copy during despawn events.
-func _notify_despawn(enemy: Enemy) -> void:
-	if NetworkManager.is_network_active() and multiplayer.is_server() and enemy.enemy_id > 0:
+func _notify_despawn(enemy: Node2D) -> void:
+	if enemy is Enemy and NetworkManager.is_network_active() and multiplayer.is_server() and enemy.enemy_id > 0:
 		rpc("_receive_despawn_enemy", enemy.enemy_id)
 
 
