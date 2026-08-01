@@ -50,6 +50,7 @@ theme_override_font_sizes/font_size = 10
 
 [node name="DialogueBubble" type="Node2D" parent="."]
 position = Vector2(0, -58)
+z_index = 5
 visible = false
 
 [node name="DialogueLabel" type="Label" parent="DialogueBubble"]

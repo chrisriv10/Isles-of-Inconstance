@@ -16,6 +16,8 @@ var is_visible: bool = false
 
 
 func _ready() -> void:
+	# Draw above town buildings (z=0) and NPCs so speech never gets cut off.
+	z_index = 5
 	hide()
 	_label.add_theme_font_size_override("normal_font_size", FONT_SIZE)
 	# Toast-style background — same dark rounded look as the toast notification

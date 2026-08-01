@@ -49,6 +49,7 @@ horizontal_alignment = 1
 [node name="DialogueBubble" type="Node2D" parent="." unique_id=1947906523]
 visible = false
 position = Vector2(0, -62)
+z_index = 5
 
 [node name="DialogueLabel" type="Label" parent="DialogueBubble" unique_id=714283824]
 offset_left = -200.0
