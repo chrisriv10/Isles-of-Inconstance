@@ -16,7 +16,16 @@ func _ready() -> void:
 	zoom = Vector2(zoom_level, zoom_level)
 	position_smoothing_enabled = smoothing_enabled
 	position_smoothing_speed = smoothing_speed
-	make_current()
+	# Multiplayer: only the player owned by this peer gets a current camera.
+	# Remote copies have their camera disabled before entering the tree, so
+	# an unconditional make_current() would error (and a remote copy could
+	# hijack the viewport). The camera itself keeps default authority, so
+	# check the owning player node. Main._setup_multiplayer() re-runs
+	# make_current() once the local player's authority is set.
+	if not NetworkManager.is_network_active():
+		make_current()
+	elif get_parent() and get_parent().is_multiplayer_authority():
+		make_current()
 
 ## Shake the camera with given strength and duration
 func shake(strength: float = 4.0, duration: float = 0.2) -> void:

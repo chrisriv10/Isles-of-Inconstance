@@ -422,6 +422,11 @@ func _setup_multiplayer() -> void:
 	# node path on every peer.
 	player.name = "Player_%d" % my_id
 	_remote_players[my_id] = player
+	# CameraController._ready() skips make_current() while the player's
+	# authority is still the default; activate our own camera now.
+	var local_cam := player.get_node_or_null("Camera2D") as Camera2D
+	if local_cam and not local_cam.is_current():
+		local_cam.make_current()
 
 	NetworkManager.peer_connected.connect(_on_peer_connected)
 	NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
@@ -443,6 +448,7 @@ func _setup_multiplayer() -> void:
 func _register_me_to_remote(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
+	print("Main: client %d registered; world_generated=%s" % [peer_id, str(_world_generated)])
 	# Ensure the remote player exists locally
 	_instantiate_remote_player(peer_id)
 
@@ -476,25 +482,34 @@ func notify_world_generated(seed: int) -> void:
 ## generate an identical world locally.
 @rpc("authority", "reliable")
 func _receive_world_seed(seed: int) -> void:
-	if world and world.has_method("generate_world_with_seed"):
-		player.set_process(false)
-		player.set_physics_process(false)
-		world.generate_world_with_seed(seed)
-		player.set_process(true)
-		player.set_physics_process(true)
-		_position_player_at_spawn()
-		# Reposition any remote players to the default spawn
-		var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
-		var spawn_pos: Vector2 = world.cell_to_world(spawn_cell) if world.has_method("cell_to_world") else Vector2.ZERO
-		for pid in _remote_players:
-			var p = _remote_players[pid]
-			if p != player:
-				p.global_position = spawn_pos
+	print("Main: received world seed %d — regenerating world" % seed)
+	if not (world and world.has_method("generate_world_with_seed")):
+		print("Main: _receive_world_seed but world not ready yet!")
+		return
+	player.set_process(false)
+	player.set_physics_process(false)
+	world.generate_world_with_seed(seed)
+	player.set_process(true)
+	player.set_physics_process(true)
+	_position_player_at_spawn()
+	# The client world is now ready — hide the scenic background layer that
+	# Bootstrap shows while waiting for the world sync.
+	var bootstrap := get_tree().root.get_node_or_null("Bootstrap")
+	if bootstrap and bootstrap.has_method("hide_world_background"):
+		bootstrap.hide_world_background()
+	# Reposition any remote players to the default spawn
+	var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
+	var spawn_pos: Vector2 = world.cell_to_world(spawn_cell) if world.has_method("cell_to_world") else Vector2.ZERO
+	for pid in _remote_players:
+		var p = _remote_players[pid]
+		if p != player:
+			p.global_position = spawn_pos
 
 
 ## Creates a remote player node on all clients for the given peer.
 @rpc("authority", "reliable")
 func _add_remote_player(peer_id: int) -> void:
+	print("Main: _add_remote_player(%d) received on peer %d" % [peer_id, multiplayer.get_unique_id()])
 	_instantiate_remote_player(peer_id)
 
 
@@ -548,6 +563,13 @@ func _on_peer_connected(peer_id: int) -> void:
 	GameManager._try_broadcast_player_stats()
 	# Tell other existing clients to broadcast their stats too
 	rpc("_request_stat_broadcast")
+
+
+## Asks all clients to rebroadcast their player stats so a newly joined
+## peer receives current values for every player.
+@rpc("authority", "reliable")
+func _request_stat_broadcast() -> void:
+	GameManager._try_broadcast_player_stats()
 
 
 ## Called on the host when a peer disconnects.

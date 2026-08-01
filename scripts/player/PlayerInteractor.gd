@@ -19,7 +19,7 @@ func _on_area_entered(area: Area2D) -> void:
 		interactable_in_range.emit(get_nearest())
 
 func _on_area_exited(area: Area2D) -> void:
-	if area in _nearby:
+	if is_instance_valid(area) and area in _nearby:
 		_nearby.erase(area)
 	if _nearby.is_empty():
 		interactable_out_of_range.emit()
@@ -27,6 +27,13 @@ func _on_area_exited(area: Area2D) -> void:
 		interactable_in_range.emit(get_nearest())
 
 func get_nearest() -> Interactable:
+	# Drop freed interactables — world regen and remote player cleanup free
+	# them while they may still be tracked here.
+	var valid: Array[Interactable] = []
+	for tracked in _nearby:
+		if is_instance_valid(tracked):
+			valid.append(tracked)
+	_nearby = valid
 	if _nearby.is_empty():
 		return null
 	var nearest: Interactable = _nearby[0]

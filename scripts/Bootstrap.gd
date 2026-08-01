@@ -273,6 +273,12 @@ func _hide_persistent_background() -> void:
 		bg.visible = false
 
 
+## Public helper: hides the scenic background once the client's synced
+## world is ready (BgPersistent would otherwise cover the game world).
+func hide_world_background() -> void:
+	_hide_persistent_background()
+
+
 func _show_persistent_background() -> void:
 	var canvas: CanvasLayer = get_node("CanvasLayer") as CanvasLayer
 	if not canvas:

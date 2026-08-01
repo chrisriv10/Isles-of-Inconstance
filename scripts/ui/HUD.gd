@@ -1469,6 +1469,11 @@ func hide_interaction_prompt() -> void:
 	interaction_prompt_panel.visible = false
 
 func _on_interactable_in_range(interactable: Interactable) -> void:
+	# The interactable can be freed between the area signal and here (world
+	# regen, remote player cleanup) — a dangling reference is not null.
+	if not is_instance_valid(interactable):
+		_on_interactable_out_of_range()
+		return
 	if interactable:
 		_last_interactable = interactable
 		# If this is an animal and the player hasn't seen the animal hint, show it
