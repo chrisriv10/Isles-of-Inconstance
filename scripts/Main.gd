@@ -564,13 +564,15 @@ func _instantiate_remote_player(peer_id: int) -> void:
 	_remote_players[peer_id] = remote
 
 
-## Called on the host when a new peer connects.
-## Creates the remote player locally; waits for _register_me_to_remote
-## from the client before broadcasting to ensure the client is ready.
+## Called when a new peer connects.
+## Creates the remote player immediately on every peer. On the host this also
+## broadcasts stats; on clients it pre-creates the remote copy so the host's
+## per-frame state RPCs (which are unreliable and can arrive before the
+## reliable _add_remote_player RPC) resolve to an existing node.
 func _on_peer_connected(peer_id: int) -> void:
+	_instantiate_remote_player(peer_id)
 	if not multiplayer.is_server():
 		return
-	_instantiate_remote_player(peer_id)
 	# Broadcast our host stats so the new peer gets current values immediately
 	GameManager._try_broadcast_player_stats()
 	# Tell other existing clients to broadcast their stats too
