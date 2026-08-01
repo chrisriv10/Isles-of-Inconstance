@@ -353,10 +353,17 @@ func _start_new_game(p_seed: int) -> void:
 			hud.set_seed_display(p_seed)
 		
 		var player: CharacterBody2D = null
-		if game and game.has_node("Player"):
-			player = game.get_node("Player")
-			# Update name label with whatever the user typed (Player._ready ran before they typed)
-			player.name_label.text = GameManager.player_name
+		if game:
+			# In multiplayer the local player node is renamed Player_<id> so
+			# path-based RPC routing matches remote copies; in single-player
+			# it keeps the scene name "Player".
+			if NetworkManager.is_network_active():
+				player = game.get_node_or_null("Player_%d" % multiplayer.get_unique_id())
+			if player == null:
+				player = game.get_node_or_null("Player")
+			if player:
+				# Update name label with whatever the user typed (Player._ready ran before they typed)
+				player.name_label.text = GameManager.player_name
 			if world and player:
 				# Spawn 6 cells inland from the coastline (away from the Boat's StaticBody2D)
 				var spawn_cell := Vector2i(world.world_width - 35, world.world_height / 2)

@@ -2602,7 +2602,7 @@ func _play_tool_swing() -> void:
 	if _tool_swing_tween and _tool_swing_tween.is_valid():
 		_tool_swing_tween.kill()
 	
-	if NetworkManager.is_network_active():
+	if NetworkManager.is_network_active() and is_multiplayer_authority():
 		rpc("_sync_tool_swing")
 	
 	var swing_direction := facing_direction

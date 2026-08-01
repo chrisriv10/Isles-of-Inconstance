@@ -417,6 +417,10 @@ func _setup_multiplayer() -> void:
 
 	var my_id := multiplayer.get_unique_id()
 	player.set_multiplayer_authority(my_id)
+	# Name the local player like remote copies so path-based RPC routing
+	# (e.g. _sync_remote_state, _sync_tool_swing) resolves to the same
+	# node path on every peer.
+	player.name = "Player_%d" % my_id
 	_remote_players[my_id] = player
 
 	NetworkManager.peer_connected.connect(_on_peer_connected)
@@ -517,12 +521,19 @@ func _instantiate_remote_player(peer_id: int) -> void:
 	remote.name = "Player_%d" % peer_id
 	remote.set_multiplayer_authority(peer_id)
 
+	# Remote copies must live at the same node path as the local player
+	# ("Bootstrap/Game/Player_<id>") so rpc() broadcasts from a peer's
+	# player node resolve to the correct copy on every other peer.
+	var cam := remote.get_node_or_null("Camera2D")
+	if cam:
+		cam.enabled = false
+
 	# Place near spawn initially (position will be overwritten by first RPC sync)
 	if world and world.has_method("cell_to_world"):
 		var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
 		remote.global_position = world.cell_to_world(spawn_cell)
 
-	world.add_child(remote)
+	player.get_parent().add_child(remote)
 	_remote_players[peer_id] = remote
 
 
