@@ -235,8 +235,13 @@ func generate_world_with_seed(new_seed: int) -> void:
 
 func _clear_world() -> void:
 	ground_layer.clear()
+	# Free synchronously instead of queue_free(): world regen happens twice per
+	# peer (scene _ready + seed handshake), and deferred removal would leave the
+	# first batch alive when the second batch is added, forcing Godot to
+	# auto-rename duplicates to per-peer @Area2D@NNN names that never match
+	# across hosts/clients (breaking path-based RPC routing).
 	for child in objects_root.get_children():
-		child.queue_free()
+		child.free()
 	# Clear placed buildings so a fresh world gets fresh buildings
 	if building_system:
 		building_system.placed_buildings.clear()

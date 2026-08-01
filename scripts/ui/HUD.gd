@@ -1469,6 +1469,11 @@ func hide_interaction_prompt() -> void:
 	interaction_prompt_panel.visible = false
 
 func _on_interactable_in_range(interactable: Interactable) -> void:
+	# Ignore signals while the HUD is leaving the tree (session teardown on
+	# the client): get_tree() returns null there, which crashes with
+	# "Parameter "data.tree" is null" via PlayerInteractor.
+	if not is_inside_tree():
+		return
 	# The interactable can be freed between the area signal and here (world
 	# regen, remote player cleanup) — a dangling reference is not null.
 	if not is_instance_valid(interactable):

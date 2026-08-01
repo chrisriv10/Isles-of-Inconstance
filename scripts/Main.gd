@@ -492,6 +492,18 @@ func _receive_world_seed(seed: int) -> void:
 	player.set_process(true)
 	player.set_physics_process(true)
 	_position_player_at_spawn()
+	if not multiplayer.is_server():
+		# The host's starter animals (Animal_20/21) were spawned before we
+		# connected, so no spawn RPC ever reached us. Re-create them locally
+		# with the same deterministic names so the host's per-node sync RPCs
+		# resolve on this peer.
+		if world.has_method("spawn_starter_animals_near"):
+			world.spawn_starter_animals_near(player.global_position)
+		# Mirror the host's fresh-game starter inventory (Bootstrap grants it
+		# only in its host-side new-game flow).
+		var bootstrap := get_tree().root.get_node_or_null("Bootstrap")
+		if bootstrap and bootstrap.has_method("grant_starter_inventory"):
+			bootstrap.grant_starter_inventory()
 	# The client world is now ready — hide the scenic background layer that
 	# Bootstrap shows while waiting for the world sync.
 	var bootstrap := get_tree().root.get_node_or_null("Bootstrap")

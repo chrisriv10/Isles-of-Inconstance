@@ -264,6 +264,18 @@ func load_save_from_slot() -> void:
 func _on_quit() -> void:
 	get_tree().quit()
 
+## Clears the inventory and grants the fresh-game starter items (3 seeds of a
+## common-rarity procedural crop). Shared by the host's new-game flow and by
+## clients joining a multiplayer session, so both peers start with the same
+## inventory.
+func grant_starter_inventory() -> void:
+	InventoryManager.clear()
+	var starter_crops: Array[CropData] = DataManager.get_procedural_crops()
+	for starter_crop in starter_crops:
+		if starter_crop.rarity == "Common":
+			InventoryManager.add_item(starter_crop.seed_item_id, 3)
+			break
+
 func _hide_persistent_background() -> void:
 	var canvas: CanvasLayer = get_node("CanvasLayer") as CanvasLayer
 	if not canvas:
@@ -386,14 +398,7 @@ func _start_new_game(p_seed: int) -> void:
 	GameManager.money = 50
 	GameManager.reset_health()
 	GameManager.reset_hunger()
-	InventoryManager.clear()
-	# Player starts with only the Hoe and Watering Can.
-	# Give 3 seeds of a common-rarity procedural crop so they can begin farming.
-	var starter_crops: Array[CropData] = DataManager.get_procedural_crops()
-	for starter_crop in starter_crops:
-		if starter_crop.rarity == "Common":
-			InventoryManager.add_item(starter_crop.seed_item_id, 3)
-			break	
+	grant_starter_inventory()
 	UpgradeManager.levels = {
 		UpgradeManager.Upgrade.INVENTORY: 0,
 		UpgradeManager.Upgrade.TOOLS: 0,
