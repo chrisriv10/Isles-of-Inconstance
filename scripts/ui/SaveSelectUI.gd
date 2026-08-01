@@ -4,24 +4,60 @@ class_name SaveSelectUI
 ## Save selection screen showing 5 save slots with metadata.
 ## Lets the player pick a save to continue, delete saves, or start fresh.
 ## Empty slots can be clicked to start a new game there.
+##
+## The screen has three modes:
+##  - NEW_GAME: shows seed + game-mode options; empty slot starts a new game
+##    there (filled slots ask for overwrite confirmation).
+##  - CONTINUE: filled slots continue the save; empty slots are inert.
+##  - HOST: filled slots emit host_save_selected() so Bootstrap can host that
+##    save online; empty slots are inert.
+
+enum Mode { NEW_GAME, CONTINUE, HOST }
 
 signal save_selected(slot_index: int)
 signal back_requested()
-signal new_save_requested(slot_index: int)
+signal new_save_requested(slot_index: int, seed: int, game_mode: int)
+signal host_save_selected(slot_index: int)
 
 const SLOT_COUNT: int = 5
 const SAVE_SLOT_NAMES: Array[String] = ["Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5"]
 
 @onready var grid: GridContainer = $Panel/Margin/VBox/Grid
 @onready var back_button: Button = $Panel/Margin/VBox/BackButton
+@onready var options_box: VBoxContainer = $Panel/Margin/VBox/OptionsBox
+@onready var seed_input: LineEdit = $Panel/Margin/VBox/OptionsBox/SeedRow/SeedInput
+@onready var random_seed_button: Button = $Panel/Margin/VBox/OptionsBox/SeedRow/RandomSeedButton
+@onready var peaceful_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/PeacefulBtn
+@onready var survival_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/SurvivalBtn
+@onready var creative_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/CreativeBtn
+@onready var hardcore_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/HardcoreBtn
+@onready var status_label: Label = $Panel/Margin/VBox/OptionsBox/StatusLabel
 
 # Slot panel references: slot_index -> { panel, name_label, info_label, ts_label, delete_btn, rename_btn }
 var _slot_widgets: Array[Dictionary] = []
 
+var _current_mode: Mode = Mode.CONTINUE
+var _selected_mode: int = GameManager.GameMode.SURVIVAL
+
 
 func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
+	random_seed_button.pressed.connect(_on_random_seed_pressed)
+	peaceful_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.PEACEFUL))
+	survival_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.SURVIVAL))
+	creative_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.CREATIVE))
+	hardcore_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.HARDCORE))
 	_build_slot_grid()
+
+
+func _on_random_seed_pressed() -> void:
+	seed_input.text = str(randi())
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+
+
+func _on_mode_button_pressed(mode_id: int) -> void:
+	_selected_mode = mode_id
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
 
 
 func _build_slot_grid() -> void:
@@ -158,7 +194,11 @@ func _refresh_slot(slot_idx: int) -> void:
 		name_label.text = display_name
 		var day: int = info.get("current_day", 1)
 		var money: int = info.get("money", 0)
-		info_label.text = "Day %d  |  $%d" % [day, money]
+		var seed: int = info.get("world_seed", 0)
+		if _current_mode == Mode.HOST:
+			info_label.text = "Day %d  |  $%d  |  Seed %d" % [day, money, seed]
+		else:
+			info_label.text = "Day %d  |  $%d" % [day, money]
 		
 		var ts: float = info.get("save_timestamp", 0.0)
 		if ts > 0.0:
@@ -174,9 +214,14 @@ func _refresh_slot(slot_idx: int) -> void:
 		hint_label.visible = false
 	else:
 		name_label.text = "Empty"
-		info_label.text = "Start a new game here"
+		hint_label.visible = _current_mode == Mode.NEW_GAME
 		ts_label.text = ""
-		hint_label.visible = true
+		if _current_mode == Mode.CONTINUE:
+			info_label.text = "No save"
+		elif _current_mode == Mode.HOST:
+			info_label.text = "No save"
+		else:
+			info_label.text = "Start a new game here"
 		bg.bg_color = Color(0.12, 0.18, 0.12, 0.7)
 		bg.border_color = Color(0.25, 0.35, 0.25)
 		delete_btn.visible = false
@@ -184,13 +229,54 @@ func _refresh_slot(slot_idx: int) -> void:
 
 
 func _on_slot_gui_input(event: InputEvent, slot_idx: int) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if SaveManager.has_save_in_slot(slot_idx):
-			SaveManager.current_slot = slot_idx
-			_fade_out_and_emit("select", slot_idx)
-		else:
-			# Empty slot — start a new game here
-			new_save_requested.emit(slot_idx)
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var has_save: bool = SaveManager.has_save_in_slot(slot_idx)
+	match _current_mode:
+		Mode.NEW_GAME:
+			if has_save:
+				_confirm_overwrite(slot_idx)
+			else:
+				_emit_new_save(slot_idx)
+		Mode.CONTINUE:
+			if has_save:
+				SaveManager.current_slot = slot_idx
+				_fade_out_and_emit("select", slot_idx)
+		Mode.HOST:
+			if has_save:
+				host_save_selected.emit(slot_idx)
+
+
+func _emit_new_save(slot_idx: int) -> void:
+	var seed: int = seed_input.text.to_int()
+	_fade_out_and_emit("new", slot_idx, seed, _selected_mode)
+
+
+## Ask for confirmation before overwriting a filled slot in NEW_GAME mode.
+func _confirm_overwrite(slot_idx: int) -> void:
+	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
+	var display_name: String = info.get("save_name", "")
+	if display_name.is_empty():
+		display_name = SAVE_SLOT_NAMES[slot_idx]
+
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Overwrite Save"
+	dialog.dialog_text = "Start a new game in \"%s\"?\nThe existing save will be deleted." % display_name
+	dialog.ok_button_text = "Overwrite"
+	dialog.cancel_button_text = "Cancel"
+	dialog.exclusive = true
+	dialog.min_size = Vector2(320, 120)
+
+	dialog.confirmed.connect(func():
+		AudioManager.play(AudioManager.Sound.UI_CLICK)
+		_emit_new_save(slot_idx)
+	)
+	dialog.canceled.connect(func():
+		AudioManager.play(AudioManager.Sound.UI_CLICK)
+	)
+
+	add_child(dialog)
+	dialog.popup_centered()
 
 
 func _on_rename_save(slot_idx: int) -> void:
@@ -361,7 +447,7 @@ func _on_back_pressed() -> void:
 	_fade_out_and_emit("back")
 
 
-func _fade_out_and_emit(action: String, slot_idx: int = -1) -> void:
+func _fade_out_and_emit(action: String, slot_idx: int = -1, seed: int = 0, game_mode: int = 0) -> void:
 	# Disable all inputs
 	for w: Dictionary in _slot_widgets:
 		var panel_ctrl: Control = w["panel"]
@@ -376,16 +462,24 @@ func _fade_out_and_emit(action: String, slot_idx: int = -1) -> void:
 		match action:
 			"select":
 				save_selected.emit(slot_idx)
+			"new":
+				new_save_requested.emit(slot_idx, seed, game_mode)
 			"back":
 				back_requested.emit()
 	)
 
 
-## Show this panel with a fade-in
-func show_ui() -> void:
+## Show this panel with a fade-in.
+## mode controls which slot actions are available (see Mode enum).
+func show_ui(p_mode: Mode = Mode.CONTINUE) -> void:
+	_current_mode = p_mode
 	visible = true
 	modulate.a = 0.0
 	back_button.disabled = false
+	options_box.visible = _current_mode == Mode.NEW_GAME
+	status_label.visible = _current_mode == Mode.HOST
+	if _current_mode == Mode.HOST:
+		status_label.text = "Pick a save to host"
 	_refresh_all()
 	# Re-enable slot panel mouse filters (they were set to IGNORE by fade-out)
 	for w: Dictionary in _slot_widgets:
@@ -399,3 +493,10 @@ func show_ui() -> void:
 
 func close_ui() -> void:
 	visible = false
+
+
+## Public helper: show a status line (e.g. the host's join code) at the top
+## of the options area. Visible whenever the screen is in HOST mode.
+func set_status(text: String) -> void:
+	status_label.text = text
+	status_label.visible = true

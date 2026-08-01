@@ -458,7 +458,7 @@ func _process(_delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	# Skip physics for remote players — they receive position via RPC
-	if not is_multiplayer_authority() and NetworkManager.is_network_active():
+	if NetworkManager.is_network_active() and not is_multiplayer_authority():
 		return
 	# Sitting on a bench — disable all movement
 	if is_sitting:
@@ -711,7 +711,7 @@ func _is_water_cell(world_node: Node, cell: Vector2i) -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Skip input for remote players
-	if not is_multiplayer_authority() and NetworkManager.is_network_active():
+	if NetworkManager.is_network_active() and not is_multiplayer_authority():
 		return
 	# While sitting on a bench, only the interact key (E) works to stand up.
 	# Stand up directly instead of going through the general interact system,

@@ -14,6 +14,7 @@ signal exit_to_menu_requested()
 @onready var interaction_prompt: Label = %InteractionPrompt/Label
 @onready var interaction_prompt_panel: PanelContainer = %InteractionPrompt
 @onready var seed_display_label: Label = %SeedDisplayLabel
+@onready var join_code_label: Label = %JoinCodeLabel
 @onready var menu_button: Button = %MenuButton
 @onready var tool_label: Label = %ToolLabel
 @onready var mutation_label: Label = %MutationLabel/Label
@@ -965,6 +966,17 @@ func _update_bar_label(key: String, value: int, max_value: int) -> void:
 
 func set_seed_display(seed_value: int) -> void:
 	seed_display_label.text = "Seed: %d" % seed_value
+
+## Shows the join code in the top bar while hosting. Empty code hides it.
+func set_join_code_display(join_code: String) -> void:
+	if join_code.is_empty():
+		clear_join_code_display()
+		return
+	join_code_label.text = "Join Code: %s" % join_code
+	join_code_label.visible = true
+
+func clear_join_code_display() -> void:
+	join_code_label.visible = false
 
 # ── Weather display ──
 

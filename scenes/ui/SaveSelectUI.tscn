@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://b3es1dtuemlpx" path="res://scripts/ui/SaveSelectUI.gd" id="1"]
 
+[sub_resource type="ButtonGroup" id="bg_mode_group"]
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.102, 0.063, 0.031, 0.7)
 border_width_left = 3
@@ -32,9 +34,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -240.0
-offset_top = -180.0
+offset_top = -220.0
 offset_right = 240.0
-offset_bottom = 180.0
+offset_bottom = 220.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -51,6 +53,86 @@ layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.9)
 theme_override_font_sizes/font_size = 20
 text = "Select Save Slot"
+horizontal_alignment = 1
+
+[node name="OptionsBox" type="VBoxContainer" parent="Panel/Margin/VBox" unique_id=924834008]
+layout_mode = 2
+theme_override_constants/separation = 6
+visible = false
+
+[node name="SeedRow" type="HBoxContainer" parent="Panel/Margin/VBox/OptionsBox" unique_id=924834009]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="SeedLabel" type="Label" parent="Panel/Margin/VBox/OptionsBox/SeedRow" unique_id=924834010]
+layout_mode = 2
+text = "Seed:"
+
+[node name="SeedInput" type="LineEdit" parent="Panel/Margin/VBox/OptionsBox/SeedRow" unique_id=924834011]
+custom_minimum_size = Vector2(140, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0"
+placeholder_text = "Enter world seed..."
+
+[node name="RandomSeedButton" type="Button" parent="Panel/Margin/VBox/OptionsBox/SeedRow" unique_id=924834012]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+text = "Random"
+
+[node name="ModeRow" type="HBoxContainer" parent="Panel/Margin/VBox/OptionsBox" unique_id=924834013]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="ModeLabel" type="Label" parent="Panel/Margin/VBox/OptionsBox/ModeRow" unique_id=924834014]
+layout_mode = 2
+text = "Mode:"
+
+[node name="ModeButtons" type="HBoxContainer" parent="Panel/Margin/VBox/OptionsBox/ModeRow" unique_id=924834015]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="PeacefulBtn" type="Button" parent="Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons" unique_id=924834016]
+custom_minimum_size = Vector2(76, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_group = SubResource("bg_mode_group")
+text = "Peaceful"
+
+[node name="SurvivalBtn" type="Button" parent="Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons" unique_id=924834017]
+custom_minimum_size = Vector2(76, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_pressed = true
+button_group = SubResource("bg_mode_group")
+text = "Survival"
+
+[node name="CreativeBtn" type="Button" parent="Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons" unique_id=924834018]
+custom_minimum_size = Vector2(76, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_group = SubResource("bg_mode_group")
+text = "Creative"
+
+[node name="HardcoreBtn" type="Button" parent="Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons" unique_id=924834019]
+custom_minimum_size = Vector2(76, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+toggle_mode = true
+button_group = SubResource("bg_mode_group")
+text = "Hardcore"
+
+[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox/OptionsBox" unique_id=924834020]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 1, 0.3, 1)
+theme_override_font_sizes/font_size = 13
+text = ""
 horizontal_alignment = 1
 
 [node name="Grid" type="GridContainer" parent="Panel/Margin/VBox" unique_id=924834007]

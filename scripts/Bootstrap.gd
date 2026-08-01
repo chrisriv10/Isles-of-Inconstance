@@ -7,9 +7,10 @@ var main_menu: Control
 var save_select_ui: SaveSelectUI
 var game: Node2D
 
-# Pending data for new game (set when MainMenu emits new_game_requested, consumed when
-# the player picks a slot from the save select UI)
-var _pending_new_game_seed: int = 0
+# Set when hosting an existing save (Host Game -> save select -> pick slot).
+# -1 means no save was picked (fresh host flow).
+var _host_save_seed: int = -1
+var _host_join_code: String = ""
 
 func _ready() -> void:
 	print("Bootstrap._ready() running")
@@ -89,14 +90,13 @@ func _connect_signals() -> void:
 		main_menu.continue_requested.connect(_show_save_select)
 		main_menu.quit_requested.connect(_on_quit)
 		main_menu.host_game_requested.connect(_on_host_game)
-		main_menu.join_game_requested.connect(_on_join_game)
-		main_menu.host_online_requested.connect(_on_host_online)
 		main_menu.join_online_requested.connect(_on_join_online)
 	
 	if save_select_ui:
 		save_select_ui.save_selected.connect(_on_continue)
 		save_select_ui.back_requested.connect(_on_save_select_back)
 		save_select_ui.new_save_requested.connect(_on_new_save_from_slot)
+		save_select_ui.host_save_selected.connect(_on_host_save_selected)
 	
 	# Listen for hardcore death — game over deletes save and returns to main menu
 	if not GameManager.hardcore_death_occurred.is_connected(_on_hardcore_death):
@@ -111,39 +111,74 @@ func _show_save_select() -> void:
 	# Force the main menu fully opaque so its background scene is visible
 	# behind the save select dialog instead of a gray void.
 	main_menu.modulate.a = 1.0
-	save_select_ui.show_ui()
+	save_select_ui.show_ui(SaveSelectUI.Mode.CONTINUE)
 
 func _on_save_select_back() -> void:
 	# Hide save select — main menu with its scenic background was never hidden.
 	save_select_ui.close_ui()
 	main_menu.reset_visual_state()
 
-func _on_host_game(p_seed: int, p_mode: int = GameManager.GameMode.SURVIVAL) -> void:
-	print("Bootstrap: Host Game requested, seed=", p_seed, " mode=", p_mode)
-	GameManager.set_game_mode(p_mode)
-	_pending_new_game_seed = p_seed
+## Host Game clicked — pick which existing save to host (join-code lobby).
+func _on_host_game() -> void:
+	print("Bootstrap: Host Game requested")
+	_host_save_seed = -1
+	_host_join_code = ""
+	main_menu.modulate.a = 1.0
+	if save_select_ui:
+		save_select_ui.show_ui(SaveSelectUI.Mode.HOST)
+
+## Called when the host picks a filled save slot in HOST mode.
+## Reads the seed/mode from the save and starts the EOS join-code lobby.
+func _on_host_save_selected(slot_idx: int) -> void:
+	print("Bootstrap: Host save selected: ", slot_idx)
+	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
+	_host_save_seed = int(info.get("world_seed", 0))
+	GameManager.set_game_mode(int(info.get("game_mode", GameManager.GameMode.SURVIVAL)))
+	SaveManager.current_slot = slot_idx
+	if save_select_ui:
+		save_select_ui.set_status("Starting host...")
+	if not NetworkManager.ezcha_lobby_created.is_connected(_on_host_lobby_created):
+		NetworkManager.ezcha_lobby_created.connect(_on_host_lobby_created)
 	_connect_mp_success_signal(_on_host_started)
 	_connect_mp_fail_signal()
-	NetworkManager.host()
+	NetworkManager.host_via_eos()
+
+func _on_host_lobby_created(join_code: String) -> void:
+	print("Bootstrap: Host lobby created, code=", join_code)
+	_host_join_code = join_code
+	if save_select_ui:
+		save_select_ui.set_status("Join code: %s" % join_code)
 
 func _on_host_started(_peer_id: int) -> void:
 	print("Bootstrap: Host started successfully")
 	_cleanup_mp_signals()
-	_show_save_select()
+	if _host_save_seed >= 0:
+		# Hosting an existing save: keep the save select open so the host can
+		# share the join code, then load the world (clients get the seed via
+		# notify_world_generated once it is generated).
+		if save_select_ui:
+			save_select_ui.set_status("Join code: %s" % _host_join_code)
+		var tween := create_tween()
+		tween.tween_interval(1.5)
+		tween.tween_callback(_host_load_save)
+	else:
+		_show_save_select()
 
-func _on_join_game(ip: String) -> void:
-	print("Bootstrap: Join Game requested to ", ip)
-	_connect_mp_success_signal(_on_join_success)
-	_connect_mp_fail_signal()
-	NetworkManager.join(ip)
-
-func _on_host_online(p_seed: int, p_mode: int = GameManager.GameMode.SURVIVAL) -> void:
-	print("Bootstrap: Host Online requested, seed=", p_seed, " mode=", p_mode)
-	GameManager.set_game_mode(p_mode)
-	_pending_new_game_seed = p_seed
-	_connect_mp_success_signal(_on_host_started)
-	_connect_mp_fail_signal()
-	NetworkManager.host_via_eos()
+func _host_load_save() -> void:
+	# Close the save select, then load the hosted save so late-joining
+	# clients receive the world seed.
+	if save_select_ui:
+		save_select_ui.close_ui()
+	var tween := create_tween()
+	tween.tween_interval(0.2)
+	tween.tween_callback(func():
+		_load_game()
+		if game and game.has_method("notify_world_generated"):
+			game.notify_world_generated(_host_save_seed)
+		var hud_node: CanvasLayer = game.get_node_or_null("HUD") as CanvasLayer if game else null
+		if hud_node and hud_node.has_method("set_join_code_display"):
+			hud_node.set_join_code_display(_host_join_code)
+	)
 
 func _on_join_online(join_code: String) -> void:
 	print("Bootstrap: Join Online requested, code=", join_code)
@@ -219,24 +254,22 @@ func _load_mp_game_as_client() -> void:
 		game.visible = true
 	_show_ui_canvas_layers()
 
-func _on_new_game(p_seed: int, p_mode: int = GameManager.GameMode.SURVIVAL) -> void:
-	print("Bootstrap._on_new_game received! seed=", p_seed, " mode=", p_mode)
-	GameManager.set_game_mode(p_mode)
+## New Game clicked — seed + game mode are chosen on the save select screen.
+func _on_new_game() -> void:
+	print("Bootstrap._on_new_game received!")
 	
 	# Restore main menu opacity (faded out by button click tween) so the
 	# scenic background is visible behind the save select dialog.
 	main_menu.modulate.a = 1.0
 	
-	# Store the pending seed and show save select so the player picks a slot
-	_pending_new_game_seed = p_seed
 	if save_select_ui:
-		save_select_ui.show_ui()
+		save_select_ui.show_ui(SaveSelectUI.Mode.NEW_GAME)
 
 
-func _on_new_save_from_slot(slot_idx: int) -> void:
-	# Player clicked an empty slot in the save select to start a new game there
-	var p_seed: int = _pending_new_game_seed
-	print("Bootstrap._on_new_save_from_slot: slot=", slot_idx, " seed=", p_seed)
+func _on_new_save_from_slot(slot_idx: int, seed: int, mode: int) -> void:
+	# Player picked a slot in the save select to start a new game there
+	print("Bootstrap._on_new_save_from_slot: slot=", slot_idx, " seed=", seed, " mode=", mode)
+	GameManager.set_game_mode(mode)
 	SaveManager.current_slot = slot_idx
 	# Show the save select before starting the game (hides during load)
 	if save_select_ui:
@@ -245,7 +278,7 @@ func _on_new_save_from_slot(slot_idx: int) -> void:
 	# Start the new game in the chosen slot
 	var tween := create_tween()
 	tween.tween_interval(0.2)
-	tween.tween_callback(_start_new_game.bind(p_seed))
+	tween.tween_callback(_start_new_game.bind(seed))
 
 func _on_continue(_slot: int = -1) -> void:
 	print("Continue requested, slot=", SaveManager.current_slot)
@@ -369,6 +402,9 @@ func _start_new_game(p_seed: int) -> void:
 		
 		if hud and hud.has_method("set_seed_display"):
 			hud.set_seed_display(p_seed)
+
+		if hud and hud.has_method("clear_join_code_display"):
+			hud.clear_join_code_display()
 		
 		var player: CharacterBody2D = null
 		if game:
@@ -492,6 +528,10 @@ func _load_game() -> void:
 		var world_node: Node2D = game.get_node_or_null("World")
 		if world_node:
 			hud.set_seed_display(world_node.world_seed)
+
+	# The join code is host-only; clear it for solo play and clients.
+	if hud and hud.has_method("clear_join_code_display"):
+		hud.clear_join_code_display()
 	
 	# Fade in from black (overlay was set to full black before game appeared)
 	if hud and hud.has_node("Root/FadeOverlay"):

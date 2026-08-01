@@ -142,6 +142,8 @@ func get_save_slot_info(slot_index: int) -> Dictionary:
 		"save_version": data.get("save_version", 1),
 		"current_hour": data.get("current_hour", 6),
 		"current_minute": data.get("current_minute", 0),
+		"world_seed": data.get("world_seed", 0),
+		"game_mode": data.get("game_mode", GameManager.GameMode.SURVIVAL),
 	}
 
 ## Ensure save directory exists
