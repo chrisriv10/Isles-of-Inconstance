@@ -36,6 +36,9 @@ var _enrage_warning_shown: bool = false
 ## Prevents enemies from instantly rushing the player on spawn.
 var _spawn_grace_time: float = 0.8
 var _spawned_at: float = 0.0
+## Spawn point — used to recover when physics corrupts global_position with
+## NaN/INF values (which makes the physics server warn every frame).
+var _spawn_position: Vector2 = Vector2.ZERO
 # NOTE: _move_target was removed as dead code — never read or assigned
 
 ## Hitstun state — briefly pauses enemy AI after taking damage.
@@ -127,6 +130,7 @@ func _ready() -> void:
 	current_health = max_health
 	player_ref = get_tree().get_first_node_in_group("player")
 	_spawned_at = Time.get_ticks_msec() / 1000.0
+	_spawn_position = global_position
 	_update_health_bar()
 	
 	# Set up hitstun timer
@@ -173,7 +177,18 @@ func _physics_process(delta: float) -> void:
 	# corrupt global_position, causing camera jitter / pseudo-crashes.
 	if not is_finite(velocity.x) or not is_finite(velocity.y):
 		velocity = Vector2.ZERO
+	# A NaN/INF body transform makes the engine normalize non-finite vectors
+	# inside move_and_slide every frame ("Vector2 cannot be normalized" flood,
+	# freezes). Collision feedback can corrupt the transform, so snap back to
+	# the spawn point instead of letting the corruption spread.
+	if not is_finite(global_position.x) or not is_finite(global_position.y):
+		global_position = _spawn_position
+		velocity = Vector2.ZERO
 	move_and_slide()
+	# Colliding with a corrupt body re-injects NaN via collider velocity —
+	# clamp again so the corruption dies on this enemy instead of spreading.
+	if not is_finite(velocity.x) or not is_finite(velocity.y):
+		velocity = Vector2.ZERO
 	
 	# Host: periodically broadcast position/state to remote peers
 	if NetworkManager.is_network_active() and multiplayer.is_server():
@@ -268,7 +283,10 @@ func _trigger_screen_flash(color: Color = Color(1.0, 1.0, 1.0, 0.3), duration: f
 	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(flash)
-	var tween := create_tween()
+	# Bind the tween to the flash node, NOT this enemy: if the enemy dies
+	# mid-fade, create_tween() would be killed and the overlay would stick
+	# on the HUD at full alpha forever.
+	var tween := flash.create_tween()
 	tween.tween_property(flash, "modulate:a", 0.0, duration)
 	tween.tween_callback(flash.queue_free)
 

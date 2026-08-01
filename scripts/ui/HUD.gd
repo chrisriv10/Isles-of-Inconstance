@@ -1224,7 +1224,7 @@ func _on_boss_defeated() -> void:
 		var root := get_node_or_null("Root")
 		if root:
 			root.add_child(flash)
-			var tween := create_tween()
+			var tween := flash.create_tween()
 			tween.tween_property(flash, "modulate:a", 0.0, 0.8)
 			tween.tween_callback(flash.queue_free)
 

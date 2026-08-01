@@ -68,6 +68,10 @@ enum Tool {
 ## Seconds of continuous movement before draining 1 hunger.
 const MOVE_HUNGER_DRAIN_INTERVAL: float = 2.5
 
+## Max enemies damaged per melee swing. Prevents one click from nuking a huge
+## stacked pile of enemies into runaway knockback physics.
+const MAX_MELEE_HITS_PER_SWING: int = 10
+
 @onready var name_label: Label = $NameLabel
 @onready var interactor: Area2D = $Interactor
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
@@ -1886,6 +1890,8 @@ func _try_melee_attack() -> void:
 					eb.velocity = knock_dir * knock_str
 				else:
 					eb.velocity += knock_dir * knock_str * 0.5
+		if hit_enemies.size() >= MAX_MELEE_HITS_PER_SWING:
+			break
 	
 	for a in animals:
 		if not is_instance_valid(a) or not a is Animal:
@@ -2044,6 +2050,8 @@ func _try_melee_attack_at_pos(attack_pos: Vector2) -> void:
 				knock_dir = knock_diff.normalized()
 			if e is CharacterBody2D:
 				e.velocity += knock_dir * knock_str
+		if hit_enemies.size() >= MAX_MELEE_HITS_PER_SWING:
+			break
 	
 	for a in animals:
 		if not is_instance_valid(a) or not a is Animal:
