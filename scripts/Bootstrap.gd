@@ -11,6 +11,7 @@ var game: Node2D
 # -1 means no save was picked (fresh host flow).
 var _host_save_seed: int = -1
 var _host_join_code: String = ""
+var _host_lobby_public: bool = true
 
 func _ready() -> void:
 	print("Bootstrap._ready() running")
@@ -129,10 +130,11 @@ func _on_host_game() -> void:
 
 ## Called when the host picks a filled save slot in HOST mode.
 ## Reads the seed/mode from the save and starts the EOS join-code lobby.
-func _on_host_save_selected(slot_idx: int) -> void:
+func _on_host_save_selected(slot_idx: int, public_lobby: bool = true) -> void:
 	print("Bootstrap: Host save selected: ", slot_idx)
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
 	_host_save_seed = int(info.get("world_seed", 0))
+	_host_lobby_public = public_lobby
 	GameManager.set_game_mode(int(info.get("game_mode", GameManager.GameMode.SURVIVAL)))
 	SaveManager.current_slot = slot_idx
 	if save_select_ui:
@@ -141,7 +143,7 @@ func _on_host_save_selected(slot_idx: int) -> void:
 		NetworkManager.ezcha_lobby_created.connect(_on_host_lobby_created)
 	_connect_mp_success_signal(_on_host_started)
 	_connect_mp_fail_signal()
-	NetworkManager.host_via_eos()
+	NetworkManager.host_via_eos("", 8, _host_lobby_public)
 
 func _on_host_lobby_created(join_code: String) -> void:
 	print("Bootstrap: Host lobby created, code=", join_code)

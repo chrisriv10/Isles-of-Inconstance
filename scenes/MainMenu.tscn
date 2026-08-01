@@ -2,6 +2,18 @@
 
 [ext_resource type="Script" uid="uid://d0e81hnknct10" path="res://scripts/ui/MainMenu.gd" id="1"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_public_games"]
+bg_color = Color(0.102, 0.063, 0.031, 0.95)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.722, 0.525, 0.176, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [node name="MainMenu" type="Control" unique_id=2057665313]
 layout_mode = 3
 anchors_preset = 15
@@ -251,6 +263,12 @@ custom_minimum_size = Vector2(80, 30)
 layout_mode = 2
 text = "Join"
 
+[node name="PublicGamesButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=1900000003]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Public Games"
+
 [node name="QuitButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=962544815]
 custom_minimum_size = Vector2(220, 40)
 layout_mode = 2
@@ -271,3 +289,67 @@ offset_bottom = -1.0
 grow_horizontal = 0
 grow_vertical = 0
 text = "v0.1.0"
+
+[node name="PublicGamesPanel" type="PanelContainer" parent="." unique_id=1900000100]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -190.0
+offset_right = 300.0
+offset_bottom = 190.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme_override_styles/panel = SubResource("StyleBoxFlat_public_games")
+
+[node name="Margin" type="MarginContainer" parent="PublicGamesPanel" unique_id=1900000101]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="PublicGamesPanel/Margin" unique_id=1900000102]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="PublicGamesPanel/Margin/VBox" unique_id=1900000103]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_font_sizes/font_size = 22
+text = "Public Games"
+horizontal_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="PublicGamesPanel/Margin/VBox" unique_id=1900000104]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
+text = "Searching..."
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="PublicGamesPanel/Margin/VBox" unique_id=1900000105]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="LobbyList" type="VBoxContainer" parent="PublicGamesPanel/Margin/VBox/ScrollContainer" unique_id=1900000106]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Buttons" type="HBoxContainer" parent="PublicGamesPanel/Margin/VBox" unique_id=1900000107]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="RefreshButton" type="Button" parent="PublicGamesPanel/Margin/VBox/Buttons" unique_id=1900000108]
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+text = "Refresh"
+
+[node name="BackButton" type="Button" parent="PublicGamesPanel/Margin/VBox/Buttons" unique_id=1900000109]
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+text = "Back"

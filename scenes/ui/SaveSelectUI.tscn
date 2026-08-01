@@ -128,7 +128,23 @@ toggle_mode = true
 button_group = SubResource("bg_mode_group")
 text = "Hardcore"
 
-[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox/OptionsBox" unique_id=924834020]
+[node name="HostOptionsBox" type="VBoxContainer" parent="Panel/Margin/VBox" unique_id=924834021]
+layout_mode = 2
+theme_override_constants/separation = 6
+visible = false
+
+[node name="PublicToggleRow" type="HBoxContainer" parent="Panel/Margin/VBox/HostOptionsBox" unique_id=924834022]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="PublicToggle" type="CheckBox" parent="Panel/Margin/VBox/HostOptionsBox/PublicToggleRow" unique_id=924834023]
+custom_minimum_size = Vector2(220, 32)
+layout_mode = 2
+button_pressed = true
+text = "Public lobby (appears in Public Games)"
+
+[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox/HostOptionsBox" unique_id=924834020]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.3, 1, 0.3, 1)
 theme_override_font_sizes/font_size = 13

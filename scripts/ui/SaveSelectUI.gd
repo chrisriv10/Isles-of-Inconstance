@@ -17,7 +17,7 @@ enum Mode { NEW_GAME, CONTINUE, HOST }
 signal save_selected(slot_index: int)
 signal back_requested()
 signal new_save_requested(slot_index: int, seed: int, game_mode: int)
-signal host_save_selected(slot_index: int)
+signal host_save_selected(slot_index: int, public_lobby: bool)
 
 const SLOT_COUNT: int = 5
 const SAVE_SLOT_NAMES: Array[String] = ["Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5"]
@@ -31,7 +31,9 @@ const SAVE_SLOT_NAMES: Array[String] = ["Slot 1", "Slot 2", "Slot 3", "Slot 4", 
 @onready var survival_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/SurvivalBtn
 @onready var creative_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/CreativeBtn
 @onready var hardcore_btn: Button = $Panel/Margin/VBox/OptionsBox/ModeRow/ModeButtons/HardcoreBtn
-@onready var status_label: Label = $Panel/Margin/VBox/OptionsBox/StatusLabel
+@onready var status_label: Label = $Panel/Margin/VBox/HostOptionsBox/StatusLabel
+@onready var host_options_box: VBoxContainer = $Panel/Margin/VBox/HostOptionsBox
+@onready var public_toggle: CheckBox = $Panel/Margin/VBox/HostOptionsBox/PublicToggleRow/PublicToggle
 
 # Slot panel references: slot_index -> { panel, name_label, info_label, ts_label, delete_btn, rename_btn }
 var _slot_widgets: Array[Dictionary] = []
@@ -244,7 +246,7 @@ func _on_slot_gui_input(event: InputEvent, slot_idx: int) -> void:
 				_fade_out_and_emit("select", slot_idx)
 		Mode.HOST:
 			if has_save:
-				host_save_selected.emit(slot_idx)
+				host_save_selected.emit(slot_idx, public_toggle.button_pressed)
 
 
 func _emit_new_save(slot_idx: int) -> void:
@@ -477,9 +479,11 @@ func show_ui(p_mode: Mode = Mode.CONTINUE) -> void:
 	modulate.a = 0.0
 	back_button.disabled = false
 	options_box.visible = _current_mode == Mode.NEW_GAME
+	host_options_box.visible = _current_mode == Mode.HOST
 	status_label.visible = _current_mode == Mode.HOST
 	if _current_mode == Mode.HOST:
 		status_label.text = "Pick a save to host"
+		public_toggle.button_pressed = true
 	_refresh_all()
 	# Re-enable slot panel mouse filters (they were set to IGNORE by fade-out)
 	for w: Dictionary in _slot_widgets:

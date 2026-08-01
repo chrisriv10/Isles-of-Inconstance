@@ -34,11 +34,14 @@ var _eos_lobby: HLobby = null
 var _eos_peer: EOSGMultiplayerPeer = null
 var _eos_hosting_in_progress: bool = false
 var _eos_joining_in_progress: bool = false
+var _eos_searching_in_progress: bool = false
 var _eos_join_code: String = ""
 
 const EOS_SOCKET_ID: String = "ioip2p"
 const EOS_BUCKET_ID: String = "ioi_online"
 const EOS_JOIN_CODE_ATTR: String = "ioi_join_code"
+const EOS_LOBBY_NAME_ATTR: String = "ioi_lobby_name"
+const EOS_PUBLIC_ATTR: String = "ioi_is_public"
 
 func host(port: int = 34197) -> void:
 	if mode != ConnectionMode.NONE:
@@ -111,7 +114,7 @@ func join_via_ezcha_code(join_code: String) -> void:
 	_disconnect_multiplayer_signals()
 	_do_join_via_ezcha_code(join_code)
 
-func host_via_eos(lobby_name: String = "", max_players: int = 8) -> void:
+func host_via_eos(lobby_name: String = "", max_players: int = 8, public_lobby: bool = true) -> void:
 	if mode != ConnectionMode.NONE:
 		disconnect_from_server()
 	if _eos_hosting_in_progress or _eos_joining_in_progress:
@@ -122,7 +125,7 @@ func host_via_eos(lobby_name: String = "", max_players: int = 8) -> void:
 
 	_eos_hosting_in_progress = true
 	_disconnect_multiplayer_signals()
-	_do_host_via_eos(lobby_name, max_players)
+	_do_host_via_eos(lobby_name, max_players, public_lobby)
 
 func join_via_eos_code(join_code: String) -> void:
 	if mode != ConnectionMode.NONE:
@@ -442,7 +445,7 @@ func _generate_join_code() -> String:
 		code += pool[rng.randi_range(0, pool.length() - 1)]
 	return code
 
-func _do_host_via_eos(lobby_name: String, max_players: int) -> void:
+func _do_host_via_eos(lobby_name: String, max_players: int, public_lobby: bool) -> void:
 	if not await _ensure_eos_ready():
 		return
 	print("NetworkManager: EOS hosting lobby: ", lobby_name)
@@ -451,6 +454,9 @@ func _do_host_via_eos(lobby_name: String, max_players: int) -> void:
 	opts.local_user_id = HAuth.product_user_id
 	opts.max_lobby_members = max_players
 	opts.bucket_id = EOS_BUCKET_ID
+	# Lobbies must stay PublicAdvertised so the join-by-code EOS search can
+	# find them; "private" lobbies are hidden from the public browser instead
+	# via the ioi_is_public attribute.
 	opts.permission_level = EOS.Lobby.LobbyPermissionLevel.PublicAdvertised
 	opts.enable_join_by_id = true
 	var lobby: HLobby = await HLobbies.create_lobby_async(opts)
@@ -460,6 +466,8 @@ func _do_host_via_eos(lobby_name: String, max_players: int) -> void:
 
 	_eos_join_code = _generate_join_code()
 	lobby.add_attribute(EOS_JOIN_CODE_ATTR, _eos_join_code)
+	lobby.add_attribute(EOS_LOBBY_NAME_ATTR, lobby_name)
+	lobby.add_attribute(EOS_PUBLIC_ATTR, 1 if public_lobby else 0)
 	var update_ok: bool = await lobby.update_async()
 	if not update_ok:
 		_eos_fail("Failed to set lobby join code")
@@ -537,3 +545,61 @@ func _do_join_via_eos_code(join_code: String) -> void:
 	_connect_multiplayer_signals()
 	_eos_joining_in_progress = false
 	print("NetworkManager: EOS connecting to host")
+
+## Search for all public lobbies in the game's bucket (no join-code filter).
+## Returns an array of dictionaries:
+##   {name, join_code, member_count, max_members, lobby_id, owner_id}
+## Returns null if the search itself failed (offline, EOS unavailable, etc.)
+## so callers can distinguish "no games" from "search failed".
+func search_public_lobbies() -> Variant:
+	if not await _ensure_eos_ready():
+		return null
+	if _eos_searching_in_progress:
+		return null
+	_eos_searching_in_progress = true
+
+	var search_opts := EOS.Lobby.CreateLobbySearchOptions.new()
+	search_opts.max_results = 50
+	var search: EOSGLobbySearch = HLobbies.create_search(search_opts)
+	if search == null:
+		_eos_searching_in_progress = false
+		return null
+
+	search.set_parameter(EOS.Lobby.SEARCH_BUCKET_ID, EOS_BUCKET_ID, EOS.ComparisonOp.Equal)
+	var results: Array = await HLobbies.search_async(search)
+	_eos_searching_in_progress = false
+	if results == null:
+		return null
+
+	var lobbies: Array = []
+	for lobby in results:
+		var owner_id: String = lobby.owner_product_user_id
+		if owner_id == HAuth.product_user_id:
+			continue  # don't list our own lobby
+		var code: String = ""
+		var name: String = "Unnamed Farm"
+		var is_public: bool = true
+		for attr in lobby.attributes:
+			var key: String = String(attr.get("key", ""))
+			if key.to_lower() == EOS_JOIN_CODE_ATTR.to_lower():
+				code = String(attr.get("value", ""))
+			elif key.to_lower() == EOS_LOBBY_NAME_ATTR.to_lower():
+				name = String(attr.get("value", ""))
+			elif key.to_lower() == EOS_PUBLIC_ATTR.to_lower():
+				is_public = str(attr.get("value", "1")) == "1"
+		if code.is_empty():
+			continue  # lobbies hosted before the name/join-code attrs can't be joined by code
+		if not is_public:
+			continue  # private lobby — hidden from the public browser
+		var member_count: int = lobby.members.size()
+		if member_count <= 0:
+			member_count = maxi(lobby.max_members - lobby.available_slots, 0)
+		lobbies.append({
+			"name": name,
+			"join_code": code,
+			"member_count": member_count,
+			"max_members": lobby.max_members,
+			"lobby_id": lobby.lobby_id,
+			"owner_id": owner_id,
+		})
+	return lobbies

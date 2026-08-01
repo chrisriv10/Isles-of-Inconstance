@@ -23,6 +23,14 @@ signal join_online_requested(join_code: String)
 @onready var join_code_input: LineEdit = $ContentCenter/ButtonContainer/JoinCodeBox/JoinCodeInput
 @onready var join_connect_button: Button = $ContentCenter/ButtonContainer/JoinCodeBox/JoinConnectButton
 @onready var title_vbox: VBoxContainer = $TitlePanel/TitleVBox
+@onready var public_games_button: Button = $ContentCenter/ButtonContainer/PublicGamesButton
+@onready var public_games_panel: PanelContainer = $PublicGamesPanel
+@onready var lobby_status_label: Label = $PublicGamesPanel/Margin/VBox/StatusLabel
+@onready var lobby_list: VBoxContainer = $PublicGamesPanel/Margin/VBox/ScrollContainer/LobbyList
+@onready var refresh_button: Button = $PublicGamesPanel/Margin/VBox/Buttons/RefreshButton
+@onready var back_button: Button = $PublicGamesPanel/Margin/VBox/Buttons/BackButton
+
+var _searching_lobbies: bool = false
 
 # Star particle data
 var _stars: Array[Dictionary] = []
@@ -38,6 +46,9 @@ func _ready() -> void:
 	host_game_button.pressed.connect(_on_host_game_pressed)
 	join_game_button.pressed.connect(_on_join_game_pressed)
 	join_connect_button.pressed.connect(_on_join_connect_pressed)
+	public_games_button.pressed.connect(_on_public_games_pressed)
+	refresh_button.pressed.connect(_on_refresh_pressed)
+	back_button.pressed.connect(_on_public_games_back_pressed)
 	
 	# Enable continue if any save exists
 	var save_count: int = SaveManager.count_saves()
@@ -87,6 +98,7 @@ func reset_visual_state() -> void:
 	title_panel.modulate.a = 1.0
 	content_center.modulate.a = 1.0
 	join_code_box.visible = false
+	public_games_panel.visible = false
 
 	# Restore mouse filter (might have been set to IGNORE during fade)
 	content_center.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -252,6 +264,98 @@ func _on_join_connect_pressed() -> void:
 		return
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
 	join_code_box.visible = false
+	_fade_out_and_emit("join", code)
+
+## Public Games clicked — open the lobby browser and start a search.
+func _on_public_games_pressed() -> void:
+	print("MainMenu: Public Games clicked!")
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	join_code_box.visible = false
+	public_games_panel.visible = true
+	_refresh_public_games()
+
+## Back clicked — close the lobby browser.
+func _on_public_games_back_pressed() -> void:
+	print("MainMenu: Public Games back!")
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	public_games_panel.visible = false
+
+## Refresh clicked — re-run the lobby search.
+func _on_refresh_pressed() -> void:
+	print("MainMenu: Public Games refresh!")
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	_refresh_public_games()
+
+func _refresh_public_games() -> void:
+	if _searching_lobbies:
+		return
+	_searching_lobbies = true
+	lobby_status_label.text = "Searching..."
+	lobby_status_label.visible = true
+	for child in lobby_list.get_children():
+		child.queue_free()
+	refresh_button.disabled = true
+	_search_public_lobbies_async()
+
+## Async half of the search so the UI can update before the network call.
+func _search_public_lobbies_async() -> void:
+	var nm: Node = get_node_or_null("/root/NetworkManager")
+	if nm == null or not nm.has_method("search_public_lobbies"):
+		lobby_status_label.text = "Multiplayer unavailable."
+		_searching_lobbies = false
+		refresh_button.disabled = false
+		return
+	var lobbies: Variant = await nm.search_public_lobbies()
+	_searching_lobbies = false
+	refresh_button.disabled = false
+	if not public_games_panel.visible or not is_inside_tree():
+		return
+	if lobbies == null:
+		lobby_status_label.text = "Search failed — check your connection."
+		lobby_status_label.visible = true
+		return
+	if lobbies.is_empty():
+		lobby_status_label.text = "No public games found."
+		lobby_status_label.visible = true
+		return
+	lobby_status_label.visible = false
+	for info in lobbies:
+		var row := _build_lobby_row(info)
+		lobby_list.add_child(row)
+
+func _build_lobby_row(info: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.custom_minimum_size = Vector2(0, 40)
+
+	var name_label := Label.new()
+	name_label.text = String(info.get("name", "Unnamed Farm"))
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
+	name_label.add_theme_font_size_override("font_size", 16)
+	row.add_child(name_label)
+
+	var count_label := Label.new()
+	count_label.text = "%d/%d" % [int(info.get("member_count", 0)), int(info.get("max_members", 8))]
+	count_label.add_theme_font_size_override("font_size", 14)
+	count_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
+	row.add_child(count_label)
+
+	var join_button := Button.new()
+	join_button.text = "Join"
+	join_button.custom_minimum_size = Vector2(70, 32)
+	join_button.pressed.connect(_on_public_lobby_join.bind(info))
+	row.add_child(join_button)
+	return row
+
+## Join clicked on a lobby row — reuses the standard join-code flow.
+func _on_public_lobby_join(info: Dictionary) -> void:
+	print("MainMenu: Joining public lobby: ", info.get("name"))
+	var code: String = String(info.get("join_code", ""))
+	if code.is_empty():
+		return
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	public_games_panel.visible = false
 	_fade_out_and_emit("join", code)
 
 func _on_quit_pressed() -> void:
