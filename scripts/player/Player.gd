@@ -72,6 +72,19 @@ const MOVE_HUNGER_DRAIN_INTERVAL: float = 2.5
 ## stacked pile of enemies into runaway knockback physics.
 const MAX_MELEE_HITS_PER_SWING: int = 10
 
+## Melee range in pixels from the player's feet. The cursor only picks the
+## swing direction; the hit check stays near the player so a click on the far
+## side of the screen whiffs (replaces the old "hit anything near the cursor").
+const MELEE_RANGE: float = 44.0
+## Field strength guard so a single swing still feels wide but not screen-wide.
+const MELEE_ARC_COS: float = 0.6
+## Attack lunge: short dash in the swing direction to close distance.
+const MELEE_LUNGE_SPEED: float = 240.0
+const MELEE_LUNGE_TIME: float = 0.12
+## Bow charge: seconds of hold to fully charge the shot (double damage).
+const BOW_CHARGE_MAX_TIME: float = 1.0
+const BOW_CHARGE_DAMAGE_MULT: float = 2.0
+
 @onready var name_label: Label = $NameLabel
 @onready var interactor: Area2D = $Interactor
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
@@ -208,6 +221,14 @@ var _last_combo_time: float = 0.0
 
 var _tool_cooldown_remaining: float = 0.0
 var _tool_swing_tween: Tween
+var _last_swing_crit: bool = false
+
+# Hold-to-attack / lunge / bow charge state
+var _attack_held: bool = false
+var _lunge_velocity: Vector2 = Vector2.ZERO
+var _lunge_timer: float = 0.0
+var _bow_charging: bool = false
+var _bow_charge_start: float = 0.0
 
 # Lantern light
 var _lantern_light: PointLight2D = null
@@ -217,6 +238,11 @@ var _lantern_texture: Texture2D = null
 
 func _ready() -> void:
 	add_to_group("player")
+	# Draw the player above ground decorations and town building sprites
+	# (buildings are z=1, NPCs are z=3, so the player sits in the same
+	# "above buildings" layer). Interior/mine/island code overrides this
+	# temporarily and restores it on exit.
+	z_index = 1
 	# Set player name from GameManager
 	name_label.text = GameManager.player_name
 	_ensure_build_mode_action()
@@ -481,6 +507,12 @@ func _physics_process(delta: float) -> void:
 	elif _tool_cooldown_remaining > 0.0:
 		_tool_cooldown_remaining -= delta
 
+	# Hold-to-attack: while LMB is held (and cooldown allows) keep swinging a
+	# melee weapon toward where the player aims. Farming tools stay click-per-
+	# use so holding LMB doesn't repeatedly till/water. Bows charge on hold.
+	if _attack_held and not _bow_charging and _can_deal_melee_damage():
+		_try_use_tool_at_pos(get_global_mouse_position())
+
 	var input_direction := _get_input_direction()
 	input_direction = _clamp_to_walkable(input_direction)
 	var snapback_position: Vector2 = global_position
@@ -496,6 +528,13 @@ func _physics_process(delta: float) -> void:
 	else:
 		# Friction — gradual deceleration
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+
+	# Attack lunge: for the brief MELEE_LUNGE_TIME after a swing, the player
+	# carries an extra burst of speed toward the aim point so melee flows.
+	if _lunge_timer > 0.0:
+		_lunge_timer = maxf(0.0, _lunge_timer - delta)
+		velocity += _lunge_velocity * (_lunge_timer / MELEE_LUNGE_TIME)
+
 	move_and_slide()
 
 	# Movement-based hunger drain — the more you move, the faster you hunger.
@@ -736,18 +775,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_build_mode()
 		return
 	
-	# Mouse interaction: left-click uses tool, right-click interacts (harvest/compost)
-	if event is InputEventMouseButton and event.pressed and not event.is_echo():
+	# Mouse interaction: left-click uses tool (hold to keep attacking), right-click interacts.
+	if event is InputEventMouseButton and not event.is_echo():
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
-				if _is_build_mode_active():
-					_try_build_placement_at_pos(get_global_mouse_position())
+				if event.pressed:
+					if _is_build_mode_active():
+						_try_build_placement_at_pos(get_global_mouse_position())
+					else:
+						_attack_held = true
+						if _is_active_bow():
+							_start_bow_charge()
+						else:
+							_try_use_tool_at_pos(get_global_mouse_position())
 				else:
-					_try_use_tool_at_pos(get_global_mouse_position())
+					_attack_held = false
+					if _bow_charging:
+						_finish_bow_charge(get_global_mouse_position())
 				get_viewport().set_input_as_handled()
 				return
 			MOUSE_BUTTON_RIGHT:
-				_try_interact_at_pos(get_global_mouse_position())
+				if event.pressed:
+					_try_interact_at_pos(get_global_mouse_position())
 				get_viewport().set_input_as_handled()
 				return
 	
@@ -1857,66 +1906,95 @@ func _check_combo(combo_type: String) -> void:
 		EffectSpawner.spawn_combo_notification(streak, global_position + Vector2(0, -28))
 
 
-## Sweeps an area in front of the player and damages any enemies or animals found.
-func _try_melee_attack() -> void:
-	if not _can_deal_melee_damage():
+## Helper: returns the player's current facing as a normalized Vector2.
+func _facing_vec() -> Vector2:
+	return facing_direction.normalized()
+
+
+## Helper: starts an attack lunge toward the aim direction.
+func _apply_melee_lunge(aim: Vector2) -> void:
+	if GameManager.is_creative():
 		return
-	# Gingerbread invincibility: can't deal damage
-	if GameManager.is_gingerbread_invincible():
+	if aim.length_squared() < 0.001:
 		return
-	var attack_pos: Vector2 = global_position + facing_direction * 14.0
+	_lunge_velocity = aim.normalized() * MELEE_LUNGE_SPEED
+	_lunge_timer = MELEE_LUNGE_TIME
+
+
+## Shared melee sweep. Hits enemies/animals within MELEE_RANGE of the player
+## and inside the forward arc (dot towards aim >= MELEE_ARC_COS). Returns the
+## array of damaged enemies. Reads/writes _last_swing_crit.
+func _do_melee_swing(aim: Vector2) -> Array[Node2D]:
+	var hit_enemies: Array[Node2D] = []
+	if aim.length_squared() < 0.001:
+		return hit_enemies
 	var enemies: Array[Node] = get_tree().get_nodes_in_group("enemies")
 	var animals: Array[Node] = get_tree().get_nodes_in_group("animals")
 	var base_damage: int = _get_melee_damage()
 	var is_crit: bool = _roll_crit(active_tool)
+	_last_swing_crit = is_crit
 	var final_damage: int = roundi(base_damage * (CRIT_MULTIPLIER if is_crit else 1.0))
-	
-	var hit_enemies: Array[Node2D] = []
-	
+
 	for e in enemies:
-		if not is_instance_valid(e) or not e.has_method(&"take_damage"):
-			continue
-		var dist: float = e.global_position.distance_to(attack_pos)
-		if dist <= 20.0:
-			e.take_damage(final_damage, self, is_crit)
-			hit_enemies.append(e)
-			LevelManager.add_xp_source("hit_enemy")
-			# Knockback (stronger on crit) — capped to prevent runaway physics
-			var knock_str: float = 180.0 if is_crit else 120.0
-			var knock_dir: Vector2 = _enemy_knockback_dir(e.global_position, global_position)
-			if e is CharacterBody2D:
-				var eb: CharacterBody2D = e as CharacterBody2D
-				if eb.velocity.length() < knock_str * 1.5:
-					eb.velocity = knock_dir * knock_str
-				else:
-					eb.velocity += knock_dir * knock_str * 0.5
 		if hit_enemies.size() >= MAX_MELEE_HITS_PER_SWING:
 			break
-	
+		if not is_instance_valid(e) or not e.has_method(&"take_damage"):
+			continue
+		var to_e: Vector2 = (e.global_position - global_position) 
+		if to_e.length() > MELEE_RANGE:
+			continue
+		# Enemies basically on top of the player always get hit; otherwise the
+		# swing only lands on enemies in the forward arc.
+		if to_e.length() > 14.0 and to_e.normalized().dot(aim) < MELEE_ARC_COS:
+			continue
+		e.take_damage(final_damage, self, is_crit)
+		hit_enemies.append(e)
+		LevelManager.add_xp_source("hit_enemy")
+		# Knockback (stronger on crit) — capped to prevent runaway physics
+		var knock_str: float = 180.0 if is_crit else 120.0
+		var knock_dir: Vector2 = _enemy_knockback_dir(e.global_position, global_position)
+		if e is CharacterBody2D:
+			var eb: CharacterBody2D = e as CharacterBody2D
+			if eb.velocity.length() < knock_str * 1.5:
+				eb.velocity = knock_dir * knock_str
+			else:
+				eb.velocity += knock_dir * knock_str * 0.5
+
 	for a in animals:
 		if not is_instance_valid(a) or not a is Animal:
 			continue
 		var animal_ref: Animal = a as Animal
 		if not animal_ref:
 			continue
-		var dist: float = animal_ref.global_position.distance_to(attack_pos)
-		if dist <= 20.0:
-			animal_ref.take_damage(final_damage)
-	
-	if not hit_enemies.is_empty():
-		_play_tool_swing()
-		_tool_cooldown_remaining = base_tool_cooldown * 0.8
-		AudioManager.play(AudioManager.Sound.HIT)
-		# Combat polish: hitstop and swing arc
-		_trigger_hitstop(0.1 if is_crit else 0.06)
-		_spawn_swing_arc(is_crit)
-		# Chance to unleash a boss attack on a random hit enemy
-		_try_soul_power_proc(hit_enemies[randi() % hit_enemies.size()])
-		# Update kill combo on enemy hits
-		if is_crit:
-			_kill_combo += 1
-			_last_combo_time = Time.get_unix_time_from_system()
-			_check_combo("kill")
+		var to_a: Vector2 = animal_ref.global_position - global_position
+		if to_a.length() > MELEE_RANGE:
+			continue
+		if to_a.length() > 14.0 and to_a.normalized().dot(aim) < MELEE_ARC_COS:
+			continue
+		animal_ref.take_damage(final_damage)
+
+	return hit_enemies
+
+
+## Sweeps an arc in front of the player and damages any enemies or animals found.
+func _try_melee_attack() -> void:
+	if not _can_deal_melee_damage():
+		return
+	# Gingerbread invincibility: can't deal damage
+	if GameManager.is_gingerbread_invincible():
+		return
+	var hit_enemies := _do_melee_swing(_facing_vec())
+	_play_tool_swing()
+	_tool_cooldown_remaining = base_tool_cooldown * 0.8
+	_apply_melee_lunge(facing_direction)
+	if hit_enemies.is_empty():
+		return
+	AudioManager.play(AudioManager.Sound.HIT)
+	# Combat polish: hitstop and swing arc
+	_trigger_hitstop(0.1 if _last_swing_crit else 0.06)
+	_spawn_swing_arc(_last_swing_crit)
+	# Chance to unleash a boss attack on a random hit enemy
+	_try_soul_power_proc(hit_enemies[randi() % hit_enemies.size()])
 
 
 ## Use the active tool at a specific world position (mouse click).
@@ -1929,6 +2007,16 @@ func _try_use_tool_at_pos(target_pos: Vector2) -> void:
 		return
 
 	var used := false
+
+	# Click-to-harvest: if the cursor is on a fully-grown crop, harvest it
+	# directly instead of using the equipped tool. No need to press E.
+	if world.has_method("has_mature_crop") and world.has_mature_crop(target_pos):
+		if world.has_method("harvest_crop"):
+			used = world.harvest_crop(target_pos)
+			if used == false:
+				# Fully grown but inventory full — still consume the click so
+				# the player doesn't accidentally till/attack the crop.
+				used = true
 
 	match active_tool:
 		Tool.HOE:
@@ -2027,57 +2115,42 @@ func _try_melee_attack_at_pos(attack_pos: Vector2) -> void:
 	# Gingerbread invincibility: can't deal damage
 	if GameManager.is_gingerbread_invincible():
 		return
-	var enemies: Array[Node] = get_tree().get_nodes_in_group("enemies")
-	var animals: Array[Node] = get_tree().get_nodes_in_group("animals")
-	var base_damage: int = _get_melee_damage()
-	var is_crit: bool = _roll_crit(active_tool)
-	var final_damage: int = roundi(base_damage * (CRIT_MULTIPLIER if is_crit else 1.0))
-	
-	var hit_enemies: Array[Node2D] = []
-	
-	for e in enemies:
-		if not is_instance_valid(e) or not e.has_method(&"take_damage"):
-			continue
-		var dist: float = e.global_position.distance_to(attack_pos)
-		if dist <= 20.0:
-			e.take_damage(final_damage, self, is_crit)
-			hit_enemies.append(e)
-			LevelManager.add_xp_source("hit_enemy")
-			var knock_str: float = 180.0 if is_crit else 120.0
-			var knock_diff: Vector2 = e.global_position - global_position
-			var knock_dir: Vector2 = Vector2.ZERO
-			if knock_diff != Vector2.ZERO and is_finite(knock_diff.x) and is_finite(knock_diff.y):
-				knock_dir = knock_diff.normalized()
-			if e is CharacterBody2D:
-				e.velocity += knock_dir * knock_str
-		if hit_enemies.size() >= MAX_MELEE_HITS_PER_SWING:
-			break
-	
-	for a in animals:
-		if not is_instance_valid(a) or not a is Animal:
-			continue
-		var animal_ref: Animal = a as Animal
-		if not animal_ref:
-			continue
-		var dist: float = animal_ref.global_position.distance_to(attack_pos)
-		if dist <= 20.0:
-			animal_ref.take_damage(final_damage)
-	
-	if not hit_enemies.is_empty():
-		_play_tool_swing()
-		_tool_cooldown_remaining = base_tool_cooldown * 0.8
-		AudioManager.play(AudioManager.Sound.HIT)
-		# Combat polish: hitstop and swing arc
-		_trigger_hitstop(0.1 if is_crit else 0.06)
-		_spawn_swing_arc(is_crit)
-		# Chance to unleash a boss attack on a random hit enemy
-		_try_soul_power_proc(hit_enemies[randi() % hit_enemies.size()])
+
+	# The cursor sets the aim direction; the hit circle stays near the player
+	# so you can't snipe enemies from halfway across the screen.
+	var aim: Vector2 = attack_pos - global_position
+	if aim.length_squared() < 1.0:
+		aim = _facing_vec()
+	aim = aim.normalized()
+
+	# Face toward the clicked direction for better feedback.
+	_update_facing_toward(attack_pos)
+
+	var hit_enemies := _do_melee_swing(aim)
+	# Always swing — a whiff still plays the animation + cooldown so holding
+	# to attack keeps a readable rhythm.
+	_play_tool_swing()
+	_tool_cooldown_remaining = base_tool_cooldown * 0.8
+	_apply_melee_lunge(aim)
+	if hit_enemies.is_empty():
+		return
+	AudioManager.play(AudioManager.Sound.HIT)
+	# Combat polish: hitstop and swing arc
+	_trigger_hitstop(0.1 if _last_swing_crit else 0.06)
+	_spawn_swing_arc(_last_swing_crit)
+	# Chance to unleash a boss attack on a random hit enemy
+	_try_soul_power_proc(hit_enemies[randi() % hit_enemies.size()])
+	# Update kill combo on enemy hits
+	if _last_swing_crit:
+		_kill_combo += 1
+		_last_combo_time = Time.get_unix_time_from_system()
+		_check_combo("kill")
 
 
 ## Fire an arrow from the player's bow toward the given world position.
 ## Consumes one arrow from inventory. If the player has no arrows, shows a
 ## warning toast and does nothing.
-func _fire_bow(target_pos: Vector2) -> void:
+func _fire_bow(target_pos: Vector2, charge_ratio: float = 0.0) -> void:
 	# Gingerbread invincibility: can't deal damage
 	if GameManager.is_gingerbread_invincible():
 		ToastNotification.show_toast("Your gingerbread armor is too sweet to fight! 🍪", ToastNotification.ToastType.WARNING, 2.0)
@@ -2094,6 +2167,11 @@ func _fire_bow(target_pos: Vector2) -> void:
 	var is_crit: bool = randf() < CRIT_BOW_CHANCE
 	var base_damage: int = _get_bow_damage()
 	var final_damage: int = roundi(base_damage * (CRIT_MULTIPLIER if is_crit else 1.0))
+	# Charge multiplier scales damage up to full charge (2x).
+	var charge_mult: float = 1.0 + (BOW_CHARGE_DAMAGE_MULT - 1.0) * charge_ratio
+	final_damage = maxi(1, roundi(final_damage * charge_mult))
+	# A fully charged shot also fires a touch faster (straighter, punchier).
+	var charge_speed: float = ARROW_SPEED * (1.0 + charge_ratio * 0.25)
 	
 	# Create the arrow projectile
 	var arrow: Arrow = ARROW_SCENE.instantiate()
@@ -2111,7 +2189,7 @@ func _fire_bow(target_pos: Vector2) -> void:
 	var dir: Vector2 = (target_pos - global_position).normalized()
 	if dir == Vector2.ZERO:
 		dir = facing_direction
-	arrow.linear_velocity = dir * ARROW_SPEED
+	arrow.linear_velocity = dir * charge_speed
 	
 	# Rotate the arrow sprite to face the direction of travel
 	arrow.rotation = dir.angle()
@@ -2122,6 +2200,41 @@ func _fire_bow(target_pos: Vector2) -> void:
 	# Sound and visual feedback (caller handles the swing animation + cooldown)
 	AudioManager.play(AudioManager.Sound.BOW_SHOOT)
 	EffectSpawner.spawn_dirt_puff(global_position + facing_direction * 12.0)
+	if charge_ratio >= 1.0:
+		EffectSpawner.spawn_particles(global_position + facing_direction * 14.0, Color(1.0, 0.9, 0.6), 6, 10.0)
+		_trigger_hitstop(0.06)
+
+
+## Returns true if the active hotbar slot holds a bow that can be charged.
+func _is_active_bow() -> bool:
+	var sd := _get_hotbar_slot_data()
+	if sd.is_empty():
+		return false
+	var item_id: String = sd.get("item_id", "")
+	return item_id == "bow" or item_id == "antler_bow"
+
+
+## Begin charging a bow shot. Called on LMB press while a bow is active.
+func _start_bow_charge() -> void:
+	_bow_charging = true
+	_bow_charge_start = Time.get_unix_time_from_system()
+	# Set the player facing the cursor so a release clearly aims at the click.
+	_update_facing_toward(get_global_mouse_position())
+
+
+## Complete a bow charge. Called on LMB release. Fires with charge-scaled damage.
+func _finish_bow_charge(target_pos: Vector2) -> void:
+	if not _bow_charging:
+		return
+	_bow_charging = false
+	var held_time: float = Time.get_unix_time_from_system() - _bow_charge_start
+	var ratio: float = clampf(held_time / BOW_CHARGE_MAX_TIME, 0.0, 1.0)
+	if ratio < 0.05:
+		# Extremely quick tap — cancel instead of throwing a pitiful arrow.
+		_tool_cooldown_remaining = base_tool_cooldown * 0.5
+		return
+	_fire_bow(target_pos, ratio)
+	_tool_cooldown_remaining = base_tool_cooldown * 1.0
 
 ## Calculate bow damage. Uses the same upgrade scaling as melee tools but
 ## with its own base value so bows stay balanced.
@@ -2262,6 +2375,18 @@ func _update_sprite_facing() -> void:
 		sprite.flip_h = false
 		held_item.flip_h = false
 	_update_held_item_position()
+
+
+## Rotate the player's facing toward a world position (used to aim attacks).
+func _update_facing_toward(world_pos: Vector2) -> void:
+	var delta_vec := world_pos - global_position
+	if delta_vec.length_squared() < 1.0:
+		return
+	if abs(delta_vec.x) > abs(delta_vec.y):
+		facing_direction = Vector2.RIGHT if delta_vec.x > 0 else Vector2.LEFT
+	else:
+		facing_direction = Vector2.DOWN if delta_vec.y > 0 else Vector2.UP
+	_update_sprite_facing()
 
 ## Updates the held item sprite based on the active tool.
 ## Shows the tool/seed icon in the player's hand, or hides it when nothing is equipped.
