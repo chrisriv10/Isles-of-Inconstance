@@ -645,6 +645,15 @@ func _scatter_objects() -> void:
 func cell_to_world(cell: Vector2i) -> Vector2:
 	return Vector2(cell.x * TILE_SIZE + TILE_SIZE / 2.0, cell.y * TILE_SIZE + TILE_SIZE / 2.0)
 
+## Returns true if a fully-grown (mature) crop exists at the given world position.
+## Used so the player can left-click a ready crop to harvest it directly.
+func has_mature_crop(world_pos: Vector2) -> bool:
+	var cell := world_to_cell(world_pos)
+	if not _crop_nodes.has(cell):
+		return false
+	var crop: Crop = _crop_nodes[cell]
+	return crop != null and crop.is_mature()
+
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return Vector2i(floori(world_pos.x / TILE_SIZE), floori(world_pos.y / TILE_SIZE))
 
@@ -2955,13 +2964,7 @@ func try_enter_mine() -> bool:
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)
-	
-	call_deferred("_deferred_setup_mine_room", mine)
-	
-	# First-time mine entry dialogue
-	GameManager.try_show_dialogue(
-		GameManager.DIALOGUE_FIRST_MINE,
-		"It's dark in here... I should explore deeper and find valuable ores.",
+		player.show_dialogue("in here... I should explore deeper and find valuable ores.",
 		4.0
 	)
 	
@@ -3041,7 +3044,7 @@ func emergency_exit_mine() -> void:
 	if player:
 		if player is CharacterBody2D:
 			player.velocity = Vector2.ZERO
-		player.z_index = 0
+		player.z_index = 1  # match the player's outdoor layer (above buildings)
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)

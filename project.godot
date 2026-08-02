@@ -40,6 +40,8 @@ HLeaderboards="*res://addons/epic-online-services-godot/heos/hleaderboards.gd"
 HLobbies="*res://addons/epic-online-services-godot/heos/hlobbies.gd"
 HP2P="*res://addons/epic-online-services-godot/heos/hp2p.gd"
 HSessions="*res://addons/epic-online-services-godot/heos/hsessions.gd"
+_fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [debug]
 
@@ -59,7 +61,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/epic-online-services-godot/plugin.cfg", "res://addons/ezcha_network/plugin.cfg")
+enabled=PackedStringArray("res://addons/epic-online-services-godot/plugin.cfg", "res://addons/ezcha_network/plugin.cfg", "res://addons/godot_ai/plugin.cfg")
 
 [gui]
 

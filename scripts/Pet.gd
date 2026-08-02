@@ -340,10 +340,10 @@ func _setup_pet_dialogue() -> void:
 
 	_pet_dialogue_label = Label.new()
 	_pet_dialogue_label.name = "PetDialogueLabel"
-	_pet_dialogue_label.size = Vector2(100, 18)
+	_pet_dialogue_label.size = Vector2(72, 16)
 	_pet_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_pet_dialogue_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_pet_dialogue_label.add_theme_font_size_override("font_size", 7)
+	_pet_dialogue_label.add_theme_font_size_override("font_size", 6)
 	_pet_dialogue_label.add_theme_color_override("font_color", Color.WHITE)
 
 	var sb := StyleBoxFlat.new()

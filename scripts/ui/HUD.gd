@@ -82,6 +82,15 @@ var _buff_update_timer: float = 0.0
 var _player_list_panel: PanelContainer = null
 var _player_list_vbox: VBoxContainer = null
 
+# Chat (bottom-left)
+var _chat_panel: PanelContainer = null
+var _chat_text: RichTextLabel = null
+var _chat_input: LineEdit = null
+var _chat_scroll: ScrollContainer = null
+var _chat_open: bool = false
+var _chat_hidden: bool = false
+var _chat_hide_button: Button = null
+
 func _ready() -> void:
 	add_to_group("HUD")
 	GameManager.day_changed.connect(_on_day_changed)
@@ -211,6 +220,9 @@ func _ready() -> void:
 	
 	# Player list (multiplayer roster) — hidden until a session is active
 	_setup_player_list()
+	
+	# Chat panel (bottom-left)
+	_setup_chat()
 	
 	# Create pirate raid alert label (hidden by default)
 	_setup_raid_alert()
@@ -1828,10 +1840,10 @@ func _setup_player_list() -> void:
 	_player_list_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_player_list_panel.anchor_right = 1.0
 	_player_list_panel.anchor_bottom = 0.0
-	_player_list_panel.offset_left = -240
-	_player_list_panel.offset_right = -16
-	_player_list_panel.offset_top = 216
-	_player_list_panel.offset_bottom = 216
+	_player_list_panel.offset_left = -276
+	_player_list_panel.offset_right = -52
+	_player_list_panel.offset_top = 192
+	_player_list_panel.offset_bottom = 192
 
 	var margin := MarginContainer.new()
 	margin.name = "Margin"
@@ -1918,3 +1930,199 @@ func _build_player_row(entry: Dictionary) -> HBoxContainer:
 	stats_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
 	row.add_child(stats_label)
 	return row
+
+
+# ── Chat (top-left) ───────────────────────────────────────────────────
+
+## Build the chat log + input, anchored at the top-left. Multiplayer only:
+## the panel starts hidden and only appears while a network session is
+## active and the player hasn't hidden it. Input opens with Enter.
+func _setup_chat() -> void:
+	_chat_panel = PanelContainer.new()
+	_chat_panel.name = "ChatPanel"
+	_chat_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chat_panel.visible = false
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.35)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	_chat_panel.add_theme_stylebox_override("panel", style)
+	$Root.add_child(_chat_panel)
+
+	# Anchored top-left, grows downward. Starts below the HUD bars (which
+	# occupy y=12..84 full-width) and stays left of the objective widget.
+	_chat_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_chat_panel.anchor_left = 0.0
+	_chat_panel.anchor_top = 0.0
+	_chat_panel.offset_left = 12
+	_chat_panel.offset_top = 92
+	_chat_panel.offset_right = 420
+	_chat_panel.offset_bottom = 255
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	_chat_panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	margin.add_child(vbox)
+
+	var header := HBoxContainer.new()
+	vbox.add_child(header)
+
+	var title := Label.new()
+	title.text = "💬 Chat"
+	title.add_theme_font_size_override("font_size", 12)
+	title.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	header.add_child(title)
+
+	var hint := Label.new()
+	hint.text = "Enter to type, Enter sends, Esc closes"
+	hint.add_theme_font_size_override("font_size", 10)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	header.add_child(hint)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spacer)
+
+	_chat_hide_button = Button.new()
+	_chat_hide_button.name = "HideChatButton"
+	_chat_hide_button.text = "✕"
+	_chat_hide_button.tooltip_text = "Hide chat (press Enter to bring it back)"
+	_chat_hide_button.flat = true
+	_chat_hide_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_chat_hide_button.add_theme_font_size_override("font_size", 12)
+	_chat_hide_button.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	_chat_hide_button.add_theme_color_override("font_hover_color", Color.WHITE)
+	_chat_hide_button.pressed.connect(_on_chat_hide_pressed)
+	header.add_child(_chat_hide_button)
+
+	_chat_scroll = ScrollContainer.new()
+	_chat_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_chat_scroll.custom_minimum_size = Vector2(0, 120)
+	vbox.add_child(_chat_scroll)
+
+	_chat_text = RichTextLabel.new()
+	_chat_text.bbcode_enabled = true
+	_chat_text.fit_content = true
+	_chat_text.scroll_following = true
+	_chat_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_text.add_theme_font_size_override("normal_font_size", 14)
+	_chat_text.add_theme_color_override("default_color", Color(1, 1, 1, 0.9))
+	_chat_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chat_scroll.add_child(_chat_text)
+
+	_chat_input = LineEdit.new()
+	_chat_input.name = "ChatInput"
+	_chat_input.placeholder_text = "Message..."
+	_chat_input.custom_minimum_size = Vector2(0, 28)
+	_chat_input.visible = false
+	_chat_input.text_submitted.connect(_on_chat_submitted)
+	_chat_input.add_to_group("chat_input")
+	vbox.add_child(_chat_input)
+
+	if not GameManager.chat_message_received.is_connected(_on_chat_message):
+		GameManager.chat_message_received.connect(_on_chat_message)
+
+	# Polite hint once a session is active (same timer as the player list).
+	var chat_timer := Timer.new()
+	chat_timer.name = "ChatVisibilityTimer"
+	chat_timer.wait_time = 0.5
+	chat_timer.timeout.connect(_refresh_chat_visibility)
+	add_child(chat_timer)
+	chat_timer.start()
+
+	_refresh_chat_visibility()
+
+
+## Chat panel is multiplayer-only: shows only while a network session is
+## active and the user hasn't explicitly hidden it.
+func _refresh_chat_visibility() -> void:
+	if not is_instance_valid(_chat_panel):
+		return
+	var active: bool = NetworkManager.is_network_active()
+	_chat_panel.visible = active and not _chat_hidden
+	if not _chat_panel.visible and _chat_open:
+		_close_chat_input()
+
+
+func _on_chat_hide_pressed() -> void:
+	_chat_hidden = not _chat_hidden
+	_refresh_chat_visibility()
+
+
+func _on_chat_message(sender_name: String, text: String) -> void:
+	_append_chat_line("<%s> %s" % [sender_name, text])
+
+
+func _append_chat_line(line: String) -> void:
+	if not _chat_text:
+		return
+	_chat_text.append_text(line + "\n")
+	# Keep the log bounded — drop the top lines once it gets tall.
+	if _chat_text.get_line_count() > 120:
+		var all: Array[String] = []
+		for line_i: String in _chat_text.text.split("\n", false):
+			all.append(line_i)
+		while all.size() > 100:
+			all.pop_front()
+		_chat_text.text = "\n".join(all) + "\n"
+	_chat_text.scroll_to_line(_chat_text.get_line_count())
+
+
+func _on_chat_submitted(text: String) -> void:
+	if text.strip_edges().is_empty():
+		_close_chat_input()
+		return
+	if GameManager:
+		GameManager.send_chat_message(text)
+	_chat_input.text = ""
+	_chat_input.release_focus()
+	_chat_open = false
+	_chat_input.visible = false
+	# Keep chat log visible so recent messages stay readable
+	_chat_panel.visible = true
+
+
+func _toggle_chat_input() -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if _chat_open:
+		_close_chat_input()
+		return
+	# Entering a message brings the panel back even if the user hid it.
+	_chat_hidden = false
+	_chat_open = true
+	_chat_panel.visible = true
+	_chat_input.visible = true
+	_chat_input.grab_focus()
+
+
+func _close_chat_input() -> void:
+	_chat_open = false
+	_chat_input.visible = false
+	_chat_input.text = ""
+	if _chat_input.has_focus():
+		_chat_input.release_focus()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# [Enter] toggles the chat input; [Esc] closes it while open. Chat is
+	# multiplayer-only — leave the keys alone when running solo.
+	if not NetworkManager.is_network_active():
+		return
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+			_toggle_chat_input()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_ESCAPE and _chat_open:
+			_close_chat_input()
+			get_viewport().set_input_as_handled()

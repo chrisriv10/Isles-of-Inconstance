@@ -65,7 +65,7 @@ func _ready() -> void:
 	var sign_tex: Texture2D = preload("res://assets/generated/hotel_sign_open_frame_0.png")
 	if sign_tex:
 		_sign_sprite.texture = sign_tex
-	_sign_sprite.position = Vector2(0, -26)
+	_sign_sprite.position = Vector2(0, -34)
 	_sign_sprite.visible = false
 	_sign_sprite.z_index = 6
 	_building_node.add_child(_sign_sprite)

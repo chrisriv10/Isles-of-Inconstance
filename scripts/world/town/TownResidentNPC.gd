@@ -174,10 +174,10 @@ func _setup_dialogue() -> void:
 	
 	_dialogue_label = Label.new()
 	_dialogue_label.name = "DialogueLabel"
-	_dialogue_label.size = Vector2(100, 18)
+	_dialogue_label.size = Vector2(72, 16)
 	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dialogue_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_dialogue_label.add_theme_font_size_override("font_size", 7)
+	_dialogue_label.add_theme_font_size_override("font_size", 6)
 	
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.1, 0.1, 0.15, 0.85)

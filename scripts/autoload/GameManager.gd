@@ -855,7 +855,7 @@ func broadcast_toast(message: String, type: int = ToastNotification.ToastType.IN
 		ToastNotification.show_toast(safe_message, safe_type, safe_duration)
 		return
 	if multiplayer.is_server():
-		_show_toast_everywhere(safe_message, safe_type, safe_duration)
+		rpc("_show_toast_everywhere", safe_message, safe_type, safe_duration)
 	else:
 		rpc_id(1, "_server_forward_toast", safe_message, safe_type, safe_duration)
 
@@ -865,13 +865,57 @@ func broadcast_toast(message: String, type: int = ToastNotification.ToastType.IN
 func _server_forward_toast(message: String, type: int, duration: float) -> void:
 	if not multiplayer.is_server():
 		return
-	_show_toast_everywhere(message, type, duration)
+	rpc("_show_toast_everywhere", message, type, duration)
 
 
 ## Show a toast on every peer (host runs it locally via call_local).
 @rpc("authority", "call_local", "reliable")
 func _show_toast_everywhere(message: String, type: int, duration: float) -> void:
 	ToastNotification.show_toast(message, type, duration)
+
+
+# ── Multiplayer chat ──────────────────────────────────────────────────────
+
+## Emitted on every peer whenever a chat line arrives (own echoes included).
+signal chat_message_received(sender_name: String, text: String)
+
+## Send a chat message to every player. Host-authoritative relay (same pattern
+## as toast broadcast): clients hand the line to the host, the host tags the
+## sender's name and rebroadcasts to the whole room. Offline it just echoes
+## locally so the UI is still usable in single player.
+func send_chat_message(text: String) -> void:
+	var safe: String = _sanitize_chat_text(text)
+	if safe.is_empty():
+		return
+	if not NetworkManager.is_network_active():
+		chat_message_received.emit(player_name, safe)
+		return
+	if multiplayer.is_server():
+		rpc("_show_chat_everywhere", _peer_display_name(multiplayer.get_unique_id()), safe)
+	else:
+		rpc_id(1, "_server_forward_chat", safe)
+
+
+## Host: receive a client's chat line and relay it with the sender's name.
+@rpc("any_peer", "reliable")
+func _server_forward_chat(text: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	rpc("_show_chat_everywhere", _peer_display_name(sender), text)
+
+
+## Deliver a chat line to every peer (host runs it locally via call_local).
+@rpc("authority", "call_local", "reliable")
+func _show_chat_everywhere(sender_name: String, text: String) -> void:
+	chat_message_received.emit(sender_name, text)
+
+
+## Trim, strip BBCode brackets (prevent RichText injection), and cap length.
+func _sanitize_chat_text(text: String) -> String:
+	var t := text.strip_edges()
+	t = t.replace("[", "(").replace("]", ")")
+	return t.substr(0, 200)
 
 
 ## Ask a specific client to broadcast its stats now, so the roster (and the
