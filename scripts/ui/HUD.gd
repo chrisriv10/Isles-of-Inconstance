@@ -1934,9 +1934,8 @@ func _build_player_row(entry: Dictionary) -> HBoxContainer:
 
 # ── Chat (top-left) ───────────────────────────────────────────────────
 
-## Build the chat log + input, anchored at the top-left. Multiplayer only:
-## the panel starts hidden and only appears while a network session is
-## active and the player hasn't hidden it. Input opens with Enter.
+## Build the chat log + input, anchored at the top-left. Works both solo
+## (local echo) and multiplayer (host relay). Input opens with Enter.
 func _setup_chat() -> void:
 	_chat_panel = PanelContainer.new()
 	_chat_panel.name = "ChatPanel"
@@ -1957,9 +1956,9 @@ func _setup_chat() -> void:
 	_chat_panel.anchor_left = 0.0
 	_chat_panel.anchor_top = 0.0
 	_chat_panel.offset_left = 12
-	_chat_panel.offset_top = 92
+	_chat_panel.offset_top = 150
 	_chat_panel.offset_right = 420
-	_chat_panel.offset_bottom = 255
+	_chat_panel.offset_bottom = 315
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -2043,13 +2042,13 @@ func _setup_chat() -> void:
 	_refresh_chat_visibility()
 
 
-## Chat panel is multiplayer-only: shows only while a network session is
-## active and the user hasn't explicitly hidden it.
+## Chat panel shows whenever the user hasn't explicitly hidden it. Message
+## sending works offline (local echo) and in multiplayer (host relay), so the
+## panel is kept usable in both rather than being multiplayer-only.
 func _refresh_chat_visibility() -> void:
 	if not is_instance_valid(_chat_panel):
 		return
-	var active: bool = NetworkManager.is_network_active()
-	_chat_panel.visible = active and not _chat_hidden
+	_chat_panel.visible = not _chat_hidden
 	if not _chat_panel.visible and _chat_open:
 		_close_chat_input()
 
@@ -2093,8 +2092,6 @@ func _on_chat_submitted(text: String) -> void:
 
 
 func _toggle_chat_input() -> void:
-	if not NetworkManager.is_network_active():
-		return
 	if _chat_open:
 		_close_chat_input()
 		return
@@ -2115,10 +2112,8 @@ func _close_chat_input() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# [Enter] toggles the chat input; [Esc] closes it while open. Chat is
-	# multiplayer-only — leave the keys alone when running solo.
-	if not NetworkManager.is_network_active():
-		return
+	# [Enter] toggles the chat input; [Esc] closes it while open. Works both
+	# solo (local echo) and multiplayer (host relay).
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
 			_toggle_chat_input()
