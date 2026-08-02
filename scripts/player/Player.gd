@@ -2232,18 +2232,18 @@ func _start_bow_charge() -> void:
 	_update_facing_toward(get_global_mouse_position())
 
 
-## Complete a bow charge. Called on LMB release. Fires with charge-scaled damage.
+## Complete a bow charge. Called on LMB release. Fires only at full charge.
 func _finish_bow_charge(target_pos: Vector2) -> void:
 	if not _bow_charging:
 		return
 	_bow_charging = false
 	var held_time: float = Time.get_unix_time_from_system() - _bow_charge_start
 	var ratio: float = clampf(held_time / BOW_CHARGE_MAX_TIME, 0.0, 1.0)
-	if ratio < 0.05:
-		# Extremely quick tap — cancel instead of throwing a pitiful arrow.
+	if ratio < 1.0:
+		# Released before full charge — cancel, short cooldown.
 		_tool_cooldown_remaining = base_tool_cooldown * 0.5
 		return
-	_fire_bow(target_pos, ratio)
+	_fire_bow(target_pos, 1.0)
 	_tool_cooldown_remaining = base_tool_cooldown * 1.0
 
 ## Calculate bow damage. Uses the same upgrade scaling as melee tools but
