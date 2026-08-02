@@ -736,6 +736,9 @@ func till_tile(world_pos: Vector2) -> bool:
 	for cell in cells:
 		if _till_cell(cell):
 			tilled_any = true
+	if tilled_any:
+		_show_first_action_hint("first_till",
+			"Tilled! Select seeds in your hotbar (keys 3-0), then left-click the tilled soil to plant.")
 	return tilled_any
 
 func _till_cell(cell: Vector2i) -> bool:
@@ -788,6 +791,8 @@ func water_tile(world_pos: Vector2) -> bool:
 		if wtr_mgr and wtr_mgr.has_method("on_tile_watered"):
 			wtr_mgr.on_tile_watered()
 		LevelManager.add_xp_source("water")
+		_show_first_action_hint("first_water",
+			"Watered! Crops grow over time — press [E] or left-click to harvest when ready.")
 	return watered_any
 
 func _water_cell(cell: Vector2i) -> bool:
@@ -874,6 +879,8 @@ func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
 			var crop_data_display: CropData = DataManager.get_crop(crop_id)
 			var name_str: String = crop_data_display.display_name if crop_data_display else crop_id
 			ToastNotification.show_toast("Planted %d %s seeds!" % [count, name_str], ToastNotification.ToastType.SUCCESS, 2.0)
+		_show_first_action_hint("first_plant",
+			"Planted! Press [2] for the Watering Can, then left-click or [F] to water it.")
 	return planted_any
 
 ## Plant a single seed cell. Returns true if planted.
@@ -1070,6 +1077,9 @@ func harvest_crop(world_pos: Vector2) -> bool:
 	var quality_suffix := CropQuality.get_tier_suffix(quality_tier)
 	HarvestAnimation.play_harvest_effect(crop.global_position, crop_data.display_name + quality_suffix, harvest_color, quality_tier)
 	AudioManager.play(AudioManager.Sound.HARVEST)
+	
+	_show_first_action_hint("first_harvest",
+		"Harvested! Sell crops at the Boat (east coast) or eat them. Press [O] for objectives!")
 	
 	# Track farming stats
 	GameManager.total_crops_harvested += 1
@@ -2632,6 +2642,13 @@ func _show_hud_hint(text: String) -> void:
 	if hud and hud.has_method("show_tutorial_hint"):
 		hud.show_tutorial_hint(text)
 
+## Shows a moment-of-action hint only the first time the given action happens
+## per session (delegates to HUD.show_first_action_hint).
+func _show_first_action_hint(action_id: String, text: String, duration: float = 5.0) -> void:
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("show_first_action_hint"):
+		hud.show_first_action_hint(action_id, text, duration)
+
 ## Toggles build mode on/off. Returns the new state.
 func toggle_build_mode() -> bool:
 	if build_mode_active:
@@ -2681,6 +2698,9 @@ func try_place_building(cell: Vector2i) -> bool:
 
 	if not keep_mode:
 		exit_build_mode()
+
+	_show_first_action_hint("first_build",
+		"Built! Walk to the door and press [E] to enter.")
 
 	# Sync to remote peers
 	if NetworkManager.is_network_active() and multiplayer.is_server():
@@ -2943,6 +2963,9 @@ func try_enter_mine() -> bool:
 			om_mine.on_enter_mine(depth)
 		if om_mine.has_method("on_reach_mine_depth"):
 			om_mine.on_reach_mine_depth(depth)
+	
+	_show_first_action_hint("first_mine",
+		"Mine! Deeper floors have better ores but tougher enemies.")
 	
 	GameManager.inside_interior = true
 	

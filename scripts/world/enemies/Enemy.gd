@@ -444,6 +444,12 @@ func _die() -> void:
 	if ene_mgr and ene_mgr.has_method("on_enemy_slain"):
 		ene_mgr.on_enemy_slain()
 	
+	# First-kill moment-of-action hint
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("show_first_action_hint"):
+		hud.show_first_action_hint("first_kill",
+			"Defeated! Enemies drop loot — watch your health at night.")
+	
 	# Track quest kill progress — report the class name for quest matching
 	var quest_mgr := get_tree().get_first_node_in_group("quest_manager")
 	if quest_mgr and quest_mgr.has_method("report_kill"):

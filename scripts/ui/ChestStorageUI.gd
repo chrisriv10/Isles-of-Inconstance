@@ -66,6 +66,11 @@ func open_for(container: ContainerInventory, title: String = "Storage Chest",
 
 	UITweenHelper.animate_open(panel, 0.25, 20.0)
 	refresh()
+	
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("show_first_action_hint"):
+		hud.show_first_action_hint("first_chest",
+			"Chest! Store items here to free up inventory space — each chest keeps its own contents.")
 
 
 func close() -> void:

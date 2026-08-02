@@ -425,6 +425,8 @@ func _on_bed_interacted(_interactor: Node) -> void:
 	ToastNotification.show_toast("Good morning! Slept through the night.", ToastNotification.ToastType.SUCCESS, 3.0)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
+		if hud.has_method("show_first_action_hint"):
+			hud.show_first_action_hint("first_sleep", "Slept! Time skipped to 6 AM.")
 		hud.flash_screen(Color.BLACK, 0.5)
 
 func _add_crafting_station(pos: Vector2) -> Interactable:
@@ -1308,6 +1310,10 @@ func _populate_barn_animals() -> void:
 func _generate_hotel() -> void:
 	_room_width = 336
 	_room_height = 192
+	
+	# Full-void background — covers the whole viewport so the sky layer
+	# doesn't show through around the room edges (same as every other interior).
+	_create_wall_sprite(_room_width, _room_height, Color(0.18, 0.13, 0.1))
 	
 	# ═══════════════════════════════════════════════════
 	#  🖼️  WALL BACKGROUND (pre-made pixel art)
@@ -2380,8 +2386,7 @@ func _generate_restaurant() -> void:
 	_add_restaurant_table(Vector2(140, 116))
 	# 🪟 Windows on top wall
 	_add_window(Vector2(112, 12), 36, 16)
-	# 🖼️ Wall art
-	_add_wall_art(Vector2(190, 30), 24, 18, Color(0.4, 0.25, 0.12), Color(0.3, 0.5, 0.2))
+	# (Painting removed per user request)
 	# 🌿 Potted plant
 	_add_potted_plant(Vector2(208, 120))
 
@@ -2495,8 +2500,7 @@ func _generate_tavern() -> void:
 	_add_tavern_table(Vector2(100, 116))
 	# 🪑 Table 3 (near bar)
 	_add_tavern_table(Vector2(162, 108))
-	# 🖼️ Wall art
-	_add_wall_art(Vector2(110, 26), 32, 20, Color(0.4, 0.25, 0.1), Color(0.2, 0.3, 0.5))
+	# (Painting removed per user request)
 	# 🪟 Windows
 	_add_window(Vector2(100, 14), 32, 16)
 	_add_window(Vector2(162, 14), 32, 16)
@@ -3390,5 +3394,4 @@ func _generate_bank() -> void:
 	_add_decorative(Vector2(188, 32), Color(0.85, 0.7, 0.15), 4, 3)
 	_add_decorative(Vector2(194, 32), Color(0.8, 0.65, 0.1), 4, 3)
 
-	# 🖼️ Wall art
-	_add_wall_art(Vector2(120, 22), 32, 18, Color(0.5, 0.35, 0.15), Color(0.2, 0.6, 0.3))
+	# (Painting removed per user request)

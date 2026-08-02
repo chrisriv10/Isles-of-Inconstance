@@ -4,12 +4,28 @@
 [ext_resource type="Script" uid="uid://cl4ysjalxgnn0" path="res://scripts/ui/Hotbar.gd" id="2"]
 [ext_resource type="Script" uid="uid://63j2qcixcxoi" path="res://scripts/ui/ToastNotification.gd" id="3"]
 [ext_resource type="Shader" uid="uid://b5hgylhoo1b6v" path="res://shaders/vignette.gdshader" id="4"]
+[ext_resource type="Texture2D" uid="uid://b22mv3pec3wgq" path="res://assets/generated/wood_planks.png" id="5"]
 
 [sub_resource type="ShaderMaterial" id="VignetteMaterial"]
 shader = ExtResource("4")
 shader_parameter/intensity = 0.35
 shader_parameter/radius = 0.75
 shader_parameter/softness = 0.45
+
+[sub_resource type="StyleBoxTexture" id="sb_panel_slim"]
+texture = ExtResource("5")
+texture_margin_left = 6.0
+texture_margin_top = 6.0
+texture_margin_right = 6.0
+texture_margin_bottom = 6.0
+expand_margin_left = 2.0
+expand_margin_top = 2.0
+expand_margin_right = 2.0
+expand_margin_bottom = 2.0
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+region_rect = Rect2(0, 0, 32, 32)
+modulate_color = Color(0.4, 0.25, 0.1, 1)
 
 [node name="HUD" type="CanvasLayer" unique_id=823216769]
 script = ExtResource("1")
@@ -40,40 +56,47 @@ anchor_right = 1.0
 offset_left = 12.0
 offset_top = 12.0
 offset_right = -12.0
-offset_bottom = 44.0
+offset_bottom = 46.0
 grow_horizontal = 2
+theme_override_styles/panel = SubResource("sb_panel_slim")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="Root/TopBar" unique_id=193603416]
 layout_mode = 2
-theme_override_constants/separation = 24
+theme_override_constants/separation = 14
 
 [node name="DayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=1079792791]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "Day 1"
 
 [node name="TimeLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=987869379]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "06:00"
 
 [node name="MoneyLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=839684048]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "$500"
 
 [node name="ToolLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=1375047212]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "Tool: Hoe"
 
 [node name="HotkeyHint" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=901312833]
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "[C] Craft   [I] Inventory"
 
 [node name="SeedDisplayLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=2035179578]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "Seed: 0"
 
 [node name="JoinCodeLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=-1169787775]
@@ -81,16 +104,19 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.9, 0.45, 1)
+theme_override_font_sizes/font_size = 13
 text = "Join Code: -"
 
 [node name="PetIndicator" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=260535522]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.8, 0.5, 0.9)
+theme_override_font_sizes/font_size = 13
 
 [node name="MenuButton" type="Button" parent="Root/TopBar/HBoxContainer" unique_id=1042358607]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "Menu"
 
 [node name="InteractionPrompt" type="PanelContainer" parent="Root" unique_id=2065995361]
@@ -119,57 +145,61 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 12.0
-offset_top = 48.0
+offset_top = 50.0
 offset_right = -12.0
-offset_bottom = 84.0
+offset_bottom = 82.0
 grow_horizontal = 2
 mouse_filter = 1
+theme_override_styles/panel = SubResource("sb_panel_slim")
 
 [node name="StatusHBox" type="HBoxContainer" parent="Root/StatusBar" unique_id=2122551347]
 layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="HealthLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551348]
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 12
 text = "❤️"
 vertical_alignment = 1
 
 [node name="HealthBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551349]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(120, 16)
+custom_minimum_size = Vector2(120, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 value = 100.0
 show_percentage = false
 
 [node name="HungerLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551350]
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.6, 0.15, 1)
+theme_override_font_sizes/font_size = 12
 text = "🍽️"
 vertical_alignment = 1
 
 [node name="HungerBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551351]
 unique_name_in_owner = true
 modulate = Color(1, 0.85, 0.3, 1)
-custom_minimum_size = Vector2(120, 16)
+custom_minimum_size = Vector2(120, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 show_percentage = false
 
 [node name="ArmorLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551352]
-custom_minimum_size = Vector2(0, 30)
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.5, 0.9, 1)
+theme_override_font_sizes/font_size = 12
 text = "🛡️"
 vertical_alignment = 1
 
 [node name="ArmorBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551353]
 unique_name_in_owner = true
 modulate = Color(0.6, 0.6, 1, 1)
-custom_minimum_size = Vector2(60, 16)
+custom_minimum_size = Vector2(60, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 max_value = 30.0
@@ -180,11 +210,12 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 12.0
-offset_top = 90.0
+offset_top = 86.0
 offset_right = -12.0
-offset_bottom = 104.0
+offset_bottom = 116.0
 grow_horizontal = 2
 mouse_filter = 1
+theme_override_styles/panel = SubResource("sb_panel_slim")
 
 [node name="LevelHBox" type="HBoxContainer" parent="Root/LevelBar" unique_id=2122551356]
 layout_mode = 2
@@ -194,12 +225,13 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 13
 text = "Lv. 1"
 
 [node name="XPBar" type="ProgressBar" parent="Root/LevelBar/LevelHBox" unique_id=2122551358]
 unique_name_in_owner = true
 modulate = Color(0.6, 0.3, 0.9, 1)
-custom_minimum_size = Vector2(200, 16)
+custom_minimum_size = Vector2(200, 14)
 layout_mode = 2
 size_flags_horizontal = 3
 show_percentage = false
@@ -212,9 +244,9 @@ anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -200.0
-offset_top = 118.0
+offset_top = 122.0
 offset_right = 200.0
-offset_bottom = 168.0
+offset_bottom = 172.0
 grow_horizontal = 2
 mouse_filter = 1
 
@@ -241,9 +273,9 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 1
 offset_left = 12.0
-offset_top = 116.0
+offset_top = 120.0
 offset_right = 200.0
-offset_bottom = 140.0
+offset_bottom = 144.0
 
 [node name="Label" type="Label" parent="Root/MutationLabel" unique_id=1575031636]
 layout_mode = 2

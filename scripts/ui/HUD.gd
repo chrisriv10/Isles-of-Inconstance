@@ -180,12 +180,11 @@ func _ready() -> void:
 		tutorial_hint_timer.timeout.connect(_on_tutorial_hint_timeout)
 		tutorial_hint_timer.one_shot = true
 	
-	# Show first tutorial hint after a delay
-	if GameManager.is_creative():
-		# In creative mode, show the creative panel hint first
-		get_tree().create_timer(2.0).timeout.connect(_show_creative_hint)
-	else:
-		get_tree().create_timer(2.0).timeout.connect(_show_first_hint)
+	# Onboarding hints are scheduled once the game mode is actually chosen.
+	# HUD._ready runs at boot (before save select), so is_creative() is always
+	# false here; game_mode_changed fires on new game / load / host / join.
+	if not GameManager.game_mode_changed.is_connected(_on_onboarding_mode_changed):
+		GameManager.game_mode_changed.connect(_on_onboarding_mode_changed)
 
 	# Level & XP display
 	if not LevelManager.xp_changed.is_connected(_on_xp_changed):
@@ -1762,24 +1761,51 @@ func flash_screen(color: Color = Color.WHITE, duration: float = 0.3) -> void:
 # Tutorial hints
 # ---------------------------------------------------------------------------
 
-func _show_first_hint() -> void:
-	show_tutorial_hint("Use WASD to move | F/SPACE: till/water | E: interact/harvest | C: craft | I: inventory")
-	# Schedule a second hint after the first one fades
-	get_tree().create_timer(7.0).timeout.connect(_show_second_hint)
+## Called whenever the game mode is set (new game, load, host, join) — the
+## moment the game actually starts. Schedules the right onboarding hint now
+## that the mode is known (HUD._ready runs before the mode is chosen).
+func _on_onboarding_mode_changed(mode: int) -> void:
+	if mode == GameManager.GameMode.CREATIVE:
+		if not _first_action_hints.has("creative_panel"):
+			get_tree().create_timer(2.0).timeout.connect(_show_creative_hint)
+	else:
+		if not _first_action_hints.has("first_steps"):
+			get_tree().create_timer(2.0).timeout.connect(_show_first_step_hint)
+
+## First-steps directive shown shortly after spawn. Tells the player the exact
+## first action; the moment-of-action hints below then carry the teaching chain.
+func _show_first_step_hint() -> void:
+	# Mode guard: a stale timer from a previous mode change must not fire.
+	if GameManager.is_creative():
+		return
+	# If the player already tilled before this fired, skip the directive so it
+	# doesn't overwrite the "Tilled!" moment hint.
+	if _first_action_hints.has("first_till"):
+		return
+	show_first_action_hint("first_steps",
+		"Goal: Plant your first crop! The Hoe is equipped — press [F] or left-click the ground to till soil.",
+		10.0)
 
 func _show_creative_hint() -> void:
-	show_tutorial_hint("Creative mode: Press ` (backtick) to open the Creative Panel — spawn items, control time, summon creatures, and more!")
-	# Continue with the regular first hint after this one fades
-	get_tree().create_timer(7.0).timeout.connect(_show_first_hint)
+	# Mode guard: a stale timer from a previous mode change must not fire.
+	if not GameManager.is_creative():
+		return
+	show_first_action_hint("creative_panel",
+		"Creative mode: Press ` (backtick) to open the Creative Panel — spawn items, control time, summon creatures, and more!",
+		8.0)
 
-func _show_second_hint() -> void:
-	show_tutorial_hint("Till soil (F), water it (press 2 for Watering Can, then F), plant seeds (3-5), and wait for crops to grow!")
-	# Schedule more contextual hints after the farming basics
-	get_tree().create_timer(10.0).timeout.connect(_show_third_hint)
+## Session-scoped first-time flags for moment-of-action hints.
+## Maps action_id -> true once that hint has been shown this session.
+var _first_action_hints: Dictionary = {}
 
-func _show_third_hint() -> void:
-	show_tutorial_hint("Press V to enter build mode | B to open shop near a shop stand | M for world map | O for objectives")
-	get_tree().create_timer(8.0).timeout.connect(_show_fourth_hint)
+## Shows a hint only the first time the given action happens per session.
+## Returns true if the hint was shown, false if it already fired before.
+func show_first_action_hint(action_id: String, text: String, duration: float = 5.0) -> bool:
+	if _first_action_hints.has(action_id):
+		return false
+	_first_action_hints[action_id] = true
+	show_tutorial_hint(text, duration)
+	return true
 
 # --- Event-triggered contextual tutorial hints (fire once per session) ---
 
@@ -1803,19 +1829,11 @@ func show_interior_hint() -> void:
 func show_night_hint() -> void:
 	show_tutorial_hint("Night has fallen! In Survival mode, enemies spawn at night. Stay near light sources or sleep in your bed until dawn.")
 
-## Fourth startup hint: animals & breeding
-func _show_fourth_hint() -> void:
-	show_tutorial_hint("Press [E] near animals to interact! Hold their favorite food and they'll follow you — feed them to breed!")
-	get_tree().create_timer(10.0).timeout.connect(_show_fifth_hint)
-
-func _show_fifth_hint() -> void:
-	show_tutorial_hint("Sell crops and items at the Boat (coastline, east side) using [E]! Press [I] to open inventory, right-click items to see sell price.")
-
 ## Called when the player first approaches an animal.
 func show_animal_hint() -> void:
 	show_tutorial_hint("Animals have favorite foods! Hold their food in your hotbar and they'll follow you. Press [E] to feed them → love mode! Feed two of the same type to breed. Press [G] for farming overview.")
 
-func show_tutorial_hint(text: String) -> void:
+func show_tutorial_hint(text: String, duration: float = 5.0) -> void:
 	if not tutorial_hint:
 		return
 	
@@ -1824,7 +1842,7 @@ func show_tutorial_hint(text: String) -> void:
 	tutorial_hint_panel.visible = true
 	
 	if tutorial_hint_timer:
-		tutorial_hint_timer.start(5.0)
+		tutorial_hint_timer.start(duration)
 
 func _on_tutorial_hint_timeout() -> void:
 	tutorial_hint_panel.visible = false

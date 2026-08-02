@@ -73,6 +73,10 @@ func _sell_item(item_id: String, count: int) -> void:
 		AudioManager.play(AudioManager.Sound.SELL)
 		LevelManager.add_xp(mini(count, 10), "sell")  # cap sell XP at 10 per transaction
 		ToastNotification.show_toast("Sold %d %s for $%d!" % [count, item.display_name, price_per * count], ToastNotification.ToastType.SUCCESS)
+		var hud := get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("show_first_action_hint"):
+			hud.show_first_action_hint("first_sell",
+				"Sold! Coins added to your purse. Come back to the Boat anytime to sell more.")
 		refresh()
 
 func _on_money_changed(_amount: int) -> void:

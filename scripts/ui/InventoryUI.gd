@@ -806,7 +806,7 @@ func _update_item_info() -> void:
 	# Sell price
 	if _sell_price_label:
 		if item.sell_price > 0:
-			_sell_price_label.text = "Sells for " + str(item.sell_price) + " gold"
+			_sell_price_label.text = "Sells for " + str(item.sell_price) + " coins"
 			_sell_price_label.visible = true
 		else:
 			_sell_price_label.visible = false

@@ -10,7 +10,7 @@ size = Vector2(80, 48)
 radius = 36.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_block"]
-size = Vector2(80, 48)
+size = Vector2(96, 48)
 
 [node name="ShopBuilding" type="Area2D" groups=["shop_stand"]]
 collision_layer = 4
@@ -18,7 +18,7 @@ collision_mask = 2
 script = ExtResource("2")
 
 [node name="BlockBody" type="StaticBody2D" parent="."]
-collision_layer = 1
+collision_layer = 8
 collision_mask = 0
 
 [node name="BlockCollision" type="CollisionShape2D" parent="BlockBody"]

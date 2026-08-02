@@ -1678,6 +1678,10 @@ func _on_craft_pressed(recipe: CraftingRecipe) -> void:
 	if recipe.craft():
 		ToastNotification.show_toast("Crafted %s!" % recipe.result_display_name,
 			ToastNotification.ToastType.SUCCESS)
+		var hud := get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("show_first_action_hint"):
+			hud.show_first_action_hint("first_craft",
+				"Crafted! Right-click items in your inventory for details.")
 		AudioManager.play(AudioManager.Sound.CRAFT)
 		if _active_category == "alchemy":
 			LevelManager.add_xp_source("brew")

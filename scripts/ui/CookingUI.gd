@@ -181,6 +181,10 @@ func _on_cook_pressed(cs: CookingSystem, recipe_id: String) -> void:
 		var meal := cs.get_meal(recipe_id)
 		var meal_name := meal.display_name if meal else recipe_id
 		ToastNotification.show_toast("🍳 Cooked %s!" % meal_name, ToastNotification.ToastType.SUCCESS)
+		var hud := get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("show_first_action_hint"):
+			hud.show_first_action_hint("first_cook",
+				"Cooked! Meals restore hunger and grant buffs — hold [E] to eat.")
 		var cook_mgr := get_tree().get_first_node_in_group("objective_manager")
 		if cook_mgr and cook_mgr.has_method("on_meal_cooked"):
 			cook_mgr.on_meal_cooked()
