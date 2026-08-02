@@ -78,6 +78,11 @@ var _buff_container: VBoxContainer = null
 var _buff_panels: Dictionary = {}  # buff_type -> PanelContainer
 var _buff_update_timer: float = 0.0
 
+# Bow charge progress bar
+var _bow_charge_bar: ProgressBar = null
+var _bow_charge_label: Label = null
+var _showing_bow_charge: bool = false
+
 # Player list (multiplayer roster)
 var _player_list_panel: PanelContainer = null
 var _player_list_vbox: VBoxContainer = null
@@ -260,6 +265,9 @@ func _ready() -> void:
 	# Setup ore mining progress bar (pickaxe mining of deposits)
 	_setup_ore_mining_bar()
 
+	# Setup bow charge progress bar
+	_setup_bow_charge_bar()
+
 	# Ore mining polling timer — check every frame for active mining
 	var ore_timer := Timer.new()
 	ore_timer.name = "OreMiningTimer"
@@ -267,6 +275,14 @@ func _ready() -> void:
 	ore_timer.timeout.connect(_check_ore_mining_progress)
 	add_child(ore_timer)
 	ore_timer.start()
+
+	# Bow charge polling timer — check every frame for smooth charge bar
+	var bow_charge_timer := Timer.new()
+	bow_charge_timer.name = "BowChargeTimer"
+	bow_charge_timer.wait_time = 0.05
+	bow_charge_timer.timeout.connect(_check_bow_charge_progress)
+	add_child(bow_charge_timer)
+	bow_charge_timer.start()
 
 	# Listen for root resize
 	$Root.resized.connect(_on_root_resized)
@@ -727,6 +743,83 @@ func _check_ore_mining_progress() -> void:
 			_ore_mining_bar.visible = false
 			_ore_mining_label.visible = false
 			_ore_mining_bar.value = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Bow charge progress bar — shows while holding LMB with a bow equipped
+# ---------------------------------------------------------------------------
+
+func _setup_bow_charge_bar() -> void:
+	_bow_charge_bar = ProgressBar.new()
+	_bow_charge_bar.name = "BowChargeProgressBar"
+	_bow_charge_bar.size = Vector2(140, 10)
+	_bow_charge_bar.visible = false
+	_bow_charge_bar.max_value = 1.0
+	_bow_charge_bar.value = 0.0
+	_bow_charge_bar.show_percentage = false
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
+	bg_style.set_corner_radius_all(3)
+	_bow_charge_bar.add_theme_stylebox_override("background", bg_style)
+
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = Color(0.5, 0.8, 1.0, 0.9)  # cyan/blue for bow charge
+	fill_style.set_corner_radius_all(3)
+	_bow_charge_bar.add_theme_stylebox_override("fill", fill_style)
+	$Root.add_child(_bow_charge_bar)
+
+	_bow_charge_label = Label.new()
+	_bow_charge_label.name = "BowChargeLabel"
+	_bow_charge_label.visible = false
+	_bow_charge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bow_charge_label.size = Vector2(180, 18)
+	_bow_charge_label.add_theme_font_size_override("font_size", 12)
+	_bow_charge_label.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0, 0.95))
+	_bow_charge_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	_bow_charge_label.add_theme_constant_override("shadow_offset_x", 1)
+	_bow_charge_label.add_theme_constant_override("shadow_offset_y", 1)
+	$Root.add_child(_bow_charge_label)
+
+	_refresh_bow_charge_bar_position()
+
+
+func _refresh_bow_charge_bar_position() -> void:
+	if not _bow_charge_bar or not _bow_charge_label:
+		return
+	var root_size: Vector2 = $Root.get_rect().size
+	var bar_x: float = root_size.x / 2.0 - _bow_charge_bar.size.x / 2.0
+	var bar_y: float = root_size.y - 160.0  # just above the ore mining bar
+	_bow_charge_bar.position = Vector2(bar_x, bar_y)
+	_bow_charge_label.position = Vector2(root_size.x / 2.0 - 90.0, bar_y - 20.0)
+
+
+## Polls for bow charging and updates the progress bar.
+func _check_bow_charge_progress() -> void:
+	var player := get_tree().get_first_node_in_group("player")
+	if not player:
+		return
+	var charging: bool = player._bow_charging if "_bow_charging" in player else false
+	if charging:
+		var start_time: float = player._bow_charge_start if "_bow_charge_start" in player else 0.0
+		var max_time: float = player.BOW_CHARGE_MAX_TIME if "BOW_CHARGE_MAX_TIME" in player else 1.0
+		var held_time: float = Time.get_unix_time_from_system() - start_time
+		var ratio: float = clampf(held_time / max_time, 0.0, 1.0)
+
+		_bow_charge_bar.value = ratio
+		if not _showing_bow_charge:
+			_showing_bow_charge = true
+			_bow_charge_label.text = "Charging Shot..."
+			_refresh_bow_charge_bar_position()
+
+		_bow_charge_bar.visible = true
+		_bow_charge_label.visible = true
+	else:
+		if _showing_bow_charge:
+			_showing_bow_charge = false
+			_bow_charge_bar.visible = false
+			_bow_charge_label.visible = false
+			_bow_charge_bar.value = 0.0
 
 
 # --- Game mode indicator ---

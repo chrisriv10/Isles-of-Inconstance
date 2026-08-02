@@ -449,6 +449,9 @@ func _die() -> void:
 	if quest_mgr and quest_mgr.has_method("report_kill"):
 		# Use the class_name if available (SporelingEnemy, ShadowHound, etc.)
 		var script_name: String = get_script().get_global_name() if get_script() else ""
+		# Pirates are GhostEnemy instances flagged with the is_pirate meta — report as PirateRaider
+		if has_meta("is_pirate"):
+			script_name = "PirateRaider"
 		if script_name.is_empty():
 			script_name = display_name.replace(" ", "")
 		quest_mgr.report_kill(script_name)

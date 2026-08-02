@@ -78,11 +78,15 @@ const MAX_MELEE_HITS_PER_SWING: int = 10
 const MELEE_RANGE: float = 44.0
 ## Field strength guard so a single swing still feels wide but not screen-wide.
 const MELEE_ARC_COS: float = 0.6
+## Minimum seconds between melee swings from hold-to-attack, applied even in
+## creative mode (which zeroes the tool cooldown every frame). Without this,
+## holding LMB in creative swings ~60 times/second and melts bosses instantly.
+const MELEE_MIN_SWING_INTERVAL: float = 0.32
 ## Attack lunge: short dash in the swing direction to close distance.
 const MELEE_LUNGE_SPEED: float = 240.0
 const MELEE_LUNGE_TIME: float = 0.12
 ## Bow charge: seconds of hold to fully charge the shot (double damage).
-const BOW_CHARGE_MAX_TIME: float = 1.0
+const BOW_CHARGE_MAX_TIME: float = 0.7
 const BOW_CHARGE_DAMAGE_MULT: float = 2.0
 
 @onready var name_label: Label = $NameLabel
@@ -225,6 +229,7 @@ var _last_swing_crit: bool = false
 
 # Hold-to-attack / lunge / bow charge state
 var _attack_held: bool = false
+var _swing_gate_timer: float = 0.0
 var _lunge_velocity: Vector2 = Vector2.ZERO
 var _lunge_timer: float = 0.0
 var _bow_charging: bool = false
@@ -510,7 +515,10 @@ func _physics_process(delta: float) -> void:
 	# Hold-to-attack: while LMB is held (and cooldown allows) keep swinging a
 	# melee weapon toward where the player aims. Farming tools stay click-per-
 	# use so holding LMB doesn't repeatedly till/water. Bows charge on hold.
-	if _attack_held and not _bow_charging and _can_deal_melee_damage():
+	# _swing_gate_timer enforces a minimum interval per swing that survives the
+	# creative-mode cooldown zeroing, so holds can't dump damage every frame.
+	_swing_gate_timer = maxf(_swing_gate_timer - delta, 0.0)
+	if _attack_held and not _bow_charging and _swing_gate_timer <= 0.0 and _can_deal_melee_damage():
 		_try_use_tool_at_pos(get_global_mouse_position())
 
 	var input_direction := _get_input_direction()
@@ -1986,6 +1994,7 @@ func _try_melee_attack() -> void:
 	var hit_enemies := _do_melee_swing(_facing_vec())
 	_play_tool_swing()
 	_tool_cooldown_remaining = base_tool_cooldown * 0.8
+	_swing_gate_timer = MELEE_MIN_SWING_INTERVAL
 	_apply_melee_lunge(facing_direction)
 	if hit_enemies.is_empty():
 		return
@@ -2131,6 +2140,7 @@ func _try_melee_attack_at_pos(attack_pos: Vector2) -> void:
 	# to attack keeps a readable rhythm.
 	_play_tool_swing()
 	_tool_cooldown_remaining = base_tool_cooldown * 0.8
+	_swing_gate_timer = MELEE_MIN_SWING_INTERVAL
 	_apply_melee_lunge(aim)
 	if hit_enemies.is_empty():
 		return
