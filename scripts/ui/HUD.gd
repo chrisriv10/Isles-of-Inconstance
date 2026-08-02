@@ -78,6 +78,10 @@ var _buff_container: VBoxContainer = null
 var _buff_panels: Dictionary = {}  # buff_type -> PanelContainer
 var _buff_update_timer: float = 0.0
 
+# Player list (multiplayer roster)
+var _player_list_panel: PanelContainer = null
+var _player_list_vbox: VBoxContainer = null
+
 func _ready() -> void:
 	add_to_group("HUD")
 	GameManager.day_changed.connect(_on_day_changed)
@@ -204,6 +208,9 @@ func _ready() -> void:
 	var toast_node := $ToastNotification
 	if toast_node:
 		toast_node.add_to_group("toasts")
+	
+	# Player list (multiplayer roster) — hidden until a session is active
+	_setup_player_list()
 	
 	# Create pirate raid alert label (hidden by default)
 	_setup_raid_alert()
@@ -1805,3 +1812,109 @@ func _buff_color(buff_type: String, alpha: float) -> Color:
 		"luck": return Color(0.3, 1.0, 0.3, alpha)
 		"health": return Color(1.0, 0.3, 0.3, alpha)
 		_: return Color(0.5, 0.5, 0.5, alpha)
+
+
+# ── Player list (multiplayer roster) ──────────────────────────────────────
+
+## Build the player list panel (top-right, below the toasts). Pure
+## presentation: reads GameManager.get_roster() on a timer and rebuilds rows.
+func _setup_player_list() -> void:
+	_player_list_panel = PanelContainer.new()
+	_player_list_panel.name = "PlayerList"
+	_player_list_panel.visible = false
+	_player_list_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_player_list_panel.add_theme_stylebox_override("panel", _make_player_list_style())
+	$Root.add_child(_player_list_panel)
+	_player_list_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_player_list_panel.anchor_right = 1.0
+	_player_list_panel.anchor_bottom = 0.0
+	_player_list_panel.offset_left = -240
+	_player_list_panel.offset_right = -16
+	_player_list_panel.offset_top = 216
+	_player_list_panel.offset_bottom = 216
+
+	var margin := MarginContainer.new()
+	margin.name = "Margin"
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_player_list_panel.add_child(margin)
+
+	_player_list_vbox = VBoxContainer.new()
+	_player_list_vbox.name = "Rows"
+	_player_list_vbox.add_theme_constant_override("separation", 4)
+	margin.add_child(_player_list_vbox)
+
+	var timer := Timer.new()
+	timer.name = "PlayerListTimer"
+	timer.wait_time = 0.5
+	timer.timeout.connect(_refresh_player_list)
+	add_child(timer)
+	timer.start()
+
+	if not GameManager.player_list_changed.is_connected(_refresh_player_list):
+		GameManager.player_list_changed.connect(_refresh_player_list)
+
+
+func _make_player_list_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.45)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	return style
+
+
+func _refresh_player_list() -> void:
+	if not is_instance_valid(_player_list_panel) or not is_instance_valid(_player_list_vbox):
+		return
+	var active: bool = NetworkManager.is_network_active()
+	if not active:
+		_player_list_panel.visible = false
+		return
+	for child in _player_list_vbox.get_children():
+		child.queue_free()
+	var roster: Array = GameManager.get_roster()
+	if roster.is_empty():
+		_player_list_panel.visible = false
+		return
+	_player_list_panel.visible = true
+	for entry: Dictionary in roster:
+		_player_list_vbox.add_child(_build_player_row(entry))
+
+
+func _build_player_row(entry: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+
+	var name_text: String = str(entry.get("name", "Player"))
+	if entry.get("is_host", false):
+		name_text += " (Host)"
+	if entry.get("is_me", false):
+		name_text += " (You)"
+
+	var name_label := Label.new()
+	name_label.text = name_text
+	name_label.add_theme_font_size_override("font_size", 14)
+	if entry.get("is_host", false):
+		name_label.add_theme_color_override("font_color", Color("#ffd54f"))
+	elif entry.get("is_me", false):
+		name_label.add_theme_color_override("font_color", Color("#7ec8ff"))
+	row.add_child(name_label)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+
+	var stats_label := Label.new()
+	stats_label.text = "Lv.%d  HP %d/%d" % [
+		int(entry.get("level", 1)),
+		int(entry.get("health", 0)),
+		int(entry.get("max_health", 100)),
+	]
+	stats_label.add_theme_font_size_override("font_size", 12)
+	stats_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	row.add_child(stats_label)
+	return row

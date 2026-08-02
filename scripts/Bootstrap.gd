@@ -51,12 +51,23 @@ func _setup_emoji_font_fallback() -> void:
 	var project_theme: Theme = ThemeDB.get_project_theme()
 	if not project_theme:
 		return
+	var fallbacks: Array[Font] = []
 	var emoji_font: Font = load("res://fonts/NotoColorEmoji.ttf")
-	if not emoji_font:
-		push_warning("NotoColorEmoji.ttf not found — skipping emoji fallback setup.")
+	if emoji_font:
+		fallbacks.append(emoji_font)
+	else:
+		push_warning("NotoColorEmoji.ttf not found — emoji fallback unavailable.")
+	# Symbol fonts cover → ★ ✎ ✓ ✕ ✦ and similar glyphs emoji fonts lack.
+	var symbols_font: Font = load("res://fonts/NotoSansSymbols.ttf")
+	if symbols_font:
+		fallbacks.append(symbols_font)
+	var symbols2_font: Font = load("res://fonts/NotoSansSymbols2.ttf")
+	if symbols2_font:
+		fallbacks.append(symbols2_font)
+	if fallbacks.is_empty():
 		return
 	var base_font: Font = ThemeDB.fallback_font.duplicate()
-	base_font.fallbacks = [emoji_font]
+	base_font.fallbacks = fallbacks
 	project_theme.default_font = base_font
 
 

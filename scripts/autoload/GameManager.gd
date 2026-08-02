@@ -407,6 +407,12 @@ func _ready() -> void:
 	weather_system = WeatherSystem.new()
 	add_child(weather_system)
 
+	# Multiplayer roster hooks — keep the player list & join/leave toasts in sync.
+	if not NetworkManager.peer_connected.is_connected(_on_network_peer_connected):
+		NetworkManager.peer_connected.connect(_on_network_peer_connected)
+	if not NetworkManager.peer_disconnected.is_connected(_on_network_peer_disconnected):
+		NetworkManager.peer_disconnected.connect(_on_network_peer_disconnected)
+
 ## Create the "interact" input action if it's missing from project settings.
 ## This provides a robust fallback in case the project.godot file wasn't
 ## loaded correctly by the editor.
@@ -719,6 +725,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"armor_set": armor_set,
 		"level": level,
 	}
+	player_list_changed.emit()
 
 
 ## Returns the full matching armor set name ("iron", "steel", etc.) or "" if incomplete/mismatched.
@@ -828,6 +835,126 @@ func _broadcast_chest_update(key: String, slots: Array) -> void:
 	if chest_ui and chest_ui.is_open and chest_ui._container:
 		chest_ui._container.slots = slots.duplicate(true)
 		chest_ui._container.changed.emit()
+
+
+# ── Multiplayer roster & toast broadcast ─────────────────────────────────
+
+## Emitted whenever the set of known players changes (join / leave / stats update).
+signal player_list_changed()
+
+## Broadcast a toast to every connected player (or just show it locally when
+## offline). Host-authoritative relay, same pattern as the chest sync: clients
+## ask the host, the host relays to the whole room so no peer can spam others.
+func broadcast_toast(message: String, type: int = ToastNotification.ToastType.INFO, duration: float = 2.5) -> void:
+	if message.is_empty():
+		return
+	var safe_message: String = message.substr(0, 200)
+	var safe_type: int = clampi(type, 0, ToastNotification.ToastType.ERROR)
+	var safe_duration: float = clampf(duration, 0.5, 8.0)
+	if not NetworkManager.is_network_active():
+		ToastNotification.show_toast(safe_message, safe_type, safe_duration)
+		return
+	if multiplayer.is_server():
+		_show_toast_everywhere(safe_message, safe_type, safe_duration)
+	else:
+		rpc_id(1, "_server_forward_toast", safe_message, safe_type, safe_duration)
+
+
+## Host: relay a client's toast to the whole room.
+@rpc("any_peer", "reliable")
+func _server_forward_toast(message: String, type: int, duration: float) -> void:
+	if not multiplayer.is_server():
+		return
+	_show_toast_everywhere(message, type, duration)
+
+
+## Show a toast on every peer (host runs it locally via call_local).
+@rpc("authority", "call_local", "reliable")
+func _show_toast_everywhere(message: String, type: int, duration: float) -> void:
+	ToastNotification.show_toast(message, type, duration)
+
+
+## Ask a specific client to broadcast its stats now, so the roster (and the
+## "joined" toast) can show a real name instead of "Player <id>".
+func request_stats_from_peer(peer_id: int) -> void:
+	if multiplayer.is_server():
+		rpc_id(peer_id, "_request_stat_broadcast")
+
+
+func _on_network_peer_connected(peer_id: int) -> void:
+	player_list_changed.emit()
+	if not multiplayer.is_server():
+		return
+	# Give Main time to finish registering the client, then pull its stats.
+	get_tree().create_timer(1.0).timeout.connect(func() -> void:
+		request_stats_from_peer(peer_id)
+	)
+	# Announce the join once the newcomer's name is known (or fall back).
+	get_tree().create_timer(1.6).timeout.connect(func() -> void:
+		if multiplayer.get_peers().has(peer_id):
+			broadcast_toast("%s joined the farm!" % _peer_display_name(peer_id),
+				ToastNotification.ToastType.SUCCESS, 3.0)
+	)
+
+
+func _on_network_peer_disconnected(peer_id: int) -> void:
+	var name: String = _peer_display_name(peer_id)
+	remote_player_stats.erase(peer_id)
+	player_list_changed.emit()
+	if multiplayer.is_server() and NetworkManager.is_network_active():
+		broadcast_toast("%s left the farm." % name, ToastNotification.ToastType.INFO, 3.0)
+
+
+## Sorted roster of every connected player (host first). Each entry:
+## {peer_id, name, level, health, max_health, hunger, max_hunger, is_host, is_me}
+func get_roster() -> Array:
+	if not NetworkManager.is_network_active():
+		return []
+	var me: int = multiplayer.get_unique_id()
+	var peer_ids: Array = []
+	for pid: int in multiplayer.get_peers():
+		if pid > 0 and not peer_ids.has(pid):
+			peer_ids.append(pid)
+	if me > 0 and not peer_ids.has(me):
+		peer_ids.append(me)
+	peer_ids.sort_custom(func(a: int, b: int) -> bool:
+		if a == 1:
+			return true
+		if b == 1:
+			return false
+		return a < b
+	)
+	var local_level: int = 1
+	if Engine.has_singleton("LevelManager"):
+		var lm: Node = Engine.get_singleton("LevelManager")
+		if lm and lm.has_method("get_current_level"):
+			local_level = lm.get_current_level()
+	var out: Array = []
+	for pid: int in peer_ids:
+		var stats: Dictionary = remote_player_stats.get(pid, {})
+		out.append({
+			"peer_id": pid,
+			"name": _peer_display_name(pid),
+			"level": int(stats.get("level", local_level)),
+			"health": int(stats.get("health", health)),
+			"max_health": int(stats.get("max_health", MAX_HEALTH)),
+			"hunger": int(stats.get("hunger", hunger)),
+			"max_hunger": int(stats.get("max_hunger", MAX_HUNGER)),
+			"is_host": pid == 1,
+			"is_me": pid == me,
+		})
+	return out
+
+
+## Display name for a peer: from their last stats broadcast, the local
+## player name, or a stable placeholder until stats arrive.
+func _peer_display_name(peer_id: int) -> String:
+	var stats: Dictionary = remote_player_stats.get(peer_id, {})
+	if stats.has("name") and not str(stats["name"]).is_empty():
+		return str(stats["name"])
+	if peer_id == multiplayer.get_unique_id():
+		return player_name
+	return "Player %d" % peer_id
 
 
 # --- Creative mode helpers ---

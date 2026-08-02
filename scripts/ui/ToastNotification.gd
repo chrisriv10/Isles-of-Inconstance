@@ -122,6 +122,15 @@ static func show_toast(message: String, type: ToastType = ToastType.INFO, durati
 		else:
 			toast._queue_toast.call_deferred(message, type, duration)
 
+## Static helper: Broadcast a toast to every player in a multiplayer session.
+## Falls back to a local-only toast when offline. Call from anywhere:
+##   ToastNotification.broadcast_toast("Legendary catch!", ToastNotification.ToastType.SUCCESS)
+static func broadcast_toast(message: String, type: ToastType = ToastType.INFO, duration: float = 2.5) -> void:
+	if GameManager:
+		GameManager.broadcast_toast(message, type, duration)
+		return
+	show_toast(message, type, duration)
+
 ## Instance method: Queue a toast
 func _queue_toast(message: String, type: ToastType = ToastType.INFO, duration: float = -1.0) -> void:
 	if duration < 0:

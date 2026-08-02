@@ -21,4 +21,5 @@ desktop.ini
 # Dev-only AI tool plugins (not needed to run the game)
 addons/godot_ai/
 addons/ziva_agent/
+addons/fennara/
 godot-ai-LICENSE.txt

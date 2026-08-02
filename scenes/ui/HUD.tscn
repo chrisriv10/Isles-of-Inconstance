@@ -7,6 +7,9 @@
 
 [sub_resource type="ShaderMaterial" id="VignetteMaterial"]
 shader = ExtResource("4")
+shader_parameter/intensity = 0.35
+shader_parameter/radius = 0.75
+shader_parameter/softness = 0.45
 
 [node name="HUD" type="CanvasLayer" unique_id=823216769]
 script = ExtResource("1")
@@ -21,6 +24,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Vignette" type="ColorRect" parent="Root" unique_id=1572046831]
+material = SubResource("VignetteMaterial")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -28,8 +32,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-material = SubResource("VignetteMaterial")
-color = Color(1, 1, 1, 1)
 
 [node name="TopBar" type="PanelContainer" parent="Root" unique_id=2122551345]
 layout_mode = 1
@@ -74,7 +76,7 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Seed: 0"
 
-[node name="JoinCodeLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=3125179521]
+[node name="JoinCodeLabel" type="Label" parent="Root/TopBar/HBoxContainer" unique_id=-1169787775]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -119,7 +121,7 @@ anchor_right = 1.0
 offset_left = 12.0
 offset_top = 52.0
 offset_right = -12.0
-offset_bottom = 72.0
+offset_bottom = 92.0
 grow_horizontal = 2
 mouse_filter = 1
 
@@ -128,9 +130,11 @@ layout_mode = 2
 theme_override_constants/separation = 16
 
 [node name="HealthLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551348]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.2, 0.2, 1)
 text = "❤️"
+vertical_alignment = 1
 
 [node name="HealthBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551349]
 unique_name_in_owner = true
@@ -141,9 +145,11 @@ value = 100.0
 show_percentage = false
 
 [node name="HungerLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551350]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.6, 0.15, 1)
 text = "🍽️"
+vertical_alignment = 1
 
 [node name="HungerBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551351]
 unique_name_in_owner = true
@@ -154,9 +160,11 @@ size_flags_horizontal = 3
 show_percentage = false
 
 [node name="ArmorLabel" type="Label" parent="Root/StatusBar/StatusHBox" unique_id=2122551352]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.5, 0.9, 1)
 text = "🛡️"
+vertical_alignment = 1
 
 [node name="ArmorBar" type="ProgressBar" parent="Root/StatusBar/StatusHBox" unique_id=2122551353]
 unique_name_in_owner = true
@@ -172,9 +180,9 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 12.0
-offset_top = 76.0
+offset_top = 96.0
 offset_right = -12.0
-offset_bottom = 92.0
+offset_bottom = 112.0
 grow_horizontal = 2
 mouse_filter = 1
 
@@ -204,9 +212,9 @@ anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -200.0
-offset_top = 98.0
+offset_top = 118.0
 offset_right = 200.0
-offset_bottom = 148.0
+offset_bottom = 168.0
 grow_horizontal = 2
 mouse_filter = 1
 
@@ -233,9 +241,9 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 1
 offset_left = 12.0
-offset_top = 96.0
+offset_top = 116.0
 offset_right = 200.0
-offset_bottom = 120.0
+offset_bottom = 140.0
 
 [node name="Label" type="Label" parent="Root/MutationLabel" unique_id=1575031636]
 layout_mode = 2
