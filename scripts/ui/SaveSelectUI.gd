@@ -254,6 +254,13 @@ func _emit_new_save(slot_idx: int) -> void:
 	_fade_out_and_emit("new", slot_idx, seed, _selected_mode)
 
 
+## Applies the shared golden dialog theme. MUST be called AFTER add_child()
+## so the dialog's buttons exist (AcceptDialog builds them in _ready).
+## Theming logic lives in DialogStyler (shared with InGameMenu and friends).
+func _style_dialog(dialog: AcceptDialog) -> void:
+	DialogStyler.style_dialog(dialog)
+
+
 ## Ask for confirmation before overwriting a filled slot in NEW_GAME mode.
 func _confirm_overwrite(slot_idx: int) -> void:
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
@@ -278,6 +285,11 @@ func _confirm_overwrite(slot_idx: int) -> void:
 	)
 
 	add_child(dialog)
+	_style_dialog(dialog)
+	# Red accent for the destructive Overwrite button
+	var overwrite_ok := dialog.get_ok_button()
+	if overwrite_ok:
+		overwrite_ok.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 	dialog.popup_centered()
 
 
@@ -304,6 +316,17 @@ func _on_rename_save(slot_idx: int) -> void:
 	line_edit.text = current_name
 	line_edit.select_all()
 	line_edit.placeholder_text = "Save name..."
+	# Match the golden theme
+	var edit_style := StyleBoxFlat.new()
+	edit_style.bg_color = Color(0.06, 0.04, 0.02, 0.9)
+	edit_style.set_border_width_all(2)
+	edit_style.border_color = Color(0.722, 0.525, 0.176, 0.7)
+	edit_style.set_corner_radius_all(4)
+	edit_style.set_content_margin_all(6)
+	line_edit.add_theme_stylebox_override("normal", edit_style)
+	line_edit.add_theme_stylebox_override("focus", edit_style)
+	line_edit.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85))
+	line_edit.add_theme_color_override("caret_color", Color(0.9, 0.7, 0.2))
 	vbox.add_child(line_edit)
 	
 	dialog.add_child(vbox)
@@ -313,6 +336,7 @@ func _on_rename_save(slot_idx: int) -> void:
 	dialog.close_requested.connect(dialog.queue_free)
 	
 	add_child(dialog)
+	_style_dialog(dialog)
 	dialog.popup_centered()
 	
 	# Focus the LineEdit after popup
@@ -377,60 +401,6 @@ func _on_delete_slot(slot_idx: int) -> void:
 	dialog.exclusive = true
 	dialog.min_size = Vector2(320, 120)
 
-	# Style the dialog panel to match the golden theme
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.102, 0.063, 0.031, 0.95)
-	panel_style.border_width_left = 3
-	panel_style.border_width_top = 3
-	panel_style.border_width_right = 3
-	panel_style.border_width_bottom = 3
-	panel_style.border_color = Color(0.722, 0.525, 0.176, 1.0)
-	panel_style.corner_radius_top_left = 8
-	panel_style.corner_radius_top_right = 8
-	panel_style.corner_radius_bottom_right = 8
-	panel_style.corner_radius_bottom_left = 8
-	dialog.add_theme_stylebox_override("panel", panel_style)
-
-	# Style the title to golden
-	dialog.add_theme_color_override("title_color", Color(0.9, 0.7, 0.2))
-
-	# Style buttons to match the menu
-	var btn_style_normal := StyleBoxFlat.new()
-	btn_style_normal.bg_color = Color(0.361, 0.239, 0.118, 0.9)
-	btn_style_normal.border_width_left = 2
-	btn_style_normal.border_width_top = 2
-	btn_style_normal.border_width_right = 2
-	btn_style_normal.border_width_bottom = 2
-	btn_style_normal.border_color = Color(0.545, 0.412, 0.122, 0.6)
-	btn_style_normal.corner_radius_top_left = 8
-	btn_style_normal.corner_radius_top_right = 8
-	btn_style_normal.corner_radius_bottom_right = 8
-	btn_style_normal.corner_radius_bottom_left = 8
-
-	var btn_style_hover := StyleBoxFlat.new()
-	btn_style_hover.bg_color = Color(0.478, 0.333, 0.188, 1.0)
-	btn_style_hover.border_width_left = 2
-	btn_style_hover.border_width_top = 2
-	btn_style_hover.border_width_right = 2
-	btn_style_hover.border_width_bottom = 2
-	btn_style_hover.border_color = Color(0.722, 0.525, 0.176, 0.8)
-	btn_style_hover.corner_radius_top_left = 8
-	btn_style_hover.corner_radius_top_right = 8
-	btn_style_hover.corner_radius_bottom_right = 8
-	btn_style_hover.corner_radius_bottom_left = 8
-
-	# Style the Delete button to stand out (red-ish accent)
-	var ok_btn := dialog.get_ok_button()
-	if ok_btn:
-		ok_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-		ok_btn.add_theme_stylebox_override("normal", btn_style_normal)
-		ok_btn.add_theme_stylebox_override("hover", btn_style_hover)
-	var cancel_btn := dialog.get_cancel_button()
-	if cancel_btn:
-		cancel_btn.add_theme_color_override("font_color", Color(0.8, 0.7, 0.6))
-		cancel_btn.add_theme_stylebox_override("normal", btn_style_normal)
-		cancel_btn.add_theme_stylebox_override("hover", btn_style_hover)
-
 	dialog.confirmed.connect(func():
 		SaveManager.delete_save_in_slot(slot_idx)
 		_refresh_slot(slot_idx)
@@ -441,6 +411,11 @@ func _on_delete_slot(slot_idx: int) -> void:
 	)
 
 	add_child(dialog)
+	_style_dialog(dialog)
+	# Red accent for the destructive Delete button
+	var delete_ok := dialog.get_ok_button()
+	if delete_ok:
+		delete_ok.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 	dialog.popup_centered()
 
 
