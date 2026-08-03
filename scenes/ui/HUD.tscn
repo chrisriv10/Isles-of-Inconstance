@@ -243,10 +243,10 @@ layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -200.0
-offset_top = 122.0
-offset_right = 200.0
-offset_bottom = 172.0
+offset_left = -130.0
+offset_top = 120.0
+offset_right = 130.0
+offset_bottom = 166.0
 grow_horizontal = 2
 mouse_filter = 1
 
@@ -257,14 +257,14 @@ theme_override_constants/separation = 1
 [node name="Label" type="Label" parent="Root/ObjectiveLabel/VBox" unique_id=2122551354]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.8, 0.95, 0.7, 0.9)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
 
 [node name="CompletedLabel" type="Label" parent="Root/ObjectiveLabel/VBox" unique_id=399270099]
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.3, 1, 0.3, 1)
-theme_override_font_sizes/font_size = 12
+theme_override_font_sizes/font_size = 11
 text = "✓ Completed!"
 horizontal_alignment = 1
 

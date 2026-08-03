@@ -66,63 +66,11 @@ func _show_return_confirmation() -> void:
 	dialog.exclusive = true
 	dialog.min_size = Vector2(300, 120)
 	
-	# Style the dialog panel to match the golden theme
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.102, 0.063, 0.031, 0.95)
-	panel_style.border_width_left = 3
-	panel_style.border_width_top = 3
-	panel_style.border_width_right = 3
-	panel_style.border_width_bottom = 3
-	panel_style.border_color = Color(0.722, 0.525, 0.176, 1.0)
-	panel_style.corner_radius_top_left = 8
-	panel_style.corner_radius_top_right = 8
-	panel_style.corner_radius_bottom_right = 8
-	panel_style.corner_radius_bottom_left = 8
-	dialog.add_theme_stylebox_override("panel", panel_style)
-	
-	# Style the title to golden
-	dialog.add_theme_color_override("title_color", Color(0.9, 0.7, 0.2))
-	
-	# Style buttons to match the menu
-	var btn_style_normal := StyleBoxFlat.new()
-	btn_style_normal.bg_color = Color(0.361, 0.239, 0.118, 0.9)
-	btn_style_normal.border_width_left = 2
-	btn_style_normal.border_width_top = 2
-	btn_style_normal.border_width_right = 2
-	btn_style_normal.border_width_bottom = 2
-	btn_style_normal.border_color = Color(0.545, 0.412, 0.122, 0.6)
-	btn_style_normal.corner_radius_top_left = 8
-	btn_style_normal.corner_radius_top_right = 8
-	btn_style_normal.corner_radius_bottom_right = 8
-	btn_style_normal.corner_radius_bottom_left = 8
-	
-	var btn_style_hover := StyleBoxFlat.new()
-	btn_style_hover.bg_color = Color(0.478, 0.333, 0.188, 1.0)
-	btn_style_hover.border_width_left = 2
-	btn_style_hover.border_width_top = 2
-	btn_style_hover.border_width_right = 2
-	btn_style_hover.border_width_bottom = 2
-	btn_style_hover.border_color = Color(0.722, 0.525, 0.176, 0.8)
-	btn_style_hover.corner_radius_top_left = 8
-	btn_style_hover.corner_radius_top_right = 8
-	btn_style_hover.corner_radius_bottom_right = 8
-	btn_style_hover.corner_radius_bottom_left = 8
-	
-	var ok_btn := dialog.get_ok_button()
-	if ok_btn:
-		ok_btn.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
-		ok_btn.add_theme_stylebox_override("normal", btn_style_normal)
-		ok_btn.add_theme_stylebox_override("hover", btn_style_hover)
-	var cancel_btn := dialog.get_cancel_button()
-	if cancel_btn:
-		cancel_btn.add_theme_color_override("font_color", Color(0.8, 0.7, 0.6))
-		cancel_btn.add_theme_stylebox_override("normal", btn_style_normal)
-		cancel_btn.add_theme_stylebox_override("hover", btn_style_hover)
-	
 	dialog.confirmed.connect(_on_return_confirmed)
 	dialog.canceled.connect(_on_return_canceled)
 	
 	add_child(dialog)
+	DialogStyler.style_dialog(dialog)
 	dialog.popup_centered()
 
 func _on_return_confirmed() -> void:

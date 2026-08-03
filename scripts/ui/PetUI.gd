@@ -186,11 +186,25 @@ func _build_rename_dialog() -> void:
 	_rename_dialog.close_requested.connect(_close_rename_dialog)
 	_rename_dialog.confirmed.connect(_confirm_rename)
 	add_child(_rename_dialog)
+	# Shared golden theme: gold header band behind the title, gold frame,
+	# styled OK button + close X (see dialog_styler.gd)
+	DialogStyler.style_dialog(_rename_dialog)
 	
 	_rename_line_edit = LineEdit.new()
 	_rename_line_edit.custom_minimum_size = Vector2(250, 0)
 	_rename_line_edit.placeholder_text = "Enter a name..."
 	_rename_line_edit.max_length = 24
+	# Match the golden theme
+	var edit_style := StyleBoxFlat.new()
+	edit_style.bg_color = Color(0.06, 0.04, 0.02, 0.9)
+	edit_style.set_border_width_all(2)
+	edit_style.border_color = Color(0.722, 0.525, 0.176, 0.7)
+	edit_style.set_corner_radius_all(4)
+	edit_style.set_content_margin_all(6)
+	_rename_line_edit.add_theme_stylebox_override("normal", edit_style)
+	_rename_line_edit.add_theme_stylebox_override("focus", edit_style)
+	_rename_line_edit.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85))
+	_rename_line_edit.add_theme_color_override("caret_color", Color(0.9, 0.7, 0.2))
 	# Allow pressing Enter in the LineEdit to confirm
 	_rename_line_edit.text_submitted.connect(_on_rename_text_submitted)
 	_rename_dialog.add_child(_rename_line_edit)

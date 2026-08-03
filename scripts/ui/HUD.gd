@@ -1374,7 +1374,7 @@ func _build_objective_widget() -> void:
 	# Progress bar (inserted after the labels)
 	var bar := ProgressBar.new()
 	bar.name = "ObjectiveProgressBar"
-	bar.custom_minimum_size = Vector2(360, 6)
+	bar.custom_minimum_size = Vector2(240, 6)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.max_value = 1.0
 	bar.value = 0.0
@@ -1398,7 +1398,7 @@ func _build_objective_widget() -> void:
 	var desc_label := Label.new()
 	desc_label.name = "ObjectiveDescLabel"
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc_label.add_theme_font_size_override("font_size", 11)
+	desc_label.add_theme_font_size_override("font_size", 10)
 	desc_label.add_theme_color_override("font_color", Color(0.7, 0.8, 0.65, 0.75))
 	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	objective_label_vbox.add_child(desc_label)
@@ -1408,7 +1408,7 @@ func _build_objective_widget() -> void:
 	var prog_label := Label.new()
 	prog_label.name = "ObjectiveProgressLabel"
 	prog_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prog_label.add_theme_font_size_override("font_size", 11)
+	prog_label.add_theme_font_size_override("font_size", 10)
 	prog_label.add_theme_color_override("font_color", Color(0.7, 0.85, 0.6, 0.85))
 	prog_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	objective_label_vbox.add_child(prog_label)
