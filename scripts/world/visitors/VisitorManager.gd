@@ -106,6 +106,7 @@ func check_time(hour: int) -> void:
 				# Clear daytime hotel guests (they've generated their income)
 				_clear_hotel_guests()
 				_active_ship.recall_npcs()
+				_broadcast_recall()
 				_broadcast_ship_departure()
 		elif hour >= DEPARTURE_HOUR_MAX and not _departed_today:
 			_departed_today = true
@@ -117,6 +118,7 @@ func check_time(hour: int) -> void:
 			# checked-in ones). Don't clear hotel guests here — nighttime guests
 			# stay overnight and are handled on the next arrival or departure.
 			_active_ship.recall_npcs()
+			_broadcast_recall()
 			_broadcast_ship_departure()
 
 ## Spawn a visitor ship at the dock.
@@ -171,7 +173,7 @@ func _on_visitors_disembarked() -> void:
 		if not roster.is_empty():
 			var world := get_tree().get_first_node_in_group("world")
 			if world and world.has_method("notify_visitor_arrived"):
-				world.notify_visitor_arrived(roster)
+				world.notify_visitor_arrived(roster, _active_ship.berth_offset)
 
 ## Build serialisable roster data from the active ship's NPCs.
 func _build_roster_data() -> Array[Dictionary]:
@@ -197,6 +199,24 @@ func _broadcast_ship_departure() -> void:
 	var world := get_tree().get_first_node_in_group("world")
 	if world and world.has_method("notify_visitor_departed"):
 		world.notify_visitor_departed()
+
+
+## Tell clients to walk their roaming NPCs to the hotel at night too.
+func _broadcast_hotel_direct(hotel_pos: Vector2) -> void:
+	if _is_remote:
+		return
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_visitor_hotel_direct"):
+		world.notify_visitor_hotel_direct(hotel_pos)
+
+
+## Tell clients to recall their NPCs to the dock walkway before departure.
+func _broadcast_recall() -> void:
+	if _is_remote:
+		return
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_visitor_recall"):
+		world.notify_visitor_recall()
 
 
 ## Find all placed hotel buildings and register guests.
@@ -272,6 +292,7 @@ func _direct_roamers_to_hotel() -> void:
 			continue
 		if npc.has_method("go_to_hotel"):
 			npc.go_to_hotel(hotel_pos)
+	_broadcast_hotel_direct(hotel_pos)
 
 ## Called during departure — clears hotel guests before ship leaves.
 func _clear_hotel_guests() -> void:

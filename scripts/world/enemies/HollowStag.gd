@@ -135,7 +135,7 @@ func _handle_charge_state(delta: float) -> void:
 	velocity = _charge_dir * speed * CHARGE_SPEED_MULT
 	move_and_slide()
 	if global_position.distance_to(player_ref.global_position) < attack_range:
-		GameManager.take_damage(damage)
+		_damage_target(damage)
 		_trigger_screen_shake(4.0, 0.15)
 		EffectSpawner.spawn_particles(player_ref.global_position, Color(1.0, 0.8, 0.2), 8, 12.0)
 		EffectSpawner.spawn_floating_text("Gore!", player_ref.global_position, Color(1.0, 0.85, 0.3))
@@ -190,7 +190,7 @@ func _ethereal_barrage() -> void:
 			EffectSpawner.spawn_particles(trail_pos, Color(1.0, 0.85, 0.3, 0.4), 1, 3.0)
 	# Damage check near player
 	if global_position.distance_to(player_ref.global_position) < 130.0:
-		GameManager.take_damage(7)
+		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Ghost Barrage!", player_ref.global_position, Color(0.85, 0.85, 1.0))
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(2.0, 0.1)
@@ -211,7 +211,7 @@ func _spectral_howl() -> void:
 			EffectSpawner.spawn_particles(p, Color(0.7, 0.7, 1.0, 0.5), 2, 4.0)
 	# Push player away
 	if global_position.distance_to(player_ref.global_position) < 70.0:
-		GameManager.take_damage(6)
+		_damage_target(6)
 		# Visual-only push effect (no physics knockback)
 		_trigger_screen_shake(6.0, 0.3)
 		EffectSpawner.spawn_floating_text("Spectral Howl!", player_ref.global_position, Color(0.7, 0.7, 1.0))

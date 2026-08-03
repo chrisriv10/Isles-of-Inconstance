@@ -17,6 +17,26 @@ var _spawn_timer: float = 0.0
 var _is_night: bool = false
 var _is_foggy: bool = false
 var _player_ref: CharacterBody2D = null
+
+
+## Picks the closest valid player node from the "player" group, or null.
+## Anchored on the previous spawn focus (or the origin on the first call)
+## so spawn waves keep serving the nearest active player.
+func _find_nearest_player() -> CharacterBody2D:
+	var anchor: Vector2 = Vector2.ZERO
+	if is_instance_valid(_player_ref):
+		anchor = _player_ref.global_position
+	var best: CharacterBody2D = null
+	var best_dist_sq: float = INF
+	for p in get_tree().get_nodes_in_group("player"):
+		if not is_instance_valid(p) or not (p is CharacterBody2D):
+			continue
+		var p_body := p as CharacterBody2D
+		var d_sq: float = p_body.global_position.distance_squared_to(anchor)
+		if d_sq < best_dist_sq:
+			best_dist_sq = d_sq
+			best = p_body
+	return best
 var _weather_system: WeatherSystem = null
 
 # Multiplayer
@@ -27,7 +47,7 @@ func _ready() -> void:
 	add_to_group("enemy_spawner")
 	GameManager.phase_changed.connect(_on_phase_changed)
 	GameManager.game_mode_changed.connect(_on_game_mode_changed)
-	_player_ref = get_tree().get_first_node_in_group("player")
+	_player_ref = _find_nearest_player()
 	
 	# Find the weather system
 	_weather_system = get_tree().root.find_child("WeatherSystem", true, false)
@@ -61,8 +81,8 @@ func _process(delta: float) -> void:
 		return
 	if not GameManager.is_survival() and not GameManager.creative_enemy_spawning:
 		return
-	if not _player_ref:
-		_player_ref = get_tree().get_first_node_in_group("player")
+	if not _player_ref or not is_instance_valid(_player_ref):
+		_player_ref = _find_nearest_player()
 		return
 	
 	_spawn_timer -= delta
@@ -92,6 +112,9 @@ func _on_game_mode_changed(_mode: int) -> void:
 
 
 func _try_spawn_wave() -> void:
+	# In multiplayer, spawn around whichever player is closest so night
+	# combat reaches every player, not just the host.
+	_player_ref = _find_nearest_player()
 	var is_blood_moon := GameManager.day_night and GameManager.day_night.blood_moon_active
 	var max_enemies := MAX_ENEMIES_BLOOD_MOON if is_blood_moon else MAX_ENEMIES
 	
@@ -172,6 +195,9 @@ func spawn_enemy_at(pos: Vector2, _type: String = "pirate") -> Enemy:
 	var enemy := GhostEnemy.new()  # Use GhostEnemy as base for pirate raiders
 	enemy.global_position = pos
 	enemy.set_meta("is_pirate", true)
+	enemy.enemy_id = _next_enemy_id
+	enemy.name = "Enemy_%d" % _next_enemy_id
+	_next_enemy_id += 1
 	add_child(enemy)  # GhostEnemy._ready() fires here, sets ghost defaults (including display_name = "Casper")
 	enemy.set_display_name("Pirate Raider")  # Must be set AFTER _ready() to override GhostEnemy's default
 	# Immediately override GhostEnemy._ready() defaults with pirate stats
@@ -265,6 +291,34 @@ func _receive_spawn_enemy(type_name: String, pos_x: float, pos_y: float, eid: in
 	add_child(enemy)
 	enemy.current_health = hp
 	enemy.max_health = max_hp
+	enemy._update_health_bar()
+
+
+## Host: broadcast a pirate raider spawn so clients create a matching remote copy.
+func broadcast_pirate_spawn(enemy: Enemy) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server() and enemy.enemy_id > 0:
+		rpc("_receive_spawn_pirate", enemy.global_position.x, enemy.global_position.y,
+			enemy.enemy_id, enemy.current_health, enemy.max_health)
+
+
+## Client: create a remote pirate raider copy (pirate visuals + stats).
+@rpc("authority", "reliable")
+func _receive_spawn_pirate(pos_x: float, pos_y: float, eid: int, hp: int, max_hp: int) -> void:
+	if multiplayer.is_server():
+		return
+	var enemy := GhostEnemy.new()
+	enemy.global_position = Vector2(pos_x, pos_y)
+	enemy.set_meta("is_pirate", true)
+	enemy.enemy_id = eid
+	enemy.name = "Enemy_%d" % eid
+	enemy._is_remote = true
+	add_child(enemy)
+	enemy.set_display_name("Pirate Raider")
+	enemy.max_health = max_hp
+	enemy.current_health = hp
+	enemy.speed = 70.0
+	enemy.damage = 8
+	_apply_pirate_sprite(enemy)
 	enemy._update_health_bar()
 
 

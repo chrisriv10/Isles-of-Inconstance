@@ -110,7 +110,7 @@ func _root_grasp() -> void:
 		var spawn_pos := global_position + dir * (10.0 + i * 6.0) + offset
 		EffectSpawner.spawn_particles(spawn_pos, Color(0.4, 0.2, 0.05), 3, 4.0)
 	if global_position.distance_to(player_ref.global_position) < 90.0:
-		GameManager.take_damage(5)
+		_damage_target(5)
 		EffectSpawner.spawn_floating_text("Roots Grab You!", player_ref.global_position, Color(0.6, 0.3, 0.1))
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(2.0, 0.1)
@@ -127,7 +127,7 @@ func _earth_spike() -> void:
 		EffectSpawner.spawn_particles(spike_pos, Color(0.5, 0.3, 0.1), 8, 6.0)
 		EffectSpawner.spawn_particles(spike_pos, Color(0.55, 0.2, 0.7), 4, 5.0)
 	if global_position.distance_to(player_ref.global_position) < 60.0:
-		GameManager.take_damage(7)
+		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Earth Spike!", player_ref.global_position, Color(0.8, 0.5, 0.1))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -144,7 +144,7 @@ func _vine_whip() -> void:
 		EffectSpawner.spawn_particles(sweep_pos, Color(0.3, 0.6, 0.15), 4, 5.0)
 		EffectSpawner.spawn_particles(sweep_pos, Color(0.55, 0.2, 0.7), 2, 4.0)
 	if global_position.distance_to(player_ref.global_position) < 90.0:
-		GameManager.take_damage(8)
+		_damage_target(8)
 		EffectSpawner.spawn_floating_text("Vine Whip!", player_ref.global_position, Color(0.3, 0.7, 0.2))
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(3.0, 0.1)
@@ -157,7 +157,7 @@ func _aoe_slam() -> void:
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(4.0, 0.15)
 	if global_position.distance_to(player_ref.global_position) <= AOE_RANGE:
-		GameManager.take_damage(AOE_DAMAGE)
+		_damage_target(AOE_DAMAGE)
 		EffectSpawner.spawn_floating_text("Slam!", player_ref.global_position, Color(0.8, 0.4, 0.1))
 
 

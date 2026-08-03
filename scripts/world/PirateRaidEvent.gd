@@ -28,6 +28,9 @@ var _world_ref: Node = null
 var _dock_position: Vector2 = Vector2.ZERO
 var _pirate_ship_sprite: Sprite2D = null
 
+## Whether this is a remote copy (client) — raid decisions run on the host only.
+var _is_remote: bool = false
+
 # ── Randomized pirate raid dialogue ──
 const PIRATE_TAUNTS_WAVE_START: Array[String] = [
 	"Arr! The landlubber thinks they can fight us!",
@@ -81,6 +84,10 @@ const PIRATE_TAUNTS_BOSS_DEFEATED: Array[String] = [
 func _init() -> void:
 	_rng = RandomNumberGenerator.new()
 	_rng.randomize()
+
+func _ready() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		_is_remote = true
 
 
 # ── Pirate dialogue helpers ──
@@ -220,6 +227,8 @@ func _stop_taunt_timer() -> void:
 
 ## Called when a new day starts. Checks if raid should trigger.
 func advance_day(_day: int) -> void:
+	if _is_remote:
+		return
 	match state:
 		RaidState.COOLDOWN:
 			_cooldown_days -= 1
@@ -255,6 +264,7 @@ func _start_raid() -> void:
 	
 	ToastNotification.show_toast("🏴‍☠️ PIRATES SPOTTED! Prepare for battle!", ToastNotification.ToastType.WARNING, 5.0)
 	raid_started.emit(max_waves)
+	_broadcast_raid_state()
 	
 	# Show a random pirate taunt via floating text above the ship
 	_show_pirate_dialogue_above_ship(_pick_random_taunt(PIRATE_TAUNTS_WAVE_START))
@@ -311,6 +321,7 @@ func _spawn_wave() -> void:
 	
 	ToastNotification.show_toast("Wave %d/%d of pirates incoming!" % [current_wave, max_waves], ToastNotification.ToastType.WARNING, 4.0)
 	raid_wave_spawned.emit(current_wave, max_waves)
+	_broadcast_raid_state()
 	
 	# Show a pirate taunt — first wave gets a bold opener, later waves get mid-raid jeers
 	if current_wave == 1:
@@ -388,6 +399,12 @@ func _spawn_single_pirate() -> void:
 	
 	# Spawn the pirate
 	var pirate := _spawn_pirate_enemy(spawn_pos)
+	
+	# Broadcast the pirate spawn so clients create a matching remote copy
+	if pirate and NetworkManager.is_network_active() and multiplayer.is_server():
+		var spawner = _world_ref.get_enemy_spawner() if _world_ref and _world_ref.has_method("get_enemy_spawner") else null
+		if spawner and spawner.has_method("broadcast_pirate_spawn"):
+			spawner.broadcast_pirate_spawn(pirate)
 	
 	# Give each pirate a random personal taunt above their head on spawn
 	if pirate:
@@ -484,6 +501,7 @@ func _on_raid_victory() -> void:
 	
 	# Remove the pirate ship
 	_remove_pirate_ship()
+	_broadcast_raid_state()
 	
 	ToastNotification.show_toast("🏆 RAID DEFEATED! Pirates routed!", ToastNotification.ToastType.SUCCESS, 5.0)
 	
@@ -502,6 +520,37 @@ func _on_raid_victory() -> void:
 		obj_mgr.on_pirate_raid_survived()
 	
 	raid_ended.emit(true)
+
+## Host: broadcast the raid state so clients show the same ship and waves.
+func _broadcast_raid_state() -> void:
+	if _is_remote or not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	rpc("_sync_raid_state", state != RaidState.INACTIVE and state != RaidState.COOLDOWN, current_wave, max_waves)
+
+
+## Client: apply the host's raid state — shows the pirate ship, berth
+## displacement, and wave info without running any raid logic locally.
+@rpc("authority", "call_local")
+func _sync_raid_state(active: bool, wave: int, total_waves: int) -> void:
+	if multiplayer.is_server():
+		return
+	if not active:
+		state = RaidState.COOLDOWN
+		_remove_pirate_ship()
+		return
+	state = RaidState.ACTIVE if wave > 0 else RaidState.WARNING
+	current_wave = wave
+	max_waves = total_waves
+	if not _world_ref:
+		_world_ref = get_tree().get_first_node_in_group("world")
+	if not _player_ref:
+		_player_ref = get_tree().get_first_node_in_group("player")
+	if not _world_ref or not _world_ref.has_method("get_dock_position"):
+		return
+	_dock_position = _world_ref.get_dock_position()
+	if not _pirate_ship_sprite or not _pirate_ship_sprite.is_inside_tree():
+		_spawn_pirate_ship()
+
 
 func serialize() -> Dictionary:
 	return {
@@ -534,6 +583,8 @@ func deserialize(data: Dictionary) -> void:
 
 ## Public method to force-trigger a raid (used by Creative Panel)
 func trigger_raid() -> void:
+	if _is_remote:
+		return
 	if state == RaidState.INACTIVE or state == RaidState.COOLDOWN:
 		_start_raid()
 

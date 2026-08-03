@@ -109,6 +109,7 @@ func register_guests(count: int) -> void:
 		ToastNotification.ToastType.INFO,
 		3.0
 	)
+	_broadcast_guest_count()
 
 func _start_income_timer() -> void:
 	if _income_timer and _income_timer.is_inside_tree() and _ticks_remaining > 0:
@@ -166,6 +167,24 @@ func clear_remaining_guests() -> void:
 	if _building_sprite:
 		var tween := create_tween()
 		tween.tween_property(_building_sprite, "modulate", Color.WHITE, 0.5)
+	_broadcast_guest_count()
+
+## Client: apply a host-broadcast guest count. Updates the sign and the
+## interior sprites, but income stays host-authoritative.
+func apply_synced_guest_count(count: int) -> void:
+	guest_count = count
+	has_guests = count > 0
+	if _sign_sprite:
+		_sign_sprite.visible = has_guests or earnings > 0
+	guests_changed.emit(count)
+
+## Host: broadcast the current guest count so clients' hotels match.
+func _broadcast_guest_count() -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_hotel_guests"):
+		world.notify_hotel_guests(get_hotel_position(), guest_count)
 
 ## Called by building area body_entered when player walks near.
 ## Returns true if earnings were collected.

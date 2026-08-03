@@ -136,7 +136,7 @@ func _on_fireball_hit(_body: Node, fireball: RigidBody2D) -> void:
 		return
 	# Damage player
 	if _body == player_ref:
-		GameManager.take_damage(damage + 3)
+		_damage_target(damage + 3)
 		EffectSpawner.spawn_particles(fireball.global_position, Color(1.0, 0.5, 0.0), 4, 6.0)
 	fireball.queue_free()
 

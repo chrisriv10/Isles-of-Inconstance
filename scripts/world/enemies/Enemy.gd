@@ -128,7 +128,7 @@ func _ready() -> void:
 	if is_in_group("bosses"):
 		_apply_boss_scaling()
 	current_health = max_health
-	player_ref = get_tree().get_first_node_in_group("player")
+	player_ref = _find_nearest_player()
 	_spawned_at = Time.get_ticks_msec() / 1000.0
 	_spawn_position = global_position
 	_update_health_bar()
@@ -138,6 +138,38 @@ func _ready() -> void:
 	_stun_timer.one_shot = true
 	_stun_timer.timeout.connect(_on_stun_ended)
 	add_child(_stun_timer)
+
+
+## Picks the closest valid player node from the "player" group, or null.
+## In multiplayer every peer has its own local player plus remote copies,
+## so enemies now aggro the nearest player instead of the first one.
+func _find_nearest_player() -> CharacterBody2D:
+	var best: CharacterBody2D = null
+	var best_dist_sq: float = INF
+	for p in get_tree().get_nodes_in_group("player"):
+		if not is_instance_valid(p) or not (p is CharacterBody2D):
+			continue
+		var p_body := p as CharacterBody2D
+		var d_sq: float = global_position.distance_squared_to(p_body.global_position)
+		if d_sq < best_dist_sq:
+			best_dist_sq = d_sq
+			best = p_body
+	return best
+
+
+## Re-picks the nearest player each frame with hysteresis, so enemies don't
+## oscillate between two players who are roughly equidistant.
+func _refresh_target_player() -> void:
+	var nearest: CharacterBody2D = _find_nearest_player()
+	if not is_instance_valid(player_ref):
+		player_ref = nearest
+		return
+	if nearest == null:
+		return
+	var current_dist: float = global_position.distance_to(player_ref.global_position)
+	var nearest_dist: float = global_position.distance_to(nearest.global_position)
+	if current_dist - nearest_dist > 40.0:
+		player_ref = nearest
 
 
 func _physics_process(delta: float) -> void:
@@ -150,11 +182,10 @@ func _physics_process(delta: float) -> void:
 	
 	_attack_timer = max(0.0, _attack_timer - delta)
 	
+	_refresh_target_player()
 	if not is_instance_valid(player_ref):
-		player_ref = get_tree().get_first_node_in_group("player")
-		if not is_instance_valid(player_ref):
-			velocity = Vector2.ZERO
-			return
+		velocity = Vector2.ZERO
+		return
 	
 	# Always update state — even from ATTACK — so enemies resume chasing
 	# when the player moves out of attack range.
@@ -316,19 +347,28 @@ func _attack_player() -> void:
 	_attack_timer = attack_cooldown
 	var dist := global_position.distance_to(player_ref.global_position)
 	if dist <= attack_range + 10.0:
-		if NetworkManager.is_network_active():
-			var target_peer: int = player_ref.get_multiplayer_authority()
-			if target_peer != multiplayer.get_unique_id():
-				rpc_id(target_peer, "_receive_remote_enemy_damage", damage)
-			else:
-				GameManager.take_damage(damage)
-		else:
-			GameManager.take_damage(damage)
+		_damage_target(damage)
 		EffectSpawner.spawn_particles(player_ref.global_position, Color(1.0, 0.2, 0.2), 4, 8.0)
 		AudioManager.play(AudioManager.Sound.HIT)
 		var push_dir := _safe_normalize(global_position - player_ref.global_position)
 		if push_dir != Vector2.ZERO:
 			global_position += push_dir * 8.0
+
+
+## Applies damage to the current target player, routing it over the network
+## to that player's peer when the enemy's AI runs on another peer (boss and
+## subclass attacks that previously hit GameManager.take_damage directly).
+func _damage_target(amount: int) -> void:
+	if not is_instance_valid(player_ref):
+		return
+	if NetworkManager.is_network_active():
+		var target_peer: int = player_ref.get_multiplayer_authority()
+		if target_peer != multiplayer.get_unique_id():
+			rpc_id(target_peer, "_receive_remote_enemy_damage", amount)
+		else:
+			GameManager.take_damage(amount)
+	else:
+		GameManager.take_damage(amount)
 
 
 func take_damage(amount: int, _source: Node2D = null, is_critical: bool = false) -> void:
@@ -563,9 +603,16 @@ func _server_receive_enemy_attack(eid: int, amount: int, crit: bool) -> void:
 		return
 	if _is_remote or enemy_id != eid:
 		return
-	# Basic validation — attacker must be nearby
-	var attacker := get_tree().get_first_node_in_group("player")
-	if not attacker:
+	# Basic validation — attacker must be their own player node, nearby
+	var attacker: Node2D = null
+	var sender: int = multiplayer.get_remote_sender_id()
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and p.get_multiplayer_authority() == sender:
+			attacker = p as Node2D
+			break
+	if attacker == null:
+		attacker = get_tree().get_first_node_in_group("player")
+	if attacker == null:
 		return
 	if global_position.distance_to(attacker.global_position) > 100.0:
 		return

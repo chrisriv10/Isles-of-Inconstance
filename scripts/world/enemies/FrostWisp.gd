@@ -135,7 +135,7 @@ func _on_ice_bolt_hit(_body: Node, bolt: RigidBody2D) -> void:
 	if not is_instance_valid(bolt):
 		return
 	if _body == player_ref:
-		GameManager.take_damage(damage)
+		_damage_target(damage)
 		EffectSpawner.spawn_particles(bolt.global_position, Color(0.5, 0.8, 1.0), 5, 7.0)
 	bolt.queue_free()
 

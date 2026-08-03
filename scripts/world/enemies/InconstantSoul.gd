@@ -179,7 +179,7 @@ func _heart_pulse() -> void:
 			var p := global_position + Vector2(cos(a), sin(a)) * r
 			EffectSpawner.spawn_particles(p, Color(0.5, 0.15, 0.7, 0.6), 3, 5.0)
 	if global_position.distance_to(player_ref.global_position) < 60.0:
-		GameManager.take_damage(8)
+		_damage_target(8)
 		EffectSpawner.spawn_floating_text("Heart Pulse!", player_ref.global_position, Color(0.5, 0.15, 0.7))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -202,7 +202,7 @@ func _tendril_sweep() -> void:
 			EffectSpawner.spawn_particles(p, Color(0.5, 0.15, 0.7), 4, 5.0)
 			EffectSpawner.spawn_particles(p, Color(0.3, 0.15, 0.05), 2, 4.0)
 	if global_position.distance_to(player_ref.global_position) < 65.0:
-		GameManager.take_damage(7)
+		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Tendril Sweep!", player_ref.global_position, Color(0.5, 0.15, 0.7))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -220,7 +220,7 @@ func _soul_drain() -> void:
 		EffectSpawner.spawn_particles(p, Color(0.8, 0.15, 0.15, 0.6), 2, 4.0)
 	# Damage player + heal boss
 	if global_position.distance_to(player_ref.global_position) < 80.0:
-		GameManager.take_damage(9)
+		_damage_target(9)
 		current_health = mini(current_health + 5, max_health)
 		_update_health_bar()
 		EffectSpawner.spawn_particles(global_position, Color(0.5, 0.15, 0.7), 8, 10.0)
@@ -280,7 +280,7 @@ func _sunburst() -> void:
 			EffectSpawner.spawn_particles(p, Color(1.0, 0.85, 0.3, 0.7), 3, 5.0)
 			EffectSpawner.spawn_particles(p, Color(1.0, 1.0, 1.0, 0.4), 2, 4.0)
 	if global_position.distance_to(player_ref.global_position) < 55.0:
-		GameManager.take_damage(8)
+		_damage_target(8)
 		EffectSpawner.spawn_floating_text("Sunburst!", player_ref.global_position, Color(1.0, 0.85, 0.3))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -301,7 +301,7 @@ func _light_lances() -> void:
 			EffectSpawner.spawn_particles(p, Color(1.0, 0.85, 0.3, 0.8), 2, 5.0)
 			EffectSpawner.spawn_particles(p, Color(1.0, 1.0, 1.0, 0.5), 1, 3.0)
 	if global_position.distance_to(player_ref.global_position) < 110.0:
-		GameManager.take_damage(7)
+		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Light Lance!", player_ref.global_position, Color(1.0, 0.85, 0.3))
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(2.0, 0.1)
@@ -327,7 +327,7 @@ func _shield_explode() -> void:
 				EffectSpawner.spawn_particles(p, Color(1.0, 0.85, 0.3), 3, 5.0)
 				EffectSpawner.spawn_particles(p, Color(1.0, 1.0, 1.0), 2, 4.0)
 		if global_position.distance_to(player_ref.global_position) < 70.0:
-			GameManager.take_damage(10)
+			_damage_target(10)
 			EffectSpawner.spawn_floating_text("Shield Burst!", player_ref.global_position, Color(1.0, 0.85, 0.3))
 		AudioManager.play(AudioManager.Sound.HIT)
 
@@ -387,7 +387,7 @@ func _chaos_orbs() -> void:
 			EffectSpawner.spawn_particles(p, Color(0.8, 0.15, 0.15, 0.5), 2, 5.0)
 	if global_position.distance_to(player_ref.global_position) < 90.0:
 		var dmg := 6
-		GameManager.take_damage(dmg)
+		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Chaos Orb!", player_ref.global_position, Color(0.85, 0.3, 0.55))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -404,7 +404,7 @@ func _ground_fissure() -> void:
 		EffectSpawner.spawn_particles(p, Color(0.85, 0.3, 0.55, 0.5), 3, 5.0)
 	if global_position.distance_to(player_ref.global_position) < 80.0:
 		var dmg := 8
-		GameManager.take_damage(dmg)
+		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Ground Fissure!", player_ref.global_position, Color(0.6, 0.4, 0.2))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -422,7 +422,7 @@ func _tendril_eruption() -> void:
 	# Damage if close
 	if player_ref and global_position.distance_to(player_ref.global_position) < 50.0:
 		var dmg := 7
-		GameManager.take_damage(dmg)
+		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Tendril Eruption!", player_ref.global_position, Color(0.5, 0.15, 0.7))
 	AudioManager.play(AudioManager.Sound.HIT)
 

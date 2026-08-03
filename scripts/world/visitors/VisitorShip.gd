@@ -104,6 +104,7 @@ func displace_for_pirate() -> void:
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "global_position", target, 1.2)
+	_broadcast_berth()
 
 ## Called by PirateRaidEvent when the pirate ship leaves — slide the visitor
 ## ship back up to its normal berth at the dock's edge.
@@ -116,6 +117,28 @@ func restore_berth() -> void:
 	tween.set_trans(Tween.TRANS_SINE)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "global_position", target, 1.2)
+	_broadcast_berth()
+
+## Client: apply a host-dictated berth offset (e.g. pirate displacement).
+func set_berth_offset(offset: Vector2) -> void:
+	if berth_offset == offset:
+		return
+	berth_offset = offset
+	if not is_inside_tree():
+		return
+	var target := dock_position + berth_offset
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "global_position", target, 1.2)
+
+## Host: broadcast this ship's berth offset so clients move their copies.
+func _broadcast_berth() -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("notify_visitor_berth_changed"):
+		world.notify_visitor_berth_changed(berth_offset)
 
 ## Called after the arrival sail-in animation finishes.
 func _on_arrival_animation_done() -> void:
@@ -139,6 +162,7 @@ func _deploy_npcs() -> void:
 		var ntype: int = npc_types[i]
 		var npc := NPC_SCENE.instantiate() as VisitorNPC
 		npc.npc_type = ntype
+		npc._synced_index = i
 		npc.dock_position = dock_position
 		
 		# The ship berths over water, so spawn NPCs on the dock walkway

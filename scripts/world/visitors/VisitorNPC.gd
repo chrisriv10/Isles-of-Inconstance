@@ -65,6 +65,9 @@ var _npc_display_name: String = ""
 ## Chosen texture variant index for this NPC instance.
 var _npc_texture_variant: int = 0
 
+## Roster index within the visitor ship — used to match NPC copies across peers.
+var _synced_index: int = -1
+
 ## Chance (0.0 - 1.0) per wander timeout to head to the hotel during the day.
 const DAYTIME_HOTEL_CHANCE: float = 0.15
 
@@ -416,16 +419,48 @@ func show_dialogue(msg: String, duration: float = 2.0) -> void:
 			_dialogue_bubble.visible = false
 	)
 
-## Convert this visitor to a permanent town resident
+## Convert this visitor to a permanent town resident.
+## In multiplayer, clients forward the request to the host, which performs
+## the conversion and broadcasts the result so every peer ends up with the
+## same resident. Hosts convert locally and broadcast.
 func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String, home_cell: Vector2i) -> void:
-	# Create a TownResidentNPC at this position
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		var world := get_tree().get_first_node_in_group("world")
+		if world and world.has_method("request_convert_resident"):
+			world.request_convert_resident(role_name, home_ruin_id, home_cell, npc_type, _synced_index)
+		return
+	_finish_conversion(npc_id, role_name, home_ruin_id, home_cell)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var world := get_tree().get_first_node_in_group("world")
+		if world and world.has_method("broadcast_convert_resident"):
+			world.broadcast_convert_resident(npc_id, VisitorNPC.get_npc_name(npc_type), role_name, home_ruin_id, home_cell, npc_type, _synced_index)
+
+
+## Run the local conversion: spawn the resident, register it with the town
+## manager, and remove this visitor.
+func _finish_conversion(npc_id: String, role_name: String, home_ruin_id: String, home_cell: Vector2i) -> void:
+	var world := get_tree().get_first_node_in_group("world")
+	if not world:
+		return
+	var resident_name: String = VisitorNPC.get_npc_name(npc_type)
+	VisitorNPC.spawn_resident_from(world, npc_id, resident_name, role_name, home_ruin_id, home_cell, npc_type)
+	var town_mgr := get_tree().get_first_node_in_group("town_manager") as TownManager
+	if town_mgr:
+		town_mgr.add_resident(npc_id, resident_name, role_name, home_ruin_id, npc_type)
+	queue_free()
+
+
+## Spawn a permanent TownResidentNPC from recruitment data. Static so the
+## host and every client can create the identical resident. Position is
+## derived from the home cell (not the visitor's location).
+static func spawn_resident_from(parent: Node, npc_id: String, resident_name: String, role_name: String, home_ruin_id: String, home_cell: Vector2i, vtype: int) -> void:
 	var resident_scene := preload("res://scenes/world/town/TownResidentNPC.tscn")
 	if not resident_scene:
 		return
 	var resident := resident_scene.instantiate() as TownResidentNPC
 	if not resident:
 		return
-	
+
 	# Map role name to enum
 	var role_map: Dictionary = {
 		"villager": TownResidentNPC.Role.VILLAGER,
@@ -438,7 +473,7 @@ func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String
 		"stablehand": TownResidentNPC.Role.STABLEHAND,
 	}
 	var role: int = role_map.get(role_name, TownResidentNPC.Role.VILLAGER)
-	
+
 	# Place the resident at their assigned building, not at the visitor's location
 	var home_world_pos: Vector2 = Vector2(home_cell.x * 16 + 8, home_cell.y * 16 + 8)
 	# The building sprite is centered on home_world_pos, so the resident
@@ -449,15 +484,12 @@ func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String
 	# bob at the exact same pixel during their "post" service hours.
 	var post_pos: Vector2 = door_pos + Vector2(randf_range(-10.0, 10.0), 2.0)
 	resident.global_position = door_pos
-	resident.initialize(npc_id, VisitorNPC.get_npc_name(npc_type), role, home_ruin_id, door_pos, post_pos, npc_type)
-	
+	resident.initialize(npc_id, resident_name, role, home_ruin_id, door_pos, post_pos, vtype)
+
 	# Add to world's objects root
-	var world := get_tree().get_first_node_in_group("world")
-	if world and world.has_node("Objects"):
-		world.get_node("Objects").add_child(resident)
-	
-	# Remove this visitor from the scene
-	queue_free()
+	var objects := parent.get_node_or_null("Objects")
+	if objects:
+		objects.add_child(resident)
 
 # ── Conversation flow state ───────────────────────────────────────────
 var _recruit_panel: PanelContainer = null
@@ -698,7 +730,7 @@ func _do_recruit_visitor() -> void:
 	_recruit_close()
 	
 	convert_to_resident(npc_id, _recruit_role_name, _recruit_ruin_id, _recruit_home_cell)
-	town_mgr.add_resident(npc_id, visitor_name2, _recruit_role_name, _recruit_ruin_id, npc_type)
+	# town_mgr.add_resident is handled inside convert_to_resident (multiplayer-aware)
 	
 	ToastNotification.show_toast("%s has moved into %s!" % [visitor_name2, bld_name], ToastNotification.ToastType.SUCCESS, 4.0)
 

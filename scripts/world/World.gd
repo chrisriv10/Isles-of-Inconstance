@@ -4028,10 +4028,10 @@ func _sync_remove_building(cell: Vector2i, b_type: int) -> void:
 # ── Visitor ship sync ───────────────────────────────────────────────────
 
 ## Called by VisitorManager on the host after NPCs disembark.
-## Broadcasts the NPC roster to all clients.
-func notify_visitor_arrived(roster: Array) -> void:
+## Broadcasts the NPC roster and the ship's berth offset to all clients.
+func notify_visitor_arrived(roster: Array, berth: Vector2) -> void:
 	if NetworkManager.is_network_active() and multiplayer.is_server():
-		rpc("_sync_spawn_visitor_ship", roster)
+		rpc("_sync_spawn_visitor_ship", roster, berth.x, berth.y)
 
 
 ## Called by VisitorManager on the host when the ship departs.
@@ -4042,7 +4042,7 @@ func notify_visitor_departed() -> void:
 
 ## Received by clients to spawn a visitor ship with matching NPCs.
 @rpc("authority", "call_local")
-func _sync_spawn_visitor_ship(roster: Array) -> void:
+func _sync_spawn_visitor_ship(roster: Array, berth_x: float = 0.0, berth_y: float = 60.0) -> void:
 	if multiplayer.is_server():
 		return
 	const SHIP_SCENE := preload("res://scenes/world/visitors/VisitorShip.tscn")
@@ -4053,6 +4053,7 @@ func _sync_spawn_visitor_ship(roster: Array) -> void:
 		return
 	var ship: VisitorShip = SHIP_SCENE.instantiate() as VisitorShip
 	ship.dock_position = dock_pos
+	ship.berth_offset = Vector2(berth_x, berth_y)
 	ship.global_position = dock_pos + ship.berth_offset
 	ship.is_docked = true
 	# Store dock_node reference for NPC spawn position
@@ -4067,6 +4068,7 @@ func _sync_spawn_visitor_ship(roster: Array) -> void:
 		var ntype: int = entry.get("type", 0)
 		var npc := NPC_SCENE.instantiate() as VisitorNPC
 		npc.npc_type = ntype
+		npc._synced_index = i
 		var spawn_pos: Vector2 = VisitorShip.dock_spawn_position(dock_pos, i, self)
 		npc.home_position = spawn_pos
 		npc.dock_position = dock_pos
@@ -4099,3 +4101,134 @@ func _sync_depart_visitor_ship() -> void:
 	for ship in ships:
 		if is_instance_valid(ship):
 			ship.queue_free()
+
+
+## Host: notify clients that a visitor ship's berth offset changed
+## (e.g. displaced by the pirate ship during a raid).
+func notify_visitor_berth_changed(offset: Vector2) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_visitor_berth", offset.x, offset.y)
+
+
+## Client: apply a host-dictated berth offset to all visitor ships.
+@rpc("authority", "call_local")
+func _sync_visitor_berth(ox: float, oy: float) -> void:
+	if multiplayer.is_server():
+		return
+	for ship in get_tree().get_nodes_in_group("visitor_ships"):
+		if is_instance_valid(ship) and ship.has_method("set_berth_offset"):
+			ship.set_berth_offset(Vector2(ox, oy))
+
+
+## Host: tell clients to walk their roaming NPCs to the hotel at night.
+func notify_visitor_hotel_direct(hotel_pos: Vector2) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_visitor_hotel_direct", hotel_pos.x, hotel_pos.y)
+
+
+## Client: walk all visitor NPCs to the hotel like the host does.
+@rpc("authority", "call_local")
+func _sync_visitor_hotel_direct(px: float, py: float) -> void:
+	if multiplayer.is_server():
+		return
+	var hotel_pos := Vector2(px, py)
+	for npc in get_tree().get_nodes_in_group("visitor_npcs"):
+		if is_instance_valid(npc) and npc.has_method("go_to_hotel"):
+			npc.go_to_hotel(hotel_pos)
+
+
+## Host: tell clients to recall their NPCs to the dock walkway before departure.
+func notify_visitor_recall() -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_visitor_recall")
+
+
+## Client: recall visitor NPCs to the dock walkway like the host does.
+@rpc("authority", "call_local")
+func _sync_visitor_recall() -> void:
+	if multiplayer.is_server():
+		return
+	var dock_pos: Vector2 = get_dock_position()
+	for npc in get_tree().get_nodes_in_group("visitor_npcs"):
+		if is_instance_valid(npc) and npc.has_method("return_to_ship"):
+			var walkway_target: Vector2 = dock_pos + Vector2(randf_range(32.0, 96.0), randf_range(-32.0, 8.0))
+			npc.call_deferred("return_to_ship", walkway_target)
+
+
+## Host: broadcast a hotel's guest count so clients' hotel interiors match.
+func notify_hotel_guests(hotel_pos: Vector2, count: int) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_hotel_guests", hotel_pos.x, hotel_pos.y, count)
+
+
+## Client: apply a host-broadcast hotel guest count.
+@rpc("authority", "call_local")
+func _sync_hotel_guests(px: float, py: float, count: int) -> void:
+	if multiplayer.is_server():
+		return
+	var hotel_pos := Vector2(px, py)
+	for hotel in get_tree().get_nodes_in_group("hotel_buildings"):
+		if is_instance_valid(hotel) and hotel is Hotel:
+			if hotel.get_hotel_position().distance_to(hotel_pos) < 8.0:
+				hotel.apply_synced_guest_count(count)
+				return
+
+
+# ── Resident recruitment sync ────────────────────────────────────────────
+
+## Client → host: ask the server to convert a visitor NPC (by roster index)
+## into a permanent resident. The host performs the conversion and broadcasts
+## the result so every peer ends up with the same resident.
+func request_convert_resident(role_name: String, home_ruin_id: String, home_cell: Vector2i, vtype: int, synced_index: int) -> void:
+	rpc_id(1, "_server_convert_resident", role_name, home_ruin_id, home_cell.x, home_cell.y, vtype, synced_index)
+
+
+## Host: broadcast a completed resident conversion to all clients.
+func broadcast_convert_resident(npc_id: String, resident_name: String, role_name: String, home_ruin_id: String, home_cell: Vector2i, vtype: int, synced_index: int) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_convert_resident", npc_id, resident_name, role_name, home_ruin_id, home_cell.x, home_cell.y, vtype, synced_index)
+
+
+## Server: perform a resident conversion requested by any peer.
+@rpc("any_peer", "reliable")
+func _server_convert_resident(role_name: String, home_ruin_id: String, cell_x: int, cell_y: int, vtype: int, synced_index: int) -> void:
+	if not multiplayer.is_server():
+		return
+	# Ignore requests for NPCs that were already converted (or don't exist).
+	if not _free_visitor_by_synced_index(synced_index):
+		return
+	var npc_id: String = "resident_%s_%d" % [home_ruin_id, Time.get_unix_time_from_system()]
+	var resident_name: String = VisitorNPC.get_npc_name(vtype)
+	VisitorNPC.spawn_resident_from(self, npc_id, resident_name, role_name, home_ruin_id, Vector2i(cell_x, cell_y), vtype)
+	_register_converted_resident(npc_id, resident_name, role_name, home_ruin_id, vtype)
+	rpc("_sync_convert_resident", npc_id, resident_name, role_name, home_ruin_id, cell_x, cell_y, vtype, synced_index)
+
+
+## Client: apply a host-broadcast resident conversion.
+@rpc("authority", "reliable")
+func _sync_convert_resident(npc_id: String, resident_name: String, role_name: String, home_ruin_id: String, cell_x: int, cell_y: int, vtype: int, synced_index: int) -> void:
+	if multiplayer.is_server():
+		return
+	if not _free_visitor_by_synced_index(synced_index):
+		return
+	VisitorNPC.spawn_resident_from(self, npc_id, resident_name, role_name, home_ruin_id, Vector2i(cell_x, cell_y), vtype)
+	_register_converted_resident(npc_id, resident_name, role_name, home_ruin_id, vtype)
+
+
+## Register a converted resident in the local TownManager registry.
+func _register_converted_resident(npc_id: String, resident_name: String, role_name: String, home_ruin_id: String, vtype: int) -> void:
+	var town_mgr := get_tree().get_first_node_in_group("town_manager") as TownManager
+	if town_mgr:
+		town_mgr.add_resident(npc_id, resident_name, role_name, home_ruin_id, vtype)
+
+
+## Remove the local visitor NPC copy matching a roster index after conversion.
+## Returns false when no matching NPC exists (request is stale/duplicate).
+func _free_visitor_by_synced_index(synced_index: int) -> bool:
+	if synced_index < 0:
+		return false
+	for npc in get_tree().get_nodes_in_group("visitor_npcs"):
+		if is_instance_valid(npc) and npc.get("_synced_index") == synced_index:
+			npc.queue_free()
+			return true
+	return false

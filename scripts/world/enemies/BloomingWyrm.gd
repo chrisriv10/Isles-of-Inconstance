@@ -156,7 +156,7 @@ func _petal_storm() -> void:
 			EffectSpawner.spawn_particles(pos, Color(0.3, 0.9, 0.2, 0.5), 2, 4.0)
 		# Damage if standing near center
 		if global_position.distance_to(player_ref.global_position) < 50.0:
-			GameManager.take_damage(4 if not _is_enraged else 6)
+			_damage_target(4 if not _is_enraged else 6)
 	AudioManager.play(AudioManager.Sound.HIT)
 	EffectSpawner.spawn_floating_text("Petal Storm!", center, Color(0.85, 0.3, 0.55))
 
@@ -176,7 +176,7 @@ func _vine_lash() -> void:
 	# Damage check
 	if global_position.distance_to(player_ref.global_position) < 50.0:
 		var dmg := 5 if not _is_enraged else 8
-		GameManager.take_damage(dmg)
+		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Vine Lash!", player_ref.global_position, Color(0.3, 0.9, 0.2))
 	AudioManager.play(AudioManager.Sound.HIT)
 
@@ -206,7 +206,7 @@ func _tick_poison_pools(delta: float) -> void:
 		if pool.interval <= 0.0:
 			pool.interval = POISON_TICK_INTERVAL
 			if player_ref.global_position.distance_to(pool.pos) < 16.0:
-				GameManager.take_damage(POISON_DAMAGE)
+				_damage_target(POISON_DAMAGE)
 				EffectSpawner.spawn_particles(pool.pos, Color(0.3, 0.9, 0.2), 3, 5.0)
 		if randi() % 10 == 0:
 			EffectSpawner.spawn_particles(pool.pos, Color(0.3, 0.8, 0.2), 1, 3.0)

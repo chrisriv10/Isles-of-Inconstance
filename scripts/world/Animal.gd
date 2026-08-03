@@ -358,9 +358,16 @@ func _server_receive_animal_attack(aid: int, amount: int, crit: bool) -> void:
 		return
 	if _is_remote or animal_id != aid:
 		return
-	# Basic validation — attacker must be nearby
-	var attacker := get_tree().get_first_node_in_group("player")
-	if not attacker:
+	# Basic validation — attacker must be their own player node, nearby
+	var attacker: Node2D = null
+	var sender: int = multiplayer.get_remote_sender_id()
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and p.get_multiplayer_authority() == sender:
+			attacker = p as Node2D
+			break
+	if attacker == null:
+		attacker = get_tree().get_first_node_in_group("player")
+	if attacker == null:
 		return
 	if global_position.distance_to(attacker.global_position) > 100.0:
 		return
