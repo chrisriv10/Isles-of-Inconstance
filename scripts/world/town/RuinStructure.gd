@@ -24,6 +24,11 @@ var _town_manager: TownManager = null
 var _show_outline: bool = false
 var _pulse_phase: float = 0.0
 
+# Whether the player's body is currently inside this ruin's InteractionArea.
+# Used to re-assert the interaction prompt periodically so competing systems
+# (PlayerInteractor, mine prompt) can't permanently hide it.
+var _player_in_area: bool = false
+
 func _ready() -> void:
 	add_to_group("ruin_structures")
 	
@@ -64,6 +69,16 @@ func _ready() -> void:
 	add_child(pulse_timer)
 	pulse_timer.timeout.connect(_on_outline_pulse_tick)
 	
+	# Prompt re-assert timer: periodically re-shows our interaction prompt
+	# while the player is in range, so other prompt systems (PlayerInteractor
+	# interactable prompts, mine prompt) can't permanently hide it.
+	var prompt_timer := Timer.new()
+	prompt_timer.name = "PromptReassertTimer"
+	prompt_timer.wait_time = 0.15
+	prompt_timer.autostart = true
+	add_child(prompt_timer)
+	prompt_timer.timeout.connect(_on_prompt_reassert_tick)
+	
 	# Label that appears when player walks near the building
 	var name_label := Label.new()
 	name_label.name = "NameLabel"
@@ -92,6 +107,7 @@ func initialize(p_ruin_id: String, def: TownManager.RuinDef) -> void:
 	
 func _on_body_entered(body: Node) -> void:
 	if body.is_in_group("player"):
+		_player_in_area = true
 		# building info available: _ruin_def.building_name, ruin_id, global_position
 		# Toggle label visibility so it works like a floating label
 		var name_label := get_node_or_null("NameLabel") as Label
@@ -107,12 +123,32 @@ func _on_body_entered(body: Node) -> void:
 
 func _on_body_exited(body: Node) -> void:
 	if body.is_in_group("player"):
+		_player_in_area = false
 		var name_label := get_node_or_null("NameLabel") as Label
 		if name_label:
 			name_label.visible = false
 		var hud := get_tree().get_first_node_in_group("hud")
 		if hud and hud.has_method("hide_interaction_prompt"):
 			hud.hide_interaction_prompt()
+
+## Periodically re-asserts our interaction prompt while the player is in range.
+## The shared HUD prompt label is also written by PlayerInteractor (nearby
+## interactables) and the mine prompt timer, which can hide it after we showed
+## it. Re-asserting every 0.15s keeps the rubble prompt visible until the player
+## walks away, while still deferring to an active interactable prompt.
+func _on_prompt_reassert_tick() -> void:
+	if not _player_in_area:
+		return
+	var hud := get_tree().get_first_node_in_group("hud")
+	if not hud or not hud.has_method("show_interaction_prompt"):
+		return
+	# Don't fight an active Interactable prompt (trees, rocks, animals, etc.).
+	if hud.has_method("is_interactable_prompt_active") and hud.is_interactable_prompt_active():
+		return
+	var prompt: String = _get_prompt_text()
+	if prompt.is_empty():
+		return
+	hud.show_interaction_prompt(prompt)
 
 func _get_prompt_text() -> String:
 	if not _town_manager:

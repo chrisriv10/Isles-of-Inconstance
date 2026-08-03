@@ -1591,6 +1591,12 @@ func show_interaction_prompt(text: String) -> void:
 func hide_interaction_prompt() -> void:
 	interaction_prompt_panel.visible = false
 
+## Returns true if a regular Interactable (tree, rock, animal, etc.) is
+## currently driving the shared interaction prompt. Used by RuinStructure so
+## its periodic prompt re-assertion doesn't fight with the PlayerInteractor.
+func is_interactable_prompt_active() -> bool:
+	return _last_interactable != null and is_instance_valid(_last_interactable)
+
 func _on_interactable_in_range(interactable: Interactable) -> void:
 	# Ignore signals while the HUD is leaving the tree (session teardown on
 	# the client): get_tree() returns null there, which crashes with

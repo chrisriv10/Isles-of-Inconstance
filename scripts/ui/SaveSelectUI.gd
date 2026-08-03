@@ -386,9 +386,13 @@ func _on_rename_confirmed(slot_idx: int, line_edit: LineEdit, dialog: AcceptDial
 
 
 func _on_delete_slot(slot_idx: int) -> void:
-	# Look up the save display name for the confirmation text
+	# Look up the save display name for the confirmation text.
+	# Mirror the fallback chain used in _refresh_slot so the dialog shows the
+	# same name as the slot list (save_name, then player_name, then "Slot N").
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
 	var display_name: String = info.get("save_name", "")
+	if display_name.is_empty():
+		display_name = info.get("player_name", "")
 	if display_name.is_empty():
 		display_name = SAVE_SLOT_NAMES[slot_idx]
 
