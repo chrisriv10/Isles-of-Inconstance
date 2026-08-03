@@ -2076,10 +2076,12 @@ func _setup_chat() -> void:
 	margin.add_theme_constant_override("margin_right", 10)
 	margin.add_theme_constant_override("margin_top", 6)
 	margin.add_theme_constant_override("margin_bottom", 6)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_chat_panel.add_child(margin)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(vbox)
 
 	var header := HBoxContainer.new()
@@ -2117,17 +2119,21 @@ func _setup_chat() -> void:
 	_chat_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_chat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_chat_scroll.custom_minimum_size = Vector2(0, 120)
+	_chat_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_scroll.custom_minimum_size = Vector2(200, 120)
 	vbox.add_child(_chat_scroll)
 
 	_chat_text = RichTextLabel.new()
 	_chat_text.bbcode_enabled = true
-	_chat_text.fit_content = true
+	_chat_text.fit_content = false
 	_chat_text.scroll_following = true
 	_chat_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_chat_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_chat_text.add_theme_font_size_override("normal_font_size", 14)
 	_chat_text.add_theme_color_override("default_color", Color(1, 1, 1, 0.9))
 	_chat_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chat_text.custom_minimum_size = Vector2(200, 0)
 	_chat_scroll.add_child(_chat_text)
 
 	_chat_input = LineEdit.new()
