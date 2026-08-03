@@ -697,7 +697,9 @@ func _find_resident_for_building(b_cell: Vector2i, tree_node: Node) -> Dictionar
 	var residents: Array[Node] = tree_node.get_tree().get_nodes_in_group("town_residents")
 	for r in residents:
 		if r is TownResidentNPC:
-			if r.global_position.distance_squared_to(search_pos) < 64.0:
+			# Residents stand at their door ~32px below the building center, so
+			# use a generous 48px tolerance (was 8px, which never matched).
+			if r.global_position.distance_squared_to(search_pos) < 2304.0:
 				return {"name": r.npc_name, "visitor_type": r.visitor_type}
 	return {}
 

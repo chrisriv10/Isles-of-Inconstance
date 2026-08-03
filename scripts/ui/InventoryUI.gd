@@ -323,7 +323,7 @@ func _preload_armor_bg_icons() -> void:
 	_armor_bg_icons["chestplate"] = load("res://assets/generated/slot_chestplate_frame_0.png")
 	_armor_bg_icons["leggings"] = load("res://assets/generated/slot_leggings_frame_0.png")
 	_armor_bg_icons["boots"] = load("res://assets/generated/slot_boots_frame_0.png")
-	_armor_bg_icons["accessory"] = null  # no bg icon, uses a small star indicator instead
+	_armor_bg_icons["accessory"] = load("res://assets/generated/slot_accessory_frame_0.png")
 
 
 func _build_armor_slots() -> void:

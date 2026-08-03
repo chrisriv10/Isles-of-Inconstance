@@ -237,45 +237,45 @@ func _process(delta: float) -> void:
 			_move_toward(home_position, delta * 1.5)
 			if _has_arrived(home_position, 12.0):
 				_switch_to("inside")
+	
+	# Sparse ambient chatter — a short quip every so often while visible.
+	_chatter_timer -= delta
+	if _chatter_timer <= 0.0:
+		_chatter_timer = 30.0 + randf() * 30.0
+		if visible and (_current_schedule == "wander" or _current_schedule == "post"):
+			show_dialogue(_get_ambient_line(), 2.5)
 
 func _update_schedule() -> void:
 	if not GameManager.day_night:
 		return
 	var hour: int = GameManager.get_hour()
 	
-	# Day-night cycle schedule for natural inside/outside rhythm:
-	# 6:00-8:00   — inside (waking up, invisible)
-	# 8:00-10:00  — wander (come outside, wander near home)
-	# 10:00-12:00 — inside (back inside doing chores)
+	# Day-night cycle schedule for natural inside/outside rhythm.
+	# Residents are out and about most of the day so the town feels alive:
+	# 22:00-6:00  — sleep, invisible inside
+	# 6:00-8:00   — inside (waking up)
+	# 8:00-12:00  — wander (morning — out in town)
 	# 12:00-14:00 — post (at workplace offering services)
 	# 14:00-15:00 — inside (afternoon break)
-	# 15:00-17:00 — wander (wander town)
-	# 17:00-18:00 — inside (back home)
-	# 18:00-20:00 — wander (evening stroll)
-	# 20:00-21:00 — home (heading inside for the night)
-	# 21:00-6:00  — inside (sleeping, invisible)
+	# 15:00-20:00 — wander (afternoon/evening — out in town)
+	# 20:00-22:00 — home (heading inside for the night)
 	
-	if hour >= 21 or hour < 6:
+	if hour >= 22 or hour < 6:
 		_switch_to("sleep" if _has_interior else "wander")
 	elif hour >= 6 and hour < 8:
 		_switch_to("inside" if _has_interior else "wander")
-	elif hour >= 8 and hour < 10:
+	elif hour >= 8 and hour < 12:
 		_switch_to("wander")
-	elif hour >= 10 and hour < 12:
-		_switch_to("inside" if _has_interior else "wander")
 	elif hour >= 12 and hour < 14:
 		_switch_to("post" if _has_interior else "wander")
 	elif hour >= 14 and hour < 15:
 		_switch_to("inside" if _has_interior else "wander")
-	elif hour >= 15 and hour < 17:
+	elif hour >= 15 and hour < 20:
 		_switch_to("wander")
-	elif hour >= 17 and hour < 18:
-		_switch_to("inside" if _has_interior else "wander")
-	elif hour >= 18 and hour < 20:
-		_switch_to("wander")
-	else:
-		# 20-21 — head home, then go inside
+	elif hour >= 20 and hour < 22:
 		_switch_to("home" if _has_interior else "wander")
+	else:
+		_switch_to("sleep" if _has_interior else "wander")
 
 
 ## Switch schedule and handle visibility transitions.
@@ -349,6 +349,9 @@ func _has_arrived(target: Vector2, threshold: float) -> bool:
 # Wander logic (similar to VisitorNPC)
 var _wander_timer: float = 0.0
 
+## Cooldown before the next sparse ambient quip
+var _chatter_timer: float = 15.0 + randf() * 20.0
+
 func _wander_update(delta: float) -> void:
 	if not _is_wandering:
 		_pick_wander_target()
@@ -367,18 +370,20 @@ func _wander_update(delta: float) -> void:
 
 func _pick_wander_target() -> void:
 	if not _world or not _world.has_method("is_cell_walkable"):
-		# Fallback: wander within a few tiles of home (same range as town wander below)
-		_target_pos = home_position + Vector2(randf_range(-64, 64), randf_range(-48, 48))
+		# Fallback: wander in a mid ring so they keep moving around the town
+		_target_pos = home_position + Vector2.from_angle(randf() * TAU) * randf_range(80.0, 160.0)
 		_wander_timer = 2.0 + randf() * 2.0
 		return
 	
 	# Wander throughout the town district (wide range)
-	for _attempt in 30:
-		var offset := Vector2(randf_range(-300, 300), randf_range(-200, 200))
+	for _attempt in 60:
+		var offset := Vector2(randf_range(-420, 420), randf_range(-300, 300))
 		var candidate := home_position + offset
 		var cell := Vector2i(int(candidate.x / 16), int(candidate.y / 16))
 		if _world.has_method("_is_in_bounds") and _world._is_in_bounds(cell):
-			if _world.is_cell_walkable(candidate):
+			# Reject targets that are blocked by a building/wall so the resident
+			# doesn't get stuck pushing against a building face near home.
+			if _world.is_cell_walkable(candidate) and _can_move_to(candidate):
 				# Check not too close to current position
 				if _is_wandering and candidate.distance_squared_to(global_position) < 400.0:
 					continue
@@ -386,8 +391,8 @@ func _pick_wander_target() -> void:
 				_wander_timer = 2.0 + randf() * 2.0
 				return
 	
-	# No walkable cell found — pick a nearby spot so they still move around
-	_target_pos = home_position + Vector2(randf_range(-48, 48), randf_range(-48, 48))
+	# No walkable cell found — wander in a mid ring so they still move around
+	_target_pos = home_position + Vector2.from_angle(randf() * TAU) * randf_range(80.0, 160.0)
 	_wander_timer = 2.0 + randf() * 2.0
 
 # Interaction — _on_body_entered / _on_body_exited are defined below (after open_quest_dialogue)
@@ -423,6 +428,29 @@ func _get_greeting() -> String:
 		Role.STABLEHAND:
 			return ["The horses are well-fed today.", "Want to go for a ride?", "I've been training a new foal."][rng.randi() % 3]
 	return "Hello!"
+
+## Sparse ambient quip while out and about (kept subtle — just a flavor line).
+func _get_ambient_line() -> String:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	match role:
+		Role.VILLAGER:
+			return ["Lovely weather today.", "The gardens are coming along nicely.", "Fresh air does a body good."][rng.randi() % 3]
+		Role.BAKER:
+			return ["The ovens are warm today.", "I'll have fresh loaves later."][rng.randi() % 2]
+		Role.CHEF:
+			return ["Just picked some herbs for tonight.", "The menu changes with the seasons."][rng.randi() % 2]
+		Role.INNKEEPER:
+			return ["The tavern will be lively tonight.", "A warm drink for a long day."][rng.randi() % 2]
+		Role.BLACKSMITH:
+			return ["The forge never sleeps.", "Need something mended?"][rng.randi() % 2]
+		Role.SHOPKEEP:
+			return ["Restocking the shelves today.", "Fresh goods are on the way."][rng.randi() % 2]
+		Role.SCHOLAR:
+			return ["I found a curious passage today.", "There's always more to learn."][rng.randi() % 2]
+		Role.STABLEHAND:
+			return ["The horses are restless today.", "A good gallop clears the mind."][rng.randi() % 2]
+	return "A quiet day in town."
 
 ## Track whether the player is in range for interaction
 var _player_in_range: bool = false

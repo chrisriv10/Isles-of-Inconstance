@@ -276,6 +276,11 @@ func _spawn_pirate_ship() -> void:
 	_pirate_ship_sprite.position = berth_pos
 	_pirate_ship_sprite.z_index = 10
 	_world_ref.add_child(_pirate_ship_sprite)
+	# If a visitor ship is docked at the shared center berth, shift it south
+	# below the pirate ship so the two don't overlap during the raid.
+	for ship in get_tree().get_nodes_in_group("visitor_ships"):
+		if ship.has_method("displace_for_pirate"):
+			ship.displace_for_pirate()
 	# Add a subtle bob animation
 	var btw := _pirate_ship_sprite.create_tween()
 	btw.set_loops()
@@ -290,6 +295,11 @@ func _remove_pirate_ship() -> void:
 		tween.tween_property(_pirate_ship_sprite, "modulate:a", 0.0, 0.5)
 		tween.tween_callback(_pirate_ship_sprite.queue_free)
 	_pirate_ship_sprite = null
+	# The shared center berth is free again — let any displaced visitor ship
+	# slide back up to its original spot.
+	for ship in get_tree().get_nodes_in_group("visitor_ships"):
+		if ship.has_method("restore_berth"):
+			ship.restore_berth()
 
 
 func _spawn_wave() -> void:
