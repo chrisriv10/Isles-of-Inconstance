@@ -79,6 +79,14 @@ const HOTEL_ARRIVAL_DIST_SQ: float = 600.0
 static func get_npc_name(ntype: int) -> String:
 	return get_npc_names(ntype)[0]
 
+## Pick a random name from the pool so same-type residents/visitors don't all
+## share the identical name (get_npc_name always returns the first entry).
+static func get_random_npc_name(ntype: int) -> String:
+	var pool: Array[String] = get_npc_names(ntype)
+	if pool.is_empty():
+		return "Resident"
+	return pool[randi() % pool.size()]
+
 ## Possible names per NPC type (pick randomly for variety).
 static func get_npc_names(ntype: int) -> Array[String]:
 	match ntype:
@@ -161,7 +169,7 @@ func _ready() -> void:
 func _setup_dialogue() -> void:
 	_dialogue_bubble = Node2D.new()
 	_dialogue_bubble.name = "DialogueBubble"
-	_dialogue_bubble.position = Vector2(0, -18)
+	_dialogue_bubble.position = Vector2(0, -32)
 	# Draw above building sprites (z=0) and the NPC sprite (z=4) so the
 	# bubble never gets cut off behind town buildings.
 	_dialogue_bubble.z_index = 5
@@ -169,6 +177,8 @@ func _setup_dialogue() -> void:
 	
 	_dialogue_label = Label.new()
 	_dialogue_label.name = "DialogueLabel"
+	# Center the 72px-wide bubble horizontally over the NPC (sprite is ~16px).
+	_dialogue_label.position = Vector2(-36, 0)
 	_dialogue_label.size = Vector2(72, 16)
 	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dialogue_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -423,26 +433,30 @@ func show_dialogue(msg: String, duration: float = 2.0) -> void:
 ## In multiplayer, clients forward the request to the host, which performs
 ## the conversion and broadcasts the result so every peer ends up with the
 ## same resident. Hosts convert locally and broadcast.
-func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String, home_cell: Vector2i) -> void:
+func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String, home_cell: Vector2i, resident_name: String = "") -> void:
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		var world := get_tree().get_first_node_in_group("world")
 		if world and world.has_method("request_convert_resident"):
 			world.request_convert_resident(role_name, home_ruin_id, home_cell, npc_type, _synced_index)
 		return
-	_finish_conversion(npc_id, role_name, home_ruin_id, home_cell)
+	# Pick the resident's name once so the local spawn and the network
+	# broadcast use the identical name. Callers (ResidentRecruiter) can pass
+	# a pre-generated name so their UI matches the actual resident.
+	if resident_name.is_empty():
+		resident_name = VisitorNPC.get_random_npc_name(npc_type)
+	_finish_conversion(npc_id, resident_name, role_name, home_ruin_id, home_cell)
 	if NetworkManager.is_network_active() and multiplayer.is_server():
 		var world := get_tree().get_first_node_in_group("world")
 		if world and world.has_method("broadcast_convert_resident"):
-			world.broadcast_convert_resident(npc_id, VisitorNPC.get_npc_name(npc_type), role_name, home_ruin_id, home_cell, npc_type, _synced_index)
+			world.broadcast_convert_resident(npc_id, resident_name, role_name, home_ruin_id, home_cell, npc_type, _synced_index)
 
 
 ## Run the local conversion: spawn the resident, register it with the town
 ## manager, and remove this visitor.
-func _finish_conversion(npc_id: String, role_name: String, home_ruin_id: String, home_cell: Vector2i) -> void:
+func _finish_conversion(npc_id: String, resident_name: String, role_name: String, home_ruin_id: String, home_cell: Vector2i) -> void:
 	var world := get_tree().get_first_node_in_group("world")
 	if not world:
 		return
-	var resident_name: String = VisitorNPC.get_npc_name(npc_type)
 	VisitorNPC.spawn_resident_from(world, npc_id, resident_name, role_name, home_ruin_id, home_cell, npc_type)
 	var town_mgr := get_tree().get_first_node_in_group("town_manager") as TownManager
 	if town_mgr:

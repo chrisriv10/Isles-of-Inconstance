@@ -594,7 +594,7 @@ func _on_enter_interior(interactor: Node, b_type: int, b_cell: Vector2i, world_r
 		# Find and pass resident info so the NPC appears in the interior
 		var resident_data := _find_resident_for_building(b_cell, building_node)
 		if not resident_data.is_empty():
-			interior.set_resident_info(resident_data.name, resident_data.visitor_type)
+			interior.set_resident_info(resident_data.name, resident_data.visitor_type, resident_data.npc_id)
 		world_ref.enter_building(interior)
 
 ## Called when the player presses E near a decorative building.
@@ -689,7 +689,7 @@ func _find_hotel_on_building(building_node: Node) -> Hotel:
 
 
 ## Find a recruited resident whose home position matches the given building cell.
-## Returns a dict {name, visitor_type} or an empty dict if none found.
+## Returns a dict {name, visitor_type, npc_id} or an empty dict if none found.
 func _find_resident_for_building(b_cell: Vector2i, tree_node: Node) -> Dictionary:
 	if not tree_node or not tree_node.is_inside_tree():
 		return {}
@@ -700,7 +700,7 @@ func _find_resident_for_building(b_cell: Vector2i, tree_node: Node) -> Dictionar
 			# Residents stand at their door ~32px below the building center, so
 			# use a generous 48px tolerance (was 8px, which never matched).
 			if r.global_position.distance_squared_to(search_pos) < 2304.0:
-				return {"name": r.npc_name, "visitor_type": r.visitor_type}
+				return {"name": r.npc_name, "visitor_type": r.visitor_type, "npc_id": r.npc_id}
 	return {}
 
 

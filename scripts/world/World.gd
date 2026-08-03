@@ -4198,7 +4198,7 @@ func _server_convert_resident(role_name: String, home_ruin_id: String, cell_x: i
 	if not _free_visitor_by_synced_index(synced_index):
 		return
 	var npc_id: String = "resident_%s_%d" % [home_ruin_id, Time.get_unix_time_from_system()]
-	var resident_name: String = VisitorNPC.get_npc_name(vtype)
+	var resident_name: String = VisitorNPC.get_random_npc_name(vtype)
 	VisitorNPC.spawn_resident_from(self, npc_id, resident_name, role_name, home_ruin_id, Vector2i(cell_x, cell_y), vtype)
 	_register_converted_resident(npc_id, resident_name, role_name, home_ruin_id, vtype)
 	rpc("_sync_convert_resident", npc_id, resident_name, role_name, home_ruin_id, cell_x, cell_y, vtype, synced_index)

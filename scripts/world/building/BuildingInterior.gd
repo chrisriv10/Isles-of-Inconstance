@@ -25,6 +25,7 @@ var bed: Area2D = null
 ## a home interior that belongs to a recruited NPC.
 var _resident_name: String = ""
 var _resident_visitor_type: int = -1
+var _resident_npc_id: String = ""
 
 signal exited_interior()
 
@@ -153,9 +154,10 @@ func _map_building_to_interior(b_type: int) -> int:
 ## NOTE: set_resident_info is called AFTER setup() (which runs the room
 ## generator), so spawning the resident must happen here — the generator's
 ## own calls were no-ops because _resident_visitor_type was still -1.
-func set_resident_info(name: String, visitor_type: int) -> void:
+func set_resident_info(name: String, visitor_type: int, npc_id: String = "") -> void:
 	_resident_name = name
 	_resident_visitor_type = visitor_type
+	_resident_npc_id = npc_id
 	call_deferred("_spawn_resident_npc")
 
 func _generate_interior() -> void:
@@ -1765,8 +1767,9 @@ func _spawn_npc_dialogue(pos: Vector2, text: String, duration: float = 3.5) -> v
 	container.add_child(label)
 	parent.add_child(container)
 	
-	# Center above the NPC
-	container.position = pos - Vector2(36, 16)
+	# Center above the NPC, high enough to clear the 24px-tall sprite
+	# (its top edge sits ~12px above the origin).
+	container.position = pos - Vector2(36, 30)
 	
 	# Fade in, hold, fade out
 	container.modulate.a = 0.0
@@ -1851,10 +1854,20 @@ func _spawn_resident_npc() -> void:
 		return
 	
 	var tex: Texture2D = _get_npc_texture_for_visitor_type(_resident_visitor_type)
+	var tint: Color = Color.WHITE
+	# Match the resident's own random sprite variant + role tint so the interior
+	# NPC looks like the same person you see outside (not a different texture).
+	var resident_node := _find_resident_node()
+	if resident_node and resident_node.has_node("Sprite2D"):
+		var resident_sprite := resident_node.get_node("Sprite2D") as Sprite2D
+		if resident_sprite and resident_sprite.texture:
+			tex = resident_sprite.texture
+			tint = resident_sprite.modulate
 	
 	# Create the NPC sprite
 	var npc := Sprite2D.new()
 	npc.texture = tex
+	npc.modulate = tint
 	npc.z_index = 3
 	npc.position = Vector2(_room_width * 0.5, _room_height * 0.5)
 	add_child(npc)
@@ -1872,14 +1885,31 @@ func _spawn_resident_npc() -> void:
 	npc.add_child(wander)
 
 
+## Find the recruited resident NPC in the world by its unique id.
+func _find_resident_node() -> TownResidentNPC:
+	if _resident_npc_id.is_empty():
+		return null
+	if not is_inside_tree():
+		return null
+	for n in get_tree().get_nodes_in_group("town_residents"):
+		if n is TownResidentNPC and n.npc_id == _resident_npc_id:
+			return n as TownResidentNPC
+	return null
+
+
 ## Check whether this resident is currently inside their building (vs outside
 ## wandering, at their post, or heading home). Returns true if the resident
 ## should appear in the interior view.
 func _is_resident_currently_inside() -> bool:
+	# Unique-id lookup first (names can collide between same-type residents).
+	var resident_node := _find_resident_node()
+	if resident_node:
+		return resident_node.is_inside_building()
 	if _resident_name.is_empty():
 		return false
 	if not is_inside_tree():
 		return true  # Can't reach the world tree — spawn anyway as fallback
+	# Name fallback for residents assigned before npc ids were propagated.
 	for n in get_tree().get_nodes_in_group("town_residents"):
 		if n is TownResidentNPC and n.npc_name == _resident_name:
 			return n.is_inside_building()
