@@ -1878,8 +1878,9 @@ func _spawn_resident_npc() -> void:
 func _is_resident_currently_inside() -> bool:
 	if _resident_name.is_empty():
 		return false
-	var all_npcs: Array[Node] = get_tree().get_nodes_in_group("town_residents") if is_inside_tree() else []
-	for n in all_npcs:
+	if not is_inside_tree():
+		return true  # Can't reach the world tree — spawn anyway as fallback
+	for n in get_tree().get_nodes_in_group("town_residents"):
 		if n is TownResidentNPC and n.npc_name == _resident_name:
 			return n.is_inside_building()
 	# No matching NPC found — spawn anyway as fallback

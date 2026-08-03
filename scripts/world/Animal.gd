@@ -2588,7 +2588,8 @@ func _is_near_any_fence() -> bool:
 
 
 ## Returns true if the given world position is on a walkable tile
-## (not water, edge, out of bounds, or occupied by a fence).
+## (not water, edge, out of bounds, occupied by a fence, or a building/shop
+## blocker). Animals teleport-walk, so physics blockers must be checked by hand.
 ## On expedition islands, checks against the island's own tile grid instead
 ## of the main world's (which is offset to INTERIOR_VOID and would be out
 ## of bounds for every position on the island).
@@ -2607,7 +2608,9 @@ func _is_walkable_position(pos: Vector2) -> bool:
 			var local_y: float = pos.y - island_pos.y
 			var cell_x: int = int(local_x / 16)
 			var cell_y: int = int(local_y / 16)
-			return not island_node.call("is_water_tile", cell_x, cell_y)
+			if island_node.call("is_water_tile", cell_x, cell_y):
+				return false
+			return not _is_blocked_by_building(pos)
 
 	if not _world_ref:
 		return true  # can't check, assume walkable
@@ -2622,7 +2625,26 @@ func _is_walkable_position(pos: Vector2) -> bool:
 			cell = Vector2i(int(pos.x / 16), int(pos.y / 16))
 		if _world_ref.is_fence_at_cell(cell):
 			return false
+	# Also avoid walking onto building/shop blockers (collision layer 8)
+	if _is_blocked_by_building(pos):
+		return false
 	return true
+
+
+## Returns true if a building/shop physics blocker (collision layer 8) covers
+## the given world position, so animals don't walk on top of their sprites.
+func _is_blocked_by_building(pos: Vector2) -> bool:
+	var shape_node := get_node_or_null("CollisionShape2D")
+	if shape_node == null or shape_node.shape == null:
+		return false
+	if get_world_2d() == null:
+		return false
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = shape_node.shape
+	query.transform = Transform2D(0.0, pos)
+	query.collision_mask = 8  # building/shop/fence blocker layer
+	return not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty()
+
 
 func _on_wander_timer_timeout() -> void:
 	if behavior == Behavior.IDLE:

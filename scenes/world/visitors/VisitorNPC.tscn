@@ -36,5 +36,6 @@ size = Vector2(80, 12)
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 1, 0.8, 1)
 theme_override_font_sizes/font_size = 9
+z_index = 5
 
 [node name="WanderTimer" type="Timer" parent="."]
