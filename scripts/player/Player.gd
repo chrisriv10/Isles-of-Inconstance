@@ -580,11 +580,11 @@ func _physics_process(delta: float) -> void:
 		# Dock visible-artwork area is always walkable.
 		var in_dock_area: bool = _world.has_method(&"is_cell_in_dock_area") and _world.is_cell_in_dock_area(cur_cell)
 		if not in_dock_area:
-			# Outside the approved area — snap back if the visual tile is water.
-			var atlas: Vector2i = _ground_layer.get_cell_atlas_coords(cur_cell)
-			if atlas.x == 3 and atlas.y == 0:
-				global_position = snapback_position
-			elif _world.has_method(&"is_water_tile") and _world.is_water_tile(cur_cell):
+			# Outside the approved area — snap back if the tile is truly water
+			# (source-aware: biome tiles like cherry_grove_3 share water's atlas
+			# coords (3,0) in source 1 but are walkable land, so they must not
+			# trigger the snap-back).
+			if _is_water_cell(_world, cur_cell):
 				global_position = snapback_position
 
 	if input_direction != Vector2.ZERO:
