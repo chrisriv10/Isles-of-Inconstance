@@ -25,7 +25,7 @@ expand_margin_bottom = 2.0
 axis_stretch_horizontal = 1
 axis_stretch_vertical = 1
 region_rect = Rect2(0, 0, 32, 32)
-modulate_color = Color(0.4, 0.25, 0.1, 1)
+modulate_color = Color(0.68, 0.5, 0.3, 1)
 
 [node name="HUD" type="CanvasLayer" unique_id=823216769]
 script = ExtResource("1")

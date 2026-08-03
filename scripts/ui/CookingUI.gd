@@ -122,6 +122,16 @@ func refresh() -> void:
 			var can_cook := cs.can_cook(meal.id)
 			var row := HBoxContainer.new()
 
+			# Result icon shown to the side of the recipe
+			var result_item: ItemData = DataManager.get_item(meal.id)
+			var icon_rect := TextureRect.new()
+			icon_rect.custom_minimum_size = Vector2(28, 28)
+			icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon_rect.texture = result_item.icon if result_item else null
+			icon_rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(icon_rect)
+
 			# Name + buff info
 			var name_vbox := VBoxContainer.new()
 			name_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -71,6 +71,9 @@ func open() -> void:
 	panel.visible = true
 	_record_surrounding_cells()
 	_render_map()
+	# Wait a frame so the map texture has been laid out at its final
+	# (scaled-to-fit) size before positioning the player marker on it.
+	await get_tree().process_frame
 	_update_player_marker()
 
 

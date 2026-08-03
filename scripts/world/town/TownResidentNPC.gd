@@ -166,7 +166,7 @@ func initialize(p_id: String, p_name: String, p_role: int, p_home_id: String, p_
 func _setup_dialogue() -> void:
 	_dialogue_bubble = Node2D.new()
 	_dialogue_bubble.name = "DialogueBubble"
-	_dialogue_bubble.position = Vector2(0, -18)
+	_dialogue_bubble.position = Vector2(0, -32)
 	# Draw above building sprites (z=0) and the NPC sprite (z=3) so the
 	# bubble never gets cut off behind town buildings.
 	_dialogue_bubble.z_index = 5
@@ -174,6 +174,8 @@ func _setup_dialogue() -> void:
 	
 	_dialogue_label = Label.new()
 	_dialogue_label.name = "DialogueLabel"
+	# Center the 72px-wide bubble horizontally over the NPC (sprite is ~16px).
+	_dialogue_label.position = Vector2(-36, 0)
 	_dialogue_label.size = Vector2(72, 16)
 	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dialogue_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

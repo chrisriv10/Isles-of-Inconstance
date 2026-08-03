@@ -135,11 +135,11 @@ func _build_all_tabs() -> void:
 ## Show a placeholder tab with a lock icon and instructions for locked tabs.
 func _build_locked_tab_placeholder(tab_title: String) -> void:
 	var vbox := _make_scroll_container(tab_title)
-	_add_hint(vbox, "🔒 This section is locked. Visit the Library in the Ruined Town and pay gold to unlock it.")
+	_add_hint(vbox, "🔒 This section is locked. Visit the Library in Tidehaven and pay gold to unlock it.")
 	_add_entry(vbox, tab_title, "Locked — Research Required",
 		"This encyclopedia section can be unlocked by researching at the Library.\n"
 		+ "Cost: $50 per section.\n"
-		+ "Find the Library in the Ruined Town and speak with the scholar.",
+		+ "Find the Library in Tidehaven and speak with the scholar.",
 		null, Color(0.5, 0.5, 0.5))
 
 func _make_scroll_container(title: String) -> VBoxContainer:
@@ -277,13 +277,15 @@ func _add_entry(container: VBoxContainer, entry_name: String, subtitle: String, 
 		text_column.add_child(sub_lbl)
 	
 	if details != "":
-		var det_lbl := Label.new()
+		var det_lbl := RichTextLabel.new()
+		det_lbl.bbcode_enabled = true
 		det_lbl.text = details
-		det_lbl.add_theme_font_size_override("font_size", 10)
-		det_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		det_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+		det_lbl.scroll_active = false
+		det_lbl.fit_content = true
+		det_lbl.add_theme_font_size_override("normal_font_size", 10)
+		det_lbl.add_theme_color_override("default_color", Color(0.6, 0.6, 0.6))
+		det_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		det_lbl.size_flags_horizontal = Control.SIZE_EXPAND | Control.SIZE_FILL
-		det_lbl.max_lines_visible = 6
 		text_column.add_child(det_lbl)
 	
 	hbox.add_child(text_column)
@@ -302,10 +304,13 @@ func _add_hint(container: VBoxContainer, text: String, icon: Texture2D = null) -
 		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tex.size_flags_horizontal = 0
 		hbox.add_child(tex)
-	var lbl := Label.new()
+	var lbl := RichTextLabel.new()
+	lbl.bbcode_enabled = true
 	lbl.text = text
-	lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.8))
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	lbl.scroll_active = false
+	lbl.fit_content = true
+	lbl.add_theme_color_override("default_color", Color(0.6, 0.6, 0.6, 0.8))
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND | Control.SIZE_FILL
 	hbox.add_child(lbl)
 	container.add_child(hbox)
@@ -349,7 +354,7 @@ func _build_crafting_tab() -> void:
 	
 	var crafting_ui := get_tree().get_first_node_in_group("crafting_ui")
 	if not crafting_ui or not crafting_ui.has_method("get_recipes"):
-		_add_hint(vbox, "Press [C] to open the crafting menu. Craft tools, building materials, and more!")
+		_add_hint(vbox, "Press [b]C[/b] to open the crafting menu. Craft tools, building materials, and more!")
 		return
 	
 	var recipes = crafting_ui.get_recipes()
@@ -376,6 +381,74 @@ func _lookup_animal_sprite(animal_id: String) -> Texture2D:
 	var path: String = "res://assets/generated/animal_%s_frame_0.png" % animal_id
 	if ResourceLoader.exists(path):
 		return load(path) as Texture2D
+	return null
+
+## Load a pet's sprite. Pets use pet_<id>_frame_0.png; some only have an
+## animal_<id>_frame_0.png (or the "_man" variant for ice_cream_sandwich).
+## Falls back to the pet egg item icon so every pet always has a visual.
+func _lookup_pet_sprite(pet_id: String) -> Texture2D:
+	if pet_id.is_empty():
+		return null
+	var candidates: Array[String] = [
+		"res://assets/generated/pet_%s_frame_0.png" % pet_id,
+		"res://assets/generated/animal_%s_frame_0.png" % pet_id,
+		"res://assets/generated/animal_%s_man_frame_0.png" % pet_id,
+	]
+	for path in candidates:
+		if ResourceLoader.exists(path):
+			return load(path) as Texture2D
+	# Guaranteed fallback: every pet has a registered <id>_egg item with an icon.
+	var egg: ItemData = DataManager.get_item(pet_id + "_egg")
+	if egg and egg.icon:
+		return egg.icon
+	return null
+
+## Generic icon lookup: tries the registered item icon, then generated
+## icon_<id>_frame_0.png / <id>_frame_0.png files by id.
+func _lookup_asset_icon(item_id: String) -> Texture2D:
+	var item_icon: Texture2D = _lookup_item_icon(item_id)
+	if item_icon:
+		return item_icon
+	if item_id.is_empty():
+		return null
+	for candidate in ["res://assets/generated/icon_%s_frame_0.png", "res://assets/generated/%s_frame_0.png"]:
+		var p: String = candidate % item_id
+		if ResourceLoader.exists(p):
+			return load(p) as Texture2D
+	return null
+
+## Maps biome ground_tile_id to a generated tile icon (assets/generated/).
+const BIOME_TILE_ICONS: Dictionary = {
+	"grass": "res://assets/generated/tile_grass_frame_0.png",
+	"forest_floor": "res://assets/generated/tile_forest_floor_frame_0.png",
+	"bog": "res://assets/generated/tile_bog_frame_0.png",
+	"cobblestone_path": "res://assets/generated/cobblestone_plaza_tile_frame_0.png",
+	"dirt": "res://assets/generated/tile_dirt_frame_0.png",
+	"sand": "res://assets/generated/tile_sand_frame_0.png",
+	"fertile_soil": "res://assets/generated/tile_fertile_frame_0.png",
+	"flower_fields": "res://assets/generated/tile_flower_petal_ground_frame_0.png",
+	"pine_forest": "res://assets/generated/tile_pine_needle_ground_frame_0.png",
+	"cherry_grove": "res://assets/generated/cherry_grove_tile_frame_0.png",
+	"savanna": "res://assets/generated/tile_savanna_dry_ground_frame_0.png",
+	"autumn_forest": "res://assets/generated/tile_autumn_leaf_ground_frame_0.png",
+	"snow": "res://assets/generated/snow_tile_v3_frame_0.png",
+	"wetlands": "res://assets/generated/tile_wetlands_marsh_ground_frame_0.png",
+	"jungle": "res://assets/generated/tile_jungle_floor_frame_0.png",
+}
+
+## Loads a biome's ground tile icon from assets/generated/, with generic
+## fallbacks for any ground tile not in the explicit mapping.
+func _lookup_biome_icon(ground_tile_id: String) -> Texture2D:
+	if ground_tile_id.is_empty():
+		return null
+	if BIOME_TILE_ICONS.has(ground_tile_id):
+		var mapped: String = BIOME_TILE_ICONS[ground_tile_id]
+		if ResourceLoader.exists(mapped):
+			return load(mapped) as Texture2D
+	for candidate in ["res://assets/generated/tile_%s_frame_0.png", "res://assets/generated/icon_%s_frame_0.png", "res://assets/generated/%s_frame_0.png"]:
+		var p: String = candidate % ground_tile_id
+		if ResourceLoader.exists(p):
+			return load(p) as Texture2D
 	return null
 
 func _build_alchemy_tab() -> void:
@@ -462,7 +535,7 @@ func _build_cooking_tab() -> void:
 				meal_icon = _lookup_item_icon(recipe_id)
 			var buff_color: Color = Color(0.9, 0.7, 0.3) if meal.buff_type != "none" else Color(0.6, 0.6, 0.6)
 			_add_entry(vbox, meal.display_name + discovered_label, meal.description,
-				"Ingredients: %s\n[Buff: %s]" % [ing_str, buff_str],
+				"Ingredients: %s\n[b]Buff:[/b] %s" % [ing_str, buff_str],
 				meal_icon, buff_color)
 
 func _build_animals_tab() -> void:
@@ -478,7 +551,7 @@ func _build_animals_tab() -> void:
 	
 	# Fish added via the fishing system
 	_add_entry(vbox, "🐟 Fishing", "Requires: Fishing Rod (crafted at workbench)",
-		"Cast line by pressing [E] near water while holding the Fishing Rod. Wait for a bite, then press [E] again to reel it in!\nCommon: Raw Fish, Carp, Perch\nUncommon: Salmon, Trout\nRare: Tuna, Swordfish\nVery Rare: Golden Fish, Moonfish",
+		"Cast line by pressing [b]E[/b] near water while holding the Fishing Rod. Wait for a bite, then press [b]E[/b] again to reel it in!\nCommon: Raw Fish, Carp, Perch\nUncommon: Salmon, Trout\nRare: Tuna, Swordfish\nVery Rare: Golden Fish, Moonfish",
 		null, Color(0.4, 0.7, 1.0))
 	
 	# Dynamically pull animal types from Animal.gd love foods / behavior
@@ -501,6 +574,7 @@ func _build_animals_tab() -> void:
 		{"id": "marshmallow_puff", "name": "Marshmallow Puff (Ice Cream Land)", "food": "Sugar Crystal, Chocolate Chunk", "interaction_drops": "Sugar Crystal (daily)", "behavior": "Floaty & Sweet"},
 		{"id": "licorice_worm", "name": "Licorice Worm (Ice Cream Land)", "food": "Chocolate Chunk, Gumdrop", "interaction_drops": "Chocolate Chunk (daily)", "behavior": "Wiggly & Burrowing"},
 		{"id": "gingerbread_man", "name": "Gingerbread Man (Ice Cream Land)", "food": "Sugar Crystal, Gumdrop", "interaction_drops": "Sugar Crystal (daily)", "behavior": "Sprightly & Sweet-toothed"},
+		{"id": "ice_cream_sandwich_man", "name": "Ice Cream Sandwich Man (Ice Cream Land)", "food": "Gumdrop, Chocolate Chunk", "interaction_drops": "Chocolate Chunk (daily)", "behavior": "Frozen & Easygoing"},
 		{"id": "sand_lizard", "name": "Sand Lizard (Desert)", "food": "Cactus Fruit, Mushroom", "interaction_drops": "Desert Scales (one-time)", "behavior": "Basking & Swift"},
 		{"id": "desert_scorpion", "name": "Desert Scorpion (Desert)", "food": "Cactus Fruit, Berry", "interaction_drops": "Scorpion Stinger (one-time)", "behavior": "Skittish & Poisonous"},
 		{"id": "meerkat", "name": "Meerkat (Desert)", "food": "Cactus Fruit, Nut", "interaction_drops": "Golden Scarab (daily)", "behavior": "Social & Alert"},
@@ -565,8 +639,8 @@ func _build_pets_tab() -> void:
 		var bonus_string: String = _pet_bonus_desc(pet.get("bonus_type", ""), pet.get("bonus_val", 0.0))
 		var owned_text: String = " [Owned]" if PetManager.has_pet(pid) else ""
 		var pet_color: Color = Color(0.6, 0.9, 0.4) if PetManager.has_pet(pid) else Color(0.8, 0.8, 0.8)
-		# Try to load a pet sprite
-		var pet_icon: Texture2D = _lookup_animal_sprite(pid)
+		# Load a pet sprite (falls back so every pet has an icon)
+		var pet_icon: Texture2D = _lookup_pet_sprite(pid)
 		_add_entry(vbox, pet.get("name", pid) + owned_text, bonus_string,
 			pet.get("desc", ""), pet_icon, pet_color)
 
@@ -584,6 +658,8 @@ func _pet_bonus_desc(bonus_type: String, bonus_val: float) -> String:
 			return "+%.0f defense" % bonus_val
 		"growth":
 			return "+%.0f%% crop growth speed" % (bonus_val * 100.0)
+		"speed":
+			return "+%.0f%% movement speed" % (bonus_val * 100.0)
 		_:
 			return bonus_type
 
@@ -601,27 +677,27 @@ func _build_biomes_tab() -> void:
 	var biomes = BiomeLibrary.get_all_biomes()
 	for biome in biomes:
 		var traits_str: String = ", ".join(biome.crop_trait_tags) if biome.crop_trait_tags.size() > 0 else "None"
-		# Try to find a tile texture for the biome ground
-		var biome_icon: Texture2D = null
-		var tile_path: String = "res://assets/sprites/" + biome.ground_tile_id + ".png"
-		if ResourceLoader.exists(tile_path):
-			biome_icon = load(tile_path) as Texture2D
-		var biome_accents: Dictionary = {
-			"grasslands": Color(0.4, 0.8, 0.3),
-			"forest": Color(0.3, 0.6, 0.2),
-			"desert": Color(0.9, 0.75, 0.4),
-			"beach": Color(0.9, 0.85, 0.5),
-			"water": Color(0.3, 0.5, 0.9),
-			"mountains": Color(0.6, 0.6, 0.65),
-			"swamp": Color(0.4, 0.5, 0.3),
-			"tundra": Color(0.7, 0.75, 0.8),
-			"volcanic": Color(0.6, 0.2, 0.1),
+		# Load the biome's ground tile icon from assets/generated/
+		var biome_icon: Texture2D = _lookup_biome_icon(biome.ground_tile_id)
+		var biome_colors: Dictionary = {
+			"Plains": Color(0.4, 0.8, 0.3),
+			"Forest": Color(0.3, 0.6, 0.2),
+			"Dense Forest": Color(0.25, 0.5, 0.25),
+			"Swamp": Color(0.4, 0.5, 0.3),
+			"Mountain": Color(0.6, 0.6, 0.65),
+			"Rocky Hills": Color(0.65, 0.6, 0.5),
+			"Beach": Color(0.9, 0.85, 0.5),
+			"Meadow": Color(0.55, 0.85, 0.45),
+			"Flower Fields": Color(0.95, 0.6, 0.8),
+			"Pine Forest": Color(0.25, 0.5, 0.3),
+			"Cherry Grove": Color(0.95, 0.65, 0.75),
+			"Savanna": Color(0.85, 0.72, 0.4),
+			"Autumn Forest": Color(0.9, 0.55, 0.3),
+			"Snow Fields": Color(0.75, 0.8, 0.9),
+			"Wetlands": Color(0.45, 0.6, 0.55),
+			"Jungle": Color(0.3, 0.7, 0.4),
 		}
-		var b_color: Color = Color(0.6, 0.8, 0.5)
-		for key in biome_accents:
-			if biome.display_name.to_lower().contains(key):
-				b_color = biome_accents[key]
-				break
+		var b_color: Color = biome_colors.get(biome.display_name, Color(0.6, 0.8, 0.5))
 		_add_entry(vbox, biome.display_name, "Terrain: %s" % biome.ground_tile_id,
 			"Movement: %.0f%% | Growth: %.0f%% | Yield: %.0f%%\nCrop Traits: %s | Unique Crop Chance: %.0f%%" % [
 				biome.movement_speed_multiplier * 100.0, biome.crop_growth_multiplier * 100.0,
@@ -641,7 +717,7 @@ func _build_biomes_tab() -> void:
 			"desc": "A frigid expanse covered in snow. Harvest ice crystals and mine diamonds."},
 		{"name": "🍦 Ice Cream Land", "sub": "Strawberry Swirl / Vanilla Frosting / Chocolate Sprinkles",
 			"resources": "Sugar Crystal, Gumdrop, Chocolate Chunk",
-			"animals": "Gummy Bear, Marshmallow Puff, Licorice Worm",
+			"animals": "Gummy Bear, Marshmallow Puff, Licorice Worm, Ice Cream Sandwich Man, Gingerbread Man",
 			"desc": "A sweet confectionary paradise! Everything is made of candy and ice cream."},
 		{"name": "🏜️ Desert Island", "sub": "Sand Dunes / Rocky Badlands / Oasis Pool",
 			"resources": "Gold, Silver, Cactus Fruit",
@@ -670,7 +746,7 @@ func _build_biomes_tab() -> void:
 		_add_entry(vbox, eb.name, "Sub-biomes: " + eb.sub,
 			"Resources: %s\nAnimals: %s\n%s" % [eb.resources, eb.animals, eb.desc],
 			null, ecolor)
-	_add_hint(vbox, "Captain Briggs at the dock charges $100 for a random expedition. You never know which island you'll get!")
+	_add_hint(vbox, "Captain Briggs at the dock charges [b]$50[/b] for a random expedition, or [b]$200[/b] to pick a specific island!")
 
 func _build_buildings_tab() -> void:
 	if "buildings" in _locked_tabs:
@@ -733,19 +809,19 @@ func _build_farming_tab() -> void:
 		null, Color(0.4, 0.9, 0.4))
 	_add_hint(vbox, "These stats track your entire farming journey across all seasons.")
 	
-	_add_hint(vbox, "Press [G] to open the Farming Overview panel. It shows all planted crops, their growth progress, water status, and alerts for disease/mutations.")
-	_add_hint(vbox, "Till soil with the Hoe [1], water with the Watering Can [2], and plant seeds from your inventory.")
+	_add_hint(vbox, "Press [b]G[/b] to open the Farming Overview panel. It shows all planted crops, their growth progress, water status, and alerts for disease/mutations.")
+	_add_hint(vbox, "Till soil with the Hoe ([b]1[/b]), water with the Watering Can ([b]2[/b]), and plant seeds from your inventory.")
 	
-	var soil_icon: Texture2D = _lookup_item_icon("compost")
-	var water_icon: Texture2D = _lookup_item_icon("milk")
+	var soil_icon: Texture2D = _lookup_asset_icon("hoe")
+	var water_icon: Texture2D = _lookup_asset_icon("watering_can")
 	
 	# Crop planting guide
 	_add_entry(vbox, "Farming Basics", "",
-		"Hoe [1]: Till soil by clicking on dirt/grass\n"
-		+ "Watering Can [2]: Water tilled soil (crops need daily water!)\n"
+		"Hoe ([b]1[/b]): Till soil by clicking on dirt/grass\n"
+		+ "Watering Can ([b]2[/b]): Water tilled soil (crops need daily water!)\n"
 		+ "Seeds: Hold in hotbar and click tilled soil to plant\n"
 		+ "Harvest: Click mature crops with empty hand\n"
-		+ "Press [G] anytime to check your farm status",
+		+ "Press [b]G[/b] anytime to check your farm status",
 		soil_icon, Color(0.7, 0.6, 0.3))
 	
 	# Growth factors
@@ -785,12 +861,10 @@ func _build_farming_tab() -> void:
 	# Cooking
 	var crop_icon: Texture2D = _lookup_item_icon("minecraft_wheat")
 	_add_entry(vbox, "Cooking with Farm Produce", "",
-		"Cook meals at a Campfire [craft V] or Kitchen [build]\n"
-		+ "Press [K] near a fire to open cooking menu\n"
-		+ "Meals grant buffs: energy, health, speed, luck, growth\n"
-		+ "Boss drops create super-powered meals:\n"
-		+ "Warden's Brew - massive health | Stag's Elixir - super speed\n"
-		+ "Wyrm's Nectar - great luck | Heart of Life - ultimate restore",
+		"Cook meals at a Campfire or Kitchen (build with [b]V[/b])\n"
+		+ "Press [b]K[/b] near a fire to open the cooking menu\n"
+		+ "Meals grant buffs: energy, health, speed, luck, and growth\n"
+		+ "Experiment with ingredients to discover new recipes",
 		crop_icon, Color(0.9, 0.7, 0.3))
 
 # --- Town Tab ---
@@ -798,34 +872,44 @@ func _build_town_tab() -> void:
 	var vbox := _make_scroll_container("Town")
 	
 	var town_icon: Texture2D = _lookup_item_icon("stone")
-	_add_entry(vbox, "The Ruined Town", "A forgotten settlement on the west side of the island",
+	_add_entry(vbox, "Tidehaven", "A forgotten settlement on the west side of the island",
 		"The town was destroyed long ago. Rubble and crumbling foundations are all that remain.\n"
 		+ "Restore the town to unlock shops, NPCs, and services!\n"
-		+ "Press [N] to open the Town Overview panel and track progress.",
+		+ "Press [b]N[/b] to open the Town Overview panel and track progress.",
 		town_icon, Color(0.9, 0.7, 0.4))
 	
 	var ruins_icon: Texture2D = _lookup_item_icon("stone")
-	_add_entry(vbox, "Ruins", "11 ruined structures to discover and restore",
-		"Approach a ruin and press [E] to clear rubble\n"
+	var ruin_defs: Array = TownManager.get_builtin_ruin_defs()
+	_add_entry(vbox, "Ruins", "%d ruined structures to discover and restore" % ruin_defs.size(),
+		"Approach a ruin and press [b]E[/b] to clear rubble\n"
 		+ "Cleared ruins can be repaired with materials\n"
-		+ "Press [R] near a cleared ruin to open the repair panel\n"
+		+ "Press [b]R[/b] near a cleared ruin to open the repair panel\n"
 		+ "Each ruin needs specific materials (wood, stone, planks, gold)\n"
 		+ "Once complete, the building is fully restored!",
 		ruins_icon, Color(0.7, 0.5, 0.3))
 	
+	var service_desc: Dictionary = {
+		"Cottage": "Houses for new residents",
+		"Bakery": "Timing mini-game to bake bread and pastries",
+		"Restaurant": "Sell crops for better prices, discover recipes",
+		"Tavern": "Resident gathering spot",
+		"Blacksmith": "Tool upgrades and metal working",
+		"General Store": "Shopping and trading hub",
+		"Library": "Pay gold to research lore and encyclopedia entries",
+		"Stable": "Mount and animal transport",
+		"Town Well": "Restored watering source",
+		"Bank": "Deposit gold safely, earns daily interest",
+		"Vendor Stall": "Market stall for trading",
+		"Town Hall": "Village administration",
+		"Hotel": "Lodging for visitors",
+	}
+	var bld_str := ""
+	for rd in ruin_defs:
+		var desc: String = service_desc.get(rd.building_name, "Restores a service for Tidehaven")
+		bld_str += "%s — %s\n" % [rd.building_name, desc]
 	var buildings_icon: Texture2D = _lookup_item_icon("small_home_kit")
 	_add_entry(vbox, "Restored Buildings", "Each restored building provides a unique service",
-		"Cottage x2 — Houses for new residents\n"
-		+ "Bakery — Timing mini-game to bake bread and pastries\n"
-		+ "Restaurant — Sell crops for better prices, discover recipes\n"
-		+ "Tavern — Resident gathering spot\n"
-		+ "Blacksmith — Tool upgrades and metal working\n"
-		+ "General Store — Shopping and trading hub\n"
-		+ "Library — Pay gold to research crop mutations and lore\n"
-		+ "Stable — Mount and animal transport\n"
-		+ "Well — Restored watering source\n"
-		+ "Gate — Town entrance",
-		buildings_icon, Color(0.8, 0.65, 0.35))
+		bld_str.strip_edges(), buildings_icon, Color(0.8, 0.65, 0.35))
 	
 	var residents_icon: Texture2D = _lookup_item_icon("feather")
 	_add_entry(vbox, "Residents & Recruitment", "NPCs that live in your town",
@@ -851,7 +935,7 @@ func _build_town_tab() -> void:
 	var bakery_icon: Texture2D = _lookup_item_icon("bread")
 	_add_entry(vbox, "Bakery Mini-Game", "Bake goods for gold and buffs",
 		"Talk to the baker in the restored Bakery to start a baking session.\n"
-		+ "Press [Space] at the right moment to flip items\n"
+		+ "Press [b]Space[/b] at the right moment to flip items\n"
 		+ "Timing determines quality: Burnt, Normal, Silver, Gold, Iridium\n"
 		+ "Higher quality = more gold and better buffs\n"
 		+ "Iridium quality items provide powerful temporary buffs!",
@@ -881,32 +965,32 @@ func _build_town_tab() -> void:
 
 func _build_bosses_tab() -> void:
 	var vbox := _make_scroll_container("Bosses")
-	_add_hint(vbox, "Bosses are powerful spirits summoned by using special bait items from your hotbar. Each requires specific crops grown on your farm. Bosses must be defeated in order!")
+	_add_hint(vbox, "Bosses are powerful spirits summoned by using special bait items from your hotbar. The baits are crafted in the Crafting menu ([b]C[/b]): Soulberry Pie, Golden Hay Bale, and Nectar Brew are in the [b]Consumables[/b] tab; Essence of Inconstance is in the [b]Alchemy[/b] tab. Equip the bait in your hotbar and use it to summon. Bosses must be defeated in order!")
 	
 	var warden_icon: Texture2D = _lookup_item_icon("wardens_core")
 	_add_entry(vbox, "Root Warden", "Spirit Harvest I — First Boss",
-		"Summon with: Soulberry Pie (craft from 3 soulberries)\n"
-		+ "Drops: Warden's Core\n"
-		+ "Used for: Warden's Brew recipe + Heart of Life Elixir",
+		"Summon with: Soulberry Pie (Crafting → Consumables, 3 soulberry)\n"
+		+ "Drops: Warden's Core + Evergrowth Seed\n"
+		+ "Used for: Essence of Inconstance (crafted in Alchemy tab)",
 		warden_icon, Color(0.4, 0.8, 0.3))
 	
 	var stag_icon: Texture2D = _lookup_item_icon("stags_essence")
 	_add_entry(vbox, "Hollow Stag", "Spirit Harvest II — Second Boss",
-		"Summon with: Golden Hay Bale (craft from 3 golden wheat)\n"
-		+ "Drops: Stag's Essence\n"
-		+ "Used for: Stag's Elixir recipe + Heart of Life Elixir",
+		"Summon with: Golden Hay Bale (Crafting → Consumables, 3 golden wheat)\n"
+		+ "Drops: Stag's Essence + Mythril Ingot\n"
+		+ "Used for: Essence of Inconstance (crafted in Alchemy tab)",
 		stag_icon, Color(0.6, 0.8, 1.0))
 	
 	var wyrm_icon: Texture2D = _lookup_item_icon("wyrms_petal")
 	_add_entry(vbox, "Blooming Wyrm", "Spirit Harvest III — Third Boss",
-		"Summon with: Nectar Brew (craft from 2 nectar blooms + 1 berry)\n"
-		+ "Drops: Wyrm's Petal\n"
-		+ "Used for: Wyrm's Nectar recipe + Heart of Life Elixir",
+		"Summon with: Nectar Brew (Crafting → Consumables, 2 nectar bloom + 1 berry)\n"
+		+ "Drops: Wyrm's Petal + Everbloom Seed\n"
+		+ "Used for: Essence of Inconstance (crafted in Alchemy tab)",
 		wyrm_icon, Color(0.9, 0.4, 0.6))
 	
 	var soul_icon: Texture2D = _lookup_item_icon("soul_of_inconstance")
 	_add_entry(vbox, "Inconstant Soul", "Spirit Harvest IV — Final Boss",
-		"Summon with: Essence of Inconstance (craft from Warden's Core + Stag's Essence + Wyrm's Petal)\n"
+		"Summon with: Essence of Inconstance (crafted from Warden's Core + Stag's Essence + Wyrm's Petal)\n"
 		+ "Drops: Soul of Inconstance\n"
 		+ "Defeating this boss completes the game!",
 		soul_icon, Color(0.8, 0.3, 1.0))
