@@ -318,16 +318,17 @@ func _move_toward(target: Vector2, delta: float) -> void:
 	var step: Vector2 = dir * speed * delta
 	var new_pos: Vector2 = global_position + step
 	# Check if the new position is clear (same walls that block the player).
-	# Water blocks wandering NPCs; returning NPCs may cross it to board.
-	if _can_move_to(new_pos) and (_is_returning or _is_walkable(new_pos)):
+	# Water blocks all NPC movement — returning NPCs only need to reach the
+	# dock walkway, never the ship out in the water.
+	if _can_move_to(new_pos) and _is_walkable(new_pos):
 		global_position = new_pos
 	else:
 		# Blocked — try moving on each axis separately (wall sliding)
 		var slide_x: Vector2 = Vector2(step.x, 0)
-		if _can_move_to(global_position + slide_x) and (_is_returning or _is_walkable(global_position + slide_x)):
+		if _can_move_to(global_position + slide_x) and _is_walkable(global_position + slide_x):
 			global_position.x += slide_x.x
 		var slide_y: Vector2 = Vector2(0, step.y)
-		if _can_move_to(global_position + slide_y) and (_is_returning or _is_walkable(global_position + slide_y)):
+		if _can_move_to(global_position + slide_y) and _is_walkable(global_position + slide_y):
 			global_position.y += slide_y.y
 	# Flip sprite to face direction
 	if dir.x < -0.1:
@@ -380,18 +381,29 @@ func _enter_hotel() -> void:
 	set_process(false)  # Stop processing entirely
 
 ## Begin returning to the ship for departure.
-func return_to_ship(ship_pos: Vector2) -> void:
+func return_to_ship(return_pos: Vector2) -> void:
 	if _checked_in:
 		# Checked-in NPCs don't return — they stay at the hotel until the ship departs
 		return
 	_is_wandering = false
 	_is_returning = true
-	_return_target = ship_pos + Vector2(-32 + randi() % 48, 16)
+	# Small jitter that keeps the target on the dock walkway.
+	_return_target = return_pos + Vector2(randf_range(-12.0, 12.0), randf_range(-4.0, 8.0))
 	speed = 36.0  # Walk faster when returning
 
+## Called when the NPC reaches the dock walkway at departure time.
+## Fades out and disappears there — it never walks across the water to board.
 func _on_arrived_at_ship() -> void:
-	if is_inside_tree():
-		queue_free()
+	if not is_inside_tree():
+		return
+	_is_returning = false
+	set_process(false)
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.45)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(self):
+			queue_free()
+	)
 
 ## Show a dialogue bubble with a message for 2 seconds.
 func show_dialogue(msg: String, duration: float = 2.0) -> void:
@@ -433,8 +445,11 @@ func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String
 	# needs a door position at the bottom edge of the sprite — roughly
 	# 1.5–2 tiles below center (24–36 px depending on sprite size).
 	var door_pos: Vector2 = home_world_pos + Vector2(0, 32)
+	# Post position: a varied stand just off the door so residents don't all
+	# bob at the exact same pixel during their "post" service hours.
+	var post_pos: Vector2 = door_pos + Vector2(randf_range(-10.0, 10.0), 2.0)
 	resident.global_position = door_pos
-	resident.initialize(npc_id, VisitorNPC.get_npc_name(npc_type), role, home_ruin_id, door_pos, door_pos, npc_type)
+	resident.initialize(npc_id, VisitorNPC.get_npc_name(npc_type), role, home_ruin_id, door_pos, post_pos, npc_type)
 	
 	# Add to world's objects root
 	var world := get_tree().get_first_node_in_group("world")

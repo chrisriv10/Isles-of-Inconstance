@@ -4059,13 +4059,18 @@ func _sync_spawn_visitor_ship(roster: Array) -> void:
 	var world_root: Node = get_tree().current_scene
 	if world_root:
 		world_root.add_child(ship)
-	for entry in roster:
+	# Spawn NPCs on the dock walkway (same placement as the host's
+	# _deploy_npcs). Ship-relative offsets would land over water, where
+	# walkability blocks all movement and NPCs stay glued next to the ship.
+	for i in range(roster.size()):
+		var entry: Dictionary = roster[i]
 		var ntype: int = entry.get("type", 0)
 		var npc := NPC_SCENE.instantiate() as VisitorNPC
 		npc.npc_type = ntype
-		npc.home_position = ship.global_position + Vector2(8, 60)
+		var spawn_pos: Vector2 = VisitorShip.dock_spawn_position(dock_pos, i, self)
+		npc.home_position = spawn_pos
 		npc.dock_position = dock_pos
-		npc.global_position = ship.global_position + Vector2(8, 60)
+		npc.global_position = spawn_pos
 		world_root.add_child(npc)
 		# Override RNG-chosen values with synced ones
 		npc._npc_display_name = entry.get("name", VisitorNPC.get_npc_name(ntype))

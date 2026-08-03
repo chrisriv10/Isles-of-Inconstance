@@ -26,8 +26,16 @@ var _npc_roster: Array[Dictionary] = []
 ## Reference to the dock position (set by World)
 var dock_position: Vector2 = Vector2.ZERO
 
-## Current berth offset — positioned left of the dock, close to the gangplank area
-var berth_offset: Vector2 = Vector2(200, -25)
+## Berth spot — the visitor ship shares the center berth (Berth 1) with the
+## pirate ship, which is the highly-visible spot at the dock's edge. When a
+## pirate raid is active at the same time, the visitor ship shifts south below
+## the pirate ship so the two never overlap.
+const BERTH_BASE := Vector2(0, 60)
+## Visitor ship's position when a pirate ship is occupying the shared berth.
+const BERTH_DISPLACED := Vector2(0, 200)
+
+## Current berth offset — normally BERTH_BASE, BERTH_DISPLACED during a raid.
+var berth_offset: Vector2 = BERTH_BASE
 
 ## Whether the ship is currently docked and NPCs are ashore
 var is_docked: bool = false
@@ -53,6 +61,9 @@ func arrive() -> void:
 		return
 	
 	is_docked = true
+	# Pick berth: share the pirate's center berth normally, but shift south
+	# below the pirate ship if a raid is already underway.
+	berth_offset = BERTH_DISPLACED if _pirate_ship_present() else BERTH_BASE
 	# Position at berth
 	global_position = dock_position + berth_offset
 	
@@ -72,6 +83,39 @@ func arrive() -> void:
 	arrival_timer.one_shot = true
 	arrival_timer.wait_time = 2.5
 	arrival_timer.start()
+
+## True when a pirate raid is active (pirate ship at the center berth).
+func _pirate_ship_present() -> bool:
+	var world := get_tree().get_first_node_in_group("world")
+	if world and "pirate_raid" in world:
+		var raid = world.pirate_raid
+		if raid and raid.has_method("is_raid_active"):
+			return raid.is_raid_active()
+	return false
+
+## Called by PirateRaidEvent when a raid starts while we're docked at the
+## shared berth — shift south below the pirate ship so they don't overlap.
+func displace_for_pirate() -> void:
+	if not is_docked or berth_offset == BERTH_DISPLACED:
+		return
+	berth_offset = BERTH_DISPLACED
+	var target := dock_position + berth_offset
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "global_position", target, 1.2)
+
+## Called by PirateRaidEvent when the pirate ship leaves — slide the visitor
+## ship back up to its normal berth at the dock's edge.
+func restore_berth() -> void:
+	if not is_docked or berth_offset == BERTH_BASE:
+		return
+	berth_offset = BERTH_BASE
+	var target := dock_position + berth_offset
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "global_position", target, 1.2)
 
 ## Called after the arrival sail-in animation finishes.
 func _on_arrival_animation_done() -> void:
@@ -100,7 +144,7 @@ func _deploy_npcs() -> void:
 		# The ship berths over water, so spawn NPCs on the dock walkway
 		# (spaced along its right edge toward the ship) instead of
 		# ship-relative offsets that land in the harbor and get stuck.
-		var spawn_pos := _find_dock_spawn_position(i)
+		var spawn_pos := dock_spawn_position(dock_position, i, world)
 		npc.home_position = spawn_pos
 		
 		# Stagger spawns so NPCs walk off the ship one by one
@@ -123,23 +167,24 @@ func _deploy_npcs() -> void:
 	npcs_ashore = true
 
 ## Find a walkable dock position for the i-th deploying NPC. Tries a spread
-## of candidates across the dock walkway, falling back to the dock origin
-## when nothing in range is walkable.
-func _find_dock_spawn_position(index: int) -> Vector2:
-	var world := get_tree().get_first_node_in_group("world")
+## of candidates across the dock walkway, falling back to a jittered spot
+## still on the walkway (never an exact pixel stack) when nothing passes.
+## Static so both the host (_deploy_npcs) and clients (_sync_spawn_visitor_ship)
+## place NPCs identically on the dock instead of ship-relative water offsets.
+static func dock_spawn_position(dock_pos: Vector2, index: int, world: Node = null) -> Vector2:
 	var row: int = index / 4
 	var col: int = index % 4
 	var candidates: Array[Vector2] = [
-		dock_position + Vector2(col * 26.0, 20.0 + row * 18.0),
-		dock_position + Vector2(-16.0 + col * 26.0, 12.0 + row * 18.0),
-		dock_position,
+		dock_pos + Vector2(col * 26.0, 20.0 + row * 18.0),
+		dock_pos + Vector2(-16.0 + col * 26.0, 12.0 + row * 18.0),
+		dock_pos + Vector2(randf_range(-20.0, 20.0), randf_range(0.0, 18.0)),
 	]
 	for candidate in candidates:
 		if not world or not world.has_method("is_cell_walkable"):
 			return candidate
 		if world.is_cell_walkable(candidate):
 			return candidate
-	return dock_position
+	return dock_pos + Vector2(randf_range(-20.0, 20.0), randf_range(0.0, 18.0))
 
 ## Generate a random roster of 3-5 NPCs for this visit.
 ## Always includes at least one vendor and one explorer.
@@ -170,7 +215,9 @@ func generate_roster() -> Array[int]:
 	types.shuffle()
 	return types
 
-## Called when it's time for NPCs to return to the ship.
+## Called when it's time for NPCs to return and disembark.
+## NPCs walk back to the dock walkway (not the ship, which moors over water)
+## and fade out there — they never cross the water to board.
 func recall_npcs() -> void:
 	if not npcs_ashore:
 		return
@@ -178,7 +225,10 @@ func recall_npcs() -> void:
 	for entry in _npc_roster:
 		var npc = entry.get("npc")
 		if is_instance_valid(npc):
-			npc.call_deferred("return_to_ship", global_position)
+			var walkway_target: Vector2 = dock_position + Vector2(
+				randf_range(32.0, 96.0),    # dx 2..6 tiles — on the pier
+				randf_range(-32.0, 8.0))    # dy 1.4..3.9 tiles (dock anchor is +54px below the coast row)
+			npc.call_deferred("return_to_ship", walkway_target)
 	
 	npcs_ashore = false
 	
