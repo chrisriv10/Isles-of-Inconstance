@@ -294,7 +294,23 @@ func _on_recruit_visitor_pressed() -> void:
 			4.0
 		)
 	else:
-		ToastNotification.show_toast("No visitors available, or no vacancies.", ToastNotification.ToastType.WARNING, 2.5)
+		# Give specific feedback so the player knows which condition blocked it.
+		var reason: String = _recruit_failure_reason()
+		ToastNotification.show_toast(reason, ToastNotification.ToastType.WARNING, 2.5)
+
+
+func _recruit_failure_reason() -> String:
+	var town_mgr := get_tree().get_first_node_in_group("town_manager") as TownManager
+	if town_mgr and town_mgr.get_vacancy_count() <= 0:
+		return "No vacant buildings available — restore more ruins first!"
+	var ship_npcs: int = 0
+	var vm := get_tree().get_first_node_in_group("visitor_manager")
+	if vm and vm.has_method("has_active_visitors") and vm.has_active_visitors():
+		ship_npcs = 1
+	var island_npcs: Array[Node] = get_tree().get_nodes_in_group("visitor_npcs")
+	if ship_npcs > 0 or not island_npcs.is_empty():
+		return "Visitors are present but no matching home was found for them."
+	return "No visitors on the island — spawn a visitor boat first, or wait for one to arrive."
 
 
 func _on_spawn_visitor_boat_pressed() -> void:

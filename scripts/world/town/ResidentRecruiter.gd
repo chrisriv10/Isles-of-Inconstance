@@ -19,8 +19,10 @@ func _ready() -> void:
 		pass
 
 ## Called by VisitorManager before NPCs depart for the day.
-## Returns a Dictionary with conversion info, or null if no conversion happens.
+## Returns a Dictionary with conversion info, or an empty Dictionary if
+## no conversion happens.
 func try_recruit() -> Dictionary:
+	_refresh_manager_refs()
 	if not _town_manager or not _visitor_manager:
 		return {}
 	
@@ -28,17 +30,13 @@ func try_recruit() -> Dictionary:
 	if vacancy_count <= 0:
 		return {}  # no vacancies
 	
-	if not _visitor_manager.has_active_visitors():
-		return {}  # no visitors to recruit
-	
-	# Get active NPCs from the ship
-	var ship = _get_active_ship()
-	if not ship or not ship.has_method("get_visitor_npcs"):
-		return {}
-	
-	var visitors: Array = ship.get_visitor_npcs()
+	# Gather candidate visitors: prefer the ship's roster, but fall back to
+	# any valid VisitorNPC on the island. This covers the case where NPCs are
+	# present (e.g. player placed them, or the ship roster is out of sync) but
+	# the active ship's "npcs_ashore" flag is false.
+	var visitors: Array = _collect_visitor_candidates()
 	if visitors.is_empty():
-		return {}
+		return {}  # no visitors to recruit
 	
 	# Pick a random visitor to stay
 	var visitor: Node = visitors[randi() % visitors.size()]
@@ -73,6 +71,42 @@ func try_recruit() -> Dictionary:
 		"home_ruin": preferred_vacancy,
 		"building_name": def.building_name,
 	}
+
+## Re-fetch town/visitor manager references if they were null at _ready time.
+## Guards against spawn-order issues between the ResidentRecruiter node and
+## the TownManager / VisitorManager nodes.
+func _refresh_manager_refs() -> void:
+	if not _town_manager:
+		_town_manager = get_tree().get_first_node_in_group("town_manager")
+	if not _visitor_manager:
+		_visitor_manager = get_tree().get_first_node_in_group("visitor_manager")
+
+## Gather candidate VisitorNPCs to recruit. Prefers the active ship's roster,
+## but also includes any valid VisitorNPC currently in the island's
+## "visitor_npcs" group (covering NPCs that aren't in the ship's roster).
+func _collect_visitor_candidates() -> Array:
+	var candidates: Array = []
+	
+	# 1) The active ship's roster (if there is one)
+	var ship = _get_active_ship()
+	if ship and ship.has_method("get_visitor_npcs"):
+		candidates.append_array(ship.get_visitor_npcs())
+	
+	# 2) Any VisitorNPC on the island not already captured above
+	var seen := {}
+	for c in candidates:
+		if is_instance_valid(c):
+			seen[c.get_instance_id()] = true
+	for npc in get_tree().get_nodes_in_group("visitor_npcs"):
+		if is_instance_valid(npc) and npc.has_method("convert_to_resident") and not seen.has(npc.get_instance_id()):
+			candidates.append(npc)
+	
+	# Filter to valid nodes only
+	var result: Array = []
+	for c in candidates:
+		if is_instance_valid(c) and c.has_method("convert_to_resident"):
+			result.append(c)
+	return result
 
 func _get_active_ship() -> Node:
 	if not _visitor_manager:
