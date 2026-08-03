@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dq32aykjcmr0y"]
 
-[ext_resource type="Script" uid="uid://bbb04uioird8d" path="res://scripts/ui/QuestDialogueUI.gd" id="1_6ea6n"]
+[ext_resource type="Script" uid="uid://cligc08esgulr" path="res://scripts/ui/QuestDialogueUI.gd" id="1_6ea6n"]
 
 [sub_resource type="StyleBoxFlat" id="1"]
 bg_color = Color(0.15, 0.15, 0.18, 1)

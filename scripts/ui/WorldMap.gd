@@ -212,9 +212,10 @@ func _render_map() -> void:
 	_map_texture_obj = ImageTexture.create_from_image(_map_image)
 	map_texture.texture = _map_texture_obj
 
-	# Set map container size
+	# Set map container size (capped so it fits the shrunk panel; the map
+	# texture scales down to fit via KEEP_ASPECT_CENTERED)
 	var map_container: Control = $Panel/Margin/VBox/MapContainer
-	map_container.custom_minimum_size = Vector2(img_w, img_h)
+	map_container.custom_minimum_size = Vector2(mini(img_w, 320), mini(img_h, 320))
 
 	# Build legend
 	_build_legend()
@@ -244,9 +245,9 @@ func _render_expedition_island(expedition: Node) -> void:
 	_map_texture_obj = ImageTexture.create_from_image(_map_image)
 	map_texture.texture = _map_texture_obj
 
-	# Set map container size
+	# Set map container size (capped so it fits the shrunk panel)
 	var map_container: Control = $Panel/Margin/VBox/MapContainer
-	map_container.custom_minimum_size = Vector2(img_w, img_h)
+	map_container.custom_minimum_size = Vector2(mini(img_w, 320), mini(img_h, 320))
 
 
 	# Update title

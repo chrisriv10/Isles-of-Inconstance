@@ -111,8 +111,8 @@ static func show_toast(message: String, type: ToastType = ToastType.INFO, durati
 		toast.anchor_bottom = 0.0
 		toast.offset_right = -20
 		toast.offset_left = -320
-		toast.offset_top = 110
-		toast.offset_bottom = 110
+		toast.offset_top = 150
+		toast.offset_bottom = 150
 	
 	if toast and toast.has_method("_queue_toast"):
 		# If this is a freshly-created toast, _ready() may not have run yet,

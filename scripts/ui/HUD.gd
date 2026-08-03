@@ -945,7 +945,7 @@ func _refresh_raid_alert_position() -> void:
 	if _raid_alert:
 		var root_size: Vector2 = $Root.get_rect().size
 		# Position at top-center, below the objective label panel (which ends at ~y=148)
-		_raid_alert.position = Vector2(root_size.x / 2.0 - 200.0, 152.0)
+		_raid_alert.position = Vector2(root_size.x / 2.0 - 200.0, 175.0)
 
 
 func _on_raid_wave_spawned(wave: int, total_waves: int) -> void:
@@ -2067,7 +2067,7 @@ func _setup_chat() -> void:
 	_chat_panel.anchor_left = 0.0
 	_chat_panel.anchor_top = 0.0
 	_chat_panel.offset_left = 12
-	_chat_panel.offset_top = 150
+	_chat_panel.offset_top = 130
 	_chat_panel.offset_right = 420
 	_chat_panel.offset_bottom = 315
 
