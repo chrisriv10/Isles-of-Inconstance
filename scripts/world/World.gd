@@ -2991,6 +2991,10 @@ func try_enter_mine() -> bool:
 		4.0
 	)
 	
+	# Add the mine room at the void position (deferred so the room builds
+	# after this frame — same pattern as descending to deeper floors).
+	call_deferred("_deferred_setup_mine_room", mine)
+	
 	var hud := get_tree().get_first_node_in_group("hud")
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
