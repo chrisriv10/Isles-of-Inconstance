@@ -341,8 +341,6 @@ func _build_quests_tab() -> void:
 		if qdef.is_empty():
 			continue
 		
-		var state: Dictionary = active[qid]
-		var completed_reqs: Dictionary = state.get("completed_reqs", {})
 		var reqs: Array = qdef.get("requirements", [])
 		var title_str: String = qdef.get("title", "Quest")
 		var desc_str: String = qdef.get("description", "")
@@ -375,7 +373,7 @@ func _build_quests_tab() -> void:
 		for req: Dictionary in reqs:
 			var req_id: String = req.get("id", "")
 			var req_count: int = req.get("count", 1)
-			var done: int = completed_reqs.get(req_id, 0)
+			var done: int = _quest_mgr.get_quest_req_progress(qid, req_id, req_count) if _quest_mgr.has_method("get_quest_req_progress") else 0
 			
 			var req_row := HBoxContainer.new()
 			req_row.custom_minimum_size = Vector2(0, 22)

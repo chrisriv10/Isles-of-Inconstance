@@ -298,17 +298,15 @@ func _update_progress_bar(quest_id: String) -> void:
 	var qdef = QuestManager.get_quest_defs().get(quest_id)  # static method
 	if not qdef:
 		return
-	var state: Dictionary = _qm.active_quests.get(quest_id, {})
 	var reqs: Array = qdef.get("requirements", [])
 	var total_done: int = 0
 	var total_needed: int = 0
-	var completed_reqs: Dictionary = state.get("completed_reqs", {})
 	
 	for req: Dictionary in reqs:
 		var req_id: String = req.get("id", "")
 		var req_count: int = req.get("count", 1)
-		var done: int = completed_reqs.get(req_id, 0)
-		total_done += mini(done, req_count)
+		var done: int = _qm.get_quest_req_progress(quest_id, req_id, req_count) if _qm.has_method("get_quest_req_progress") else 0
+		total_done += done
 		total_needed += req_count
 	
 	progress_bar.max_value = float(total_needed)

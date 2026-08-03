@@ -824,13 +824,22 @@ func is_quest_completable(quest_id: String) -> bool:
 	var reqs: Array = qdef.get("requirements", [])
 	var state: Dictionary = active_quests.get(quest_id, {"completed_reqs": {}})
 	var completed_reqs: Dictionary = state.get("completed_reqs", {})
+	var req_type: int = qdef.get("req_type", -1)
 
 	for req: Dictionary in reqs:
 		var req_id: String = req.get("id", "")
 		var req_count: int = req.get("count", 1)
-		var completed: int = completed_reqs.get(req_id, 0)
-		if completed < req_count:
-			return false
+		if req_type == RequirementType.DELIVER_ITEMS or req_type == RequirementType.COLLECT_ITEMS:
+			# Item-based quests: the player turns in items they are carrying,
+			# so check the actual inventory (progress is "what I hold", the
+			# hand-over happens in the NPC dialogue). Also accept items that
+			# were already reported as delivered.
+			if InventoryManager.get_count(req_id) < req_count and completed_reqs.get(req_id, 0) < req_count:
+				return false
+		else:
+			var completed: int = completed_reqs.get(req_id, 0)
+			if completed < req_count:
+				return false
 	return true
 
 
@@ -868,17 +877,36 @@ func get_quest_progress_text(quest_id: String) -> String:
 	var qdef = get_quest_defs().get(quest_id)
 	if not qdef:
 		return ""
-	var state: Dictionary = active_quests[quest_id]
-	var completed_reqs: Dictionary = state.get("completed_reqs", {})
 	var parts: Array[String] = []
 	var reqs: Array = qdef.get("requirements", [])
 	for req: Dictionary in reqs:
 		var req_id: String = req.get("id", "")
 		var req_count: int = req.get("count", 1)
-		var done: int = completed_reqs.get(req_id, 0)
+		var done: int = get_quest_req_progress(quest_id, req_id, req_count)
 		var display_name: String = _quest_req_display_name(req_id)
 		parts.append("%s %d/%d" % [display_name, done, req_count])
 	return ", ".join(parts)
+
+
+## Displayed progress for one requirement of an active quest.
+## For item-based quests (DELIVER_ITEMS / COLLECT_ITEMS) this reflects what
+## the player is currently CARRYING (capped at the target) so the tracker
+## ticks up as they gather — the actual hand-over still happens at the NPC.
+## For other quest types (kills, discoveries) it returns the tracked count.
+func get_quest_req_progress(quest_id: String, req_id: String, req_count: int) -> int:
+	if not active_quests.has(quest_id):
+		return 0
+	var state: Dictionary = active_quests[quest_id]
+	var completed_reqs: Dictionary = state.get("completed_reqs", {})
+	var done: int = completed_reqs.get(req_id, 0)
+	var qdef = get_quest_defs().get(quest_id)
+	if qdef:
+		var req_type: int = qdef.get("req_type", -1)
+		if req_type == RequirementType.DELIVER_ITEMS or req_type == RequirementType.COLLECT_ITEMS:
+			var carried: int = InventoryManager.get_count(req_id)
+			if carried > done:
+				done = carried
+	return mini(done, req_count)
 
 
 # ---------------------------------------------------------------------------
