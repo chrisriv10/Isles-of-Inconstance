@@ -150,9 +150,13 @@ func _map_building_to_interior(b_type: int) -> int:
 
 ## Set the resident info so a recruited NPC appears inside this interior.
 ## Called by BuildingSystem._on_enter_interior and RuinStructure._open_interior.
+## NOTE: set_resident_info is called AFTER setup() (which runs the room
+## generator), so spawning the resident must happen here — the generator's
+## own calls were no-ops because _resident_visitor_type was still -1.
 func set_resident_info(name: String, visitor_type: int) -> void:
 	_resident_name = name
 	_resident_visitor_type = visitor_type
+	call_deferred("_spawn_resident_npc")
 
 func _generate_interior() -> void:
 	match interior_type:
@@ -1614,6 +1618,43 @@ func _add_hotel_guest(pos: Vector2, appearance_index: int, guest_name: String) -
 	var wander := InteriorWanderNPC.new()
 	guest.add_child(wander)
 	
+	# Talk interaction — pressing E shows a greeting bubble
+	var guest_ref: Sprite2D = guest
+	var talk_lines: Array[String] = [
+		"Lovely inn, isn't it?",
+		"I'm just resting before exploring more of the island!",
+		"The sea air here is wonderful.",
+		"I've heard great things about this island's sights.",
+		"The beds here are heavenly!",
+		"Have you seen the sunset from the dock?",
+	]
+	var interact := Interactable.new()
+	interact.name = "Talk"
+	interact.collision_layer = 4
+	interact.interaction_prompt = "Talk to " + guest_name
+	var ishape := CollisionShape2D.new()
+	var irect := RectangleShape2D.new()
+	irect.size = Vector2(16, 20)
+	ishape.shape = irect
+	interact.add_child(ishape)
+	interact.interacted.connect(func(_i: Node) -> void:
+		if is_instance_valid(guest_ref):
+			_spawn_npc_dialogue(guest_ref.global_position, talk_lines[randi() % talk_lines.size()])
+	)
+	guest.add_child(interact)
+	
+	# Sparse ambient chatter — only while the player is inside the hotel
+	var chatter := Timer.new()
+	chatter.name = "GuestChatter"
+	chatter.wait_time = 20.0 + randf() * 25.0
+	chatter.autostart = true
+	chatter.timeout.connect(func() -> void:
+		if not is_inside_tree() or not GameManager.inside_interior or not is_instance_valid(guest_ref):
+			return
+		_spawn_npc_dialogue(guest_ref.global_position, talk_lines[randi() % talk_lines.size()], 2.5)
+	)
+	guest.add_child(chatter)
+	
 	_guest_sprites.append(guest)
 
 
@@ -1632,12 +1673,20 @@ func _on_hotel_guests_changed(count: int) -> void:
 	if count <= 0:
 		return
 	
-	# Spawn guest NPCs, one per available spot, cycling appearances
-	var guest_names: Array[String] = ["Mara", "Finn", "Lena", "Sven", "Elara", "Tomas"]
+	# Spawn guest NPCs, one per available spot, cycling appearances.
+	# Use the full display-name pools from VisitorNPC so hotel guests
+	# get titles too ("Mara the Explorer"), matching the island visitors.
+	var guest_name_pools: Array[Array] = [
+		VisitorNPC.get_npc_names(VisitorNPC.VisitorType.EXPLORER),
+		VisitorNPC.get_npc_names(VisitorNPC.VisitorType.FISHER),
+		VisitorNPC.get_npc_names(VisitorNPC.VisitorType.VENDOR),
+		VisitorNPC.get_npc_names(VisitorNPC.VisitorType.SIGHTSEER),
+	]
 	for i in range(mini(count, _HOTEL_GUEST_SPOTS.size())):
 		var pos: Vector2 = _HOTEL_GUEST_SPOTS[i]
 		var appearance_idx: int = i % GUEST_APPEARANCES.size()
-		var name_str: String = guest_names[i % guest_names.size()]
+		var name_pool: Array = guest_name_pools[appearance_idx % guest_name_pools.size()]
+		var name_str: String = name_pool[randi() % name_pool.size()]
 		_add_hotel_guest(pos, appearance_idx, name_str)
 	
 	# Apply day/night visibility immediately
@@ -1684,12 +1733,17 @@ func _spawn_npc_dialogue(pos: Vector2, text: String, duration: float = 3.5) -> v
 	
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 6)
 	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
 	label.add_theme_constant_override("outline_size", 1)
 	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.8))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	# Compact fixed size matching island NPC dialogue bubbles (72x16),
+	# so long lines wrap instead of producing a screen-filling bubble.
+	label.custom_minimum_size = Vector2(72, 16)
+	label.size = Vector2(72, 16)
 	
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.0, 0.0, 0.0, 0.88)
@@ -1702,21 +1756,17 @@ func _spawn_npc_dialogue(pos: Vector2, text: String, duration: float = 3.5) -> v
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_left = 4
 	style.corner_radius_bottom_right = 4
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 3
-	style.content_margin_bottom = 3
+	style.content_margin_left = 4
+	style.content_margin_right = 4
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
 	label.add_theme_stylebox_override("normal", style)
 	
 	container.add_child(label)
 	parent.add_child(container)
 	
-	# Size and center above the NPC
-	var label_size: Vector2 = label.get_minimum_size()
-	var bubble_w: float = maxf(label_size.x + 12.0, 40.0)
-	var bubble_h: float = maxf(label_size.y + 6.0, 22.0)
-	label.size = Vector2(bubble_w, bubble_h)
-	container.position = pos - Vector2(bubble_w / 2.0, bubble_h)
+	# Center above the NPC
+	container.position = pos - Vector2(36, 16)
 	
 	# Fade in, hold, fade out
 	container.modulate.a = 0.0
