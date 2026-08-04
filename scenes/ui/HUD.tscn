@@ -333,6 +333,7 @@ offset_right = 200.0
 offset_bottom = 204.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/panel = SubResource("sb_panel_slim")
 
 [node name="Label" type="Label" parent="Root/TutorialHint" unique_id=1527595559]
 layout_mode = 2
