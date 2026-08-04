@@ -98,6 +98,7 @@ const BOW_CHARGE_DAMAGE_MULT: float = 2.0
 # Remote player health bar (built in code, not in scene)
 var _remote_hp_bar_bg: ColorRect = null
 var _remote_hp_bar_fill: ColorRect = null
+var _remote_nameplate: Label = null
 var _remote_pet_node: Node2D = null
 var _remote_last_armor_set: String = ""
 # @onready var armor_chestplate — removed, armor uses full spritesheet swap
@@ -339,6 +340,19 @@ func _ensure_remote_health_bar() -> void:
 	add_child(fill)
 	_remote_hp_bar_fill = fill
 
+	# Nameplate label (above health bar)
+	var np := Label.new()
+	np.name = "NameplateLabel"
+	np.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	np.add_theme_font_size_override("font_size", 10)
+	np.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	np.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	np.add_theme_constant_override("shadow_offset_x", 1)
+	np.add_theme_constant_override("shadow_offset_y", 1)
+	np.position = Vector2(0, -44)
+	add_child(np)
+	_remote_nameplate = np
+
 
 func _update_remote_health_bar() -> void:
 	if not NetworkManager.is_network_active():
@@ -367,10 +381,18 @@ func _update_remote_health_bar() -> void:
 
 	_remote_hp_bar_fill.visible = true
 	_remote_hp_bar_bg.visible = true
-	var remote_name: String = stats.get("name", "")
-	var remote_level: int = stats.get("level", 1)
-	if not remote_name.is_empty():
-		name_label.text = remote_name + "  Lv" + str(remote_level)
+	# Update nameplate
+	if _remote_nameplate and is_instance_valid(_remote_nameplate):
+		var remote_name: String = stats.get("name", "")
+		var remote_level: int = stats.get("level", 1)
+		if not remote_name.is_empty():
+			_remote_nameplate.text = remote_name + "  Lv" + str(remote_level)
+			_remote_nameplate.visible = true
+		else:
+			_remote_nameplate.visible = false
+	else:
+		if _remote_nameplate and is_instance_valid(_remote_nameplate):
+			_remote_nameplate.visible = false
 
 	# Apply armor set visual on remote copy
 	var armor_set: String = stats.get("armor_set", "")

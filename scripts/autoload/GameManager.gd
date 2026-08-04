@@ -475,6 +475,15 @@ static func difficulty_name(d: int) -> String:
 		Difficulty.HARD: return "Hard"
 		_: return "Normal"
 
+
+# ── Loot Instancing ─────────────────────────────────────────────────────────
+# When true (default), each player rolls their own loot drops in multiplayer.
+# When false, loot is shared (first-come-first-served).
+var loot_instanced: bool = true
+
+func set_loot_instanced(enabled: bool) -> void:
+	loot_instanced = enabled
+
 var _minute_timer: float = 0.0
 var _time_sync_timer: float = 0.0
 

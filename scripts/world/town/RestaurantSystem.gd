@@ -146,10 +146,19 @@ func try_unlock_recipe(ingredient_id: String) -> Dictionary:
 	}
 
 func get_daily_special() -> Dictionary:
+	# The special is always a crop (rolled from DataManager.crops), and
+	# procedural crops only live in the crops registry — look them up by
+	# crop first, then fall back to the item registry / raw id.
+	var crop_data := DataManager.get_crop(_daily_special_crop)
 	var item_data := DataManager.get_item(_daily_special_crop)
+	var display_name: String = _daily_special_crop
+	if crop_data and not crop_data.display_name.is_empty():
+		display_name = crop_data.display_name
+	elif item_data:
+		display_name = item_data.display_name
 	return {
 		"item_id": _daily_special_crop,
-		"name": item_data.display_name if item_data else _daily_special_crop,
+		"name": display_name,
 		"bonus_mult": _daily_special_bonus,
 	}
 

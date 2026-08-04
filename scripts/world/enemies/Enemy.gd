@@ -565,16 +565,54 @@ func _drop_loot() -> void:
 			loot_bonus = pet_mgr.get_loot_bonus()
 	# Mystic Luck upgrade: +40% drop chance per level.
 	loot_bonus += UpgradeManager.get_level(UpgradeManager.Upgrade.LUCK) * 0.4
+
+	if GameManager.loot_instanced and NetworkManager.is_network_active():
+		# INSTANCED: Each player rolls their own loot
+		_drop_loot_instanced(loot, loot_bonus)
+	else:
+		# SHARED: Original behavior (host rolls once)
+		_drop_loot_shared(loot, loot_bonus)
+
+	# Ultra-rare Inconstant Fruit drop from any enemy (0.05% base + tiny pet bonus)
+	# Always shared (not instanced) - ultra-rare global event
+	if randf() < (0.0005 + loot_bonus * 0.001) * GameManager.get_loot_mult():
+		_try_drop_inconstant_fruit()
+
+
+func _drop_loot_instanced(loot: Array, loot_bonus: float) -> void:
+	# Host rolls for all connected peers + self
+	if multiplayer.is_server():
+		var peers: Array[int] = multiplayer.get_peers()
+		peers.append(multiplayer.get_unique_id())  # Include self
+		for peer_id in peers:
+			_roll_loot_for_peer(peer_id, loot, loot_bonus)
+
+
+func _drop_loot_shared(loot: Array, loot_bonus: float) -> void:
+	# Original logic - host rolls once, broadcasts
 	for entry in loot:
 		var drop_chance: float = (entry.get("chance", 1.0) + loot_bonus) * DROP_RATE_MULTIPLIER * GameManager.get_loot_mult()
 		if randf() <= drop_chance:
 			var count: int = entry.get("count", 1)
 			InventoryManager.add_item(entry["item_id"], count)
 			_queue_loot(entry["item_id"], count)
-	
-	# Ultra-rare Inconstant Fruit drop from any enemy (0.05% base + tiny pet bonus)
-	if randf() < (0.0005 + loot_bonus * 0.001) * GameManager.get_loot_mult():
-		_try_drop_inconstant_fruit()
+
+
+func _roll_loot_for_peer(peer_id: int, loot: Array, loot_bonus: float) -> void:
+	for entry in loot:
+		var drop_chance: float = (entry.get("chance", 1.0) + loot_bonus) * DROP_RATE_MULTIPLIER * GameManager.get_loot_mult()
+		if randf() <= drop_chance:
+			var count: int = entry.get("count", 1)
+			if peer_id == multiplayer.get_unique_id():
+				InventoryManager.add_item(entry["item_id"], count)
+				_queue_loot(entry["item_id"], count)
+			else:
+				rpc_id(peer_id, "_receive_loot_drop", entry["item_id"], count)
+
+
+@rpc("authority", "reliable")
+func _receive_loot_drop(item_id: String, count: int) -> void:
+	InventoryManager.add_item(item_id, count)
 
 
 func _queue_loot(item_id: String, count: int = 1) -> void:
