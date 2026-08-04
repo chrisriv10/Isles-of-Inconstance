@@ -6,6 +6,19 @@ class_name EncyclopediaUI
 
 signal closed()
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 @onready var dim: ColorRect = $Dim if has_node("Dim") else null
 @onready var panel: PanelContainer = $Panel if has_node("Panel") else null
 @onready var tabs: TabContainer = $Panel/VBox/TabContainer if has_node("Panel/VBox/TabContainer") else null
@@ -23,6 +36,9 @@ var _locked_tabs: Array[String] = []
 const DEFAULT_LOCKED_TABS: Array[String] = ["animals", "biomes", "buildings"]
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	if panel:
 		panel.visible = false
 	if dim:
@@ -199,7 +215,7 @@ func _make_badge(text: String, bg_color: Color, text_color: Color = Color.WHITE,
 	lbl.add_theme_font_size_override("font_size", font_size)
 	margin.add_child(lbl)
 	var style := StyleBoxFlat.new()
-	style.bg_color = bg_color
+	style.bg_color = Color(0.36, 0.25, 0.15, 1)
 	style.corner_radius_top_left = 3
 	style.corner_radius_top_right = 3
 	style.corner_radius_bottom_left = 3
@@ -228,7 +244,7 @@ func _add_entry(container: VBoxContainer, entry_name: String, subtitle: String, 
 		icon_bg.size_flags_horizontal = 0
 		icon_bg.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		var icon_bg_style := StyleBoxFlat.new()
-		icon_bg_style.bg_color = Color(0.15, 0.12, 0.06, 0.8)
+		icon_bg_style.bg_color = Color(0.36, 0.25, 0.15, 1)
 		icon_bg_style.corner_radius_top_left = 6
 		icon_bg_style.corner_radius_top_right = 6
 		icon_bg_style.corner_radius_bottom_left = 6
@@ -378,6 +394,11 @@ func _lookup_item_icon(item_id: String) -> Texture2D:
 
 ## Try to load an animal's frame_0 sprite from assets/generated/.
 func _lookup_animal_sprite(animal_id: String) -> Texture2D:
+	# The ice cream sandwich man reuses the mini pet render.
+	if animal_id == "ice_cream_sandwich_man":
+		var mini_path := "res://assets/generated/mini_ice_cream_sandwich_pet.png"
+		if ResourceLoader.exists(mini_path):
+			return load(mini_path) as Texture2D
 	var path: String = "res://assets/generated/animal_%s_frame_0.png" % animal_id
 	if ResourceLoader.exists(path):
 		return load(path) as Texture2D
@@ -389,6 +410,11 @@ func _lookup_animal_sprite(animal_id: String) -> Texture2D:
 func _lookup_pet_sprite(pet_id: String) -> Texture2D:
 	if pet_id.is_empty():
 		return null
+	# The ice cream sandwich pet uses the mini pet render as its icon.
+	if pet_id == "ice_cream_sandwich":
+		var mini_path := "res://assets/generated/mini_ice_cream_sandwich_pet.png"
+		if ResourceLoader.exists(mini_path):
+			return load(mini_path) as Texture2D
 	var candidates: Array[String] = [
 		"res://assets/generated/pet_%s_frame_0.png" % pet_id,
 		"res://assets/generated/animal_%s_frame_0.png" % pet_id,
@@ -417,39 +443,11 @@ func _lookup_asset_icon(item_id: String) -> Texture2D:
 			return load(p) as Texture2D
 	return null
 
-## Maps biome ground_tile_id to a generated tile icon (assets/generated/).
-const BIOME_TILE_ICONS: Dictionary = {
-	"grass": "res://assets/generated/tile_grass_frame_0.png",
-	"forest_floor": "res://assets/generated/tile_forest_floor_frame_0.png",
-	"bog": "res://assets/generated/tile_bog_frame_0.png",
-	"cobblestone_path": "res://assets/generated/cobblestone_plaza_tile_frame_0.png",
-	"dirt": "res://assets/generated/tile_dirt_frame_0.png",
-	"sand": "res://assets/generated/tile_sand_frame_0.png",
-	"fertile_soil": "res://assets/generated/tile_fertile_frame_0.png",
-	"flower_fields": "res://assets/generated/tile_flower_petal_ground_frame_0.png",
-	"pine_forest": "res://assets/generated/tile_pine_needle_ground_frame_0.png",
-	"cherry_grove": "res://assets/generated/cherry_grove_tile_frame_0.png",
-	"savanna": "res://assets/generated/tile_savanna_dry_ground_frame_0.png",
-	"autumn_forest": "res://assets/generated/tile_autumn_leaf_ground_frame_0.png",
-	"snow": "res://assets/generated/snow_tile_v3_frame_0.png",
-	"wetlands": "res://assets/generated/tile_wetlands_marsh_ground_frame_0.png",
-	"jungle": "res://assets/generated/tile_jungle_floor_frame_0.png",
-}
-
-## Loads a biome's ground tile icon from assets/generated/, with generic
-## fallbacks for any ground tile not in the explicit mapping.
-func _lookup_biome_icon(ground_tile_id: String) -> Texture2D:
-	if ground_tile_id.is_empty():
-		return null
-	if BIOME_TILE_ICONS.has(ground_tile_id):
-		var mapped: String = BIOME_TILE_ICONS[ground_tile_id]
-		if ResourceLoader.exists(mapped):
-			return load(mapped) as Texture2D
-	for candidate in ["res://assets/generated/tile_%s_frame_0.png", "res://assets/generated/icon_%s_frame_0.png", "res://assets/generated/%s_frame_0.png"]:
-		var p: String = candidate % ground_tile_id
-		if ResourceLoader.exists(p):
-			return load(p) as Texture2D
-	return null
+## Builds a solid-color square texture for use as a map-style biome icon.
+func _make_color_swatch(color: Color) -> Texture2D:
+	var img := Image.create(48, 48, false, Image.FORMAT_RGBA8)
+	img.fill(color)
+	return ImageTexture.create_from_image(img)
 
 func _build_alchemy_tab() -> void:
 	var vbox := _make_scroll_container("Alchemy")
@@ -520,19 +518,19 @@ func _build_cooking_tab() -> void:
 				if ing_id == "crop":
 					ing_str += "Any crop x%d " % meal.ingredients[ing_id]
 				else:
-					ing_str += "%s x%d " % [ing_id, meal.ingredients[ing_id]]
+					var ing_item: ItemData = DataManager.get_item(ing_id)
+					var ing_name: String = ing_item.display_name if ing_item else ing_id
+					ing_str += "%s x%d " % [ing_name, meal.ingredients[ing_id]]
 			var discovered_label: String = "" if known_set.has(recipe_id) else " [Undiscovered]"
 			var buff_str := "none" if meal.buff_type == "none" else "%s (%.1f hrs)" % [meal.buff_type, meal.buff_duration]
-			# Get the first ingredient's icon for visual reference
-			var first_ing_id: String = ""
-			for ing_id in meal.ingredients:
-				if ing_id != "crop":
-					first_ing_id = ing_id
-					break
-			var meal_icon: Texture2D = _lookup_item_icon(first_ing_id) if not first_ing_id.is_empty() else null
-			# Fallback: use the meal item's own icon
+			# Use the meal's own icon first (every meal has a generated icon)
+			var meal_icon: Texture2D = _lookup_asset_icon(recipe_id)
+			# Fallback: use the first real ingredient's icon for visual reference
 			if meal_icon == null:
-				meal_icon = _lookup_item_icon(recipe_id)
+				for ing_id in meal.ingredients:
+					if ing_id != "crop":
+						meal_icon = _lookup_item_icon(ing_id)
+						break
 			var buff_color: Color = Color(0.9, 0.7, 0.3) if meal.buff_type != "none" else Color(0.6, 0.6, 0.6)
 			_add_entry(vbox, meal.display_name + discovered_label, meal.description,
 				"Ingredients: %s\n[b]Buff:[/b] %s" % [ing_str, buff_str],
@@ -591,10 +589,15 @@ func _build_animals_tab() -> void:
 		var animal_icon: Texture2D = _lookup_animal_sprite(a.id)
 		# Fallback to a related item icon if no animal sprite exists
 		if animal_icon == null:
-			var fallback_ids: Dictionary = {
-				"cow": "milk", "pig": "truffle", "sheep": "wool", "turtle": "shell"
-			}
-			animal_icon = _lookup_item_icon(fallback_ids.get(a.id, ""))
+			# No generated sprite for these farm animals — use their
+			# signature product icons. Turtle gets the shared pet sprite.
+			if a.id == "turtle":
+				animal_icon = _lookup_pet_sprite("turtle")
+			else:
+				var fallback_ids: Dictionary = {
+					"cow": "milk", "pig": "truffle", "sheep": "wool"
+				}
+				animal_icon = _lookup_item_icon(fallback_ids.get(a.id, ""))
 		_add_entry(vbox, a.name, "Habitat: %s" % habitat,
 			"Interaction Drops: %s\nFavorite Foods: %s\nBehavior: %s" % [a.interaction_drops, a.food, a.behavior],
 			animal_icon, Color(0.6, 0.9, 0.7))
@@ -677,8 +680,6 @@ func _build_biomes_tab() -> void:
 	var biomes = BiomeLibrary.get_all_biomes()
 	for biome in biomes:
 		var traits_str: String = ", ".join(biome.crop_trait_tags) if biome.crop_trait_tags.size() > 0 else "None"
-		# Load the biome's ground tile icon from assets/generated/
-		var biome_icon: Texture2D = _lookup_biome_icon(biome.ground_tile_id)
 		var biome_colors: Dictionary = {
 			"Plains": Color(0.4, 0.8, 0.3),
 			"Forest": Color(0.3, 0.6, 0.2),
@@ -698,6 +699,8 @@ func _build_biomes_tab() -> void:
 			"Jungle": Color(0.3, 0.7, 0.4),
 		}
 		var b_color: Color = biome_colors.get(biome.display_name, Color(0.6, 0.8, 0.5))
+		# Show the biome as a map-style color swatch
+		var biome_icon: Texture2D = _make_color_swatch(b_color)
 		_add_entry(vbox, biome.display_name, "Terrain: %s" % biome.ground_tile_id,
 			"Movement: %.0f%% | Growth: %.0f%% | Yield: %.0f%%\nCrop Traits: %s | Unique Crop Chance: %.0f%%" % [
 				biome.movement_speed_multiplier * 100.0, biome.crop_growth_multiplier * 100.0,
@@ -836,27 +839,30 @@ func _build_farming_tab() -> void:
 		water_icon, Color(0.4, 0.7, 1.0))
 	
 	# Buildings
+	var farm_bld_icon: Texture2D = _lookup_asset_icon("greenhouse_kit")
 	_add_entry(vbox, "Farming Buildings", "",
 		"Scarecrow (Wood+Vine): -50% disease in 5x5 area\n"
 		+ "Compost Bin (Wood+Planks): 40% compost from crop waste\n"
 		+ "Greenhouse (Planks+Glass+Vine): Season override, halved disease",
-		null, Color(0.6, 0.5, 0.3))
+		farm_bld_icon, Color(0.6, 0.5, 0.3))
 	
 	# Mutations
+	var mutation_icon: Texture2D = _lookup_asset_icon("crop_base_fungus")
 	_add_entry(vbox, "Crop Mutations", "",
 		"Crops can mutate into special variants while growing!\n"
 		+ "Mutations are random; luck buffs increase the chance\n"
 		+ "Mutated crops have unique names, colors, and traits\n"
 		+ "Their seeds inherit the mutation for replanting",
-		null, Color(0.9, 0.4, 0.9))
+		mutation_icon, Color(0.9, 0.4, 0.9))
 	
 	# Fruit Trees
+	var tree_icon: Texture2D = _lookup_asset_icon("fruit_tree")
 	_add_entry(vbox, "Fruit Trees", "",
 		"Found in Forest biomes (15% of trees bear fruit)\n"
 		+ "Interact with bare hands to harvest berries\n"
 		+ "Fruit trees regrow their fruit after a few days\n"
 		+ "Berries can be eaten raw or used in cooking",
-		null, Color(0.9, 0.6, 0.2))
+		tree_icon, Color(0.9, 0.6, 0.2))
 	
 	# Cooking
 	var crop_icon: Texture2D = _lookup_item_icon("minecraft_wheat")
@@ -871,7 +877,7 @@ func _build_farming_tab() -> void:
 func _build_town_tab() -> void:
 	var vbox := _make_scroll_container("Town")
 	
-	var town_icon: Texture2D = _lookup_item_icon("stone")
+	var town_icon: Texture2D = _lookup_asset_icon("workshop_kit")
 	_add_entry(vbox, "Tidehaven", "A forgotten settlement on the west side of the island",
 		"The town was destroyed long ago. Rubble and crumbling foundations are all that remain.\n"
 		+ "Restore the town to unlock shops, NPCs, and services!\n"

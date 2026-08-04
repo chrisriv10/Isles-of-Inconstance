@@ -1,18 +1,8 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/PetUI.gd" id="1"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.102, 0.063, 0.031, 0.95)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.525, 0.176, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [node name="PetUI" type="CanvasLayer"]
 layer = 2
@@ -34,7 +24,7 @@ anchor_left = 0.25
 anchor_top = 0.15
 anchor_right = 0.75
 anchor_bottom = 0.85
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 layout_mode = 1
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel"]

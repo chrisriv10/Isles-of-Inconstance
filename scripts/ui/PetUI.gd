@@ -2,6 +2,19 @@ extends CanvasLayer
 
 ## UI panel for managing pets — view owned pets, equip/unequip, see stats.
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 var is_open: bool = false
 
 @onready var dim: ColorRect = $Dim
@@ -22,6 +35,9 @@ var _rename_line_edit: LineEdit = null
 
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	add_to_group("pet_ui")
 	close_button.pressed.connect(close)
 	PetManager.active_pet_changed.connect(_on_active_pet_changed)
@@ -194,11 +210,11 @@ func _build_rename_dialog() -> void:
 	_rename_line_edit.custom_minimum_size = Vector2(250, 0)
 	_rename_line_edit.placeholder_text = "Enter a name..."
 	_rename_line_edit.max_length = 24
-	# Match the golden theme
+	# Match the golden theme - use dark wood for LineEdit borders
 	var edit_style := StyleBoxFlat.new()
-	edit_style.bg_color = Color(0.06, 0.04, 0.02, 0.9)
+	edit_style.bg_color = Color(0.36, 0.25, 0.15, 1)
+	edit_style.border_color = Color(0.545, 0.412, 0.122, 0.6)
 	edit_style.set_border_width_all(2)
-	edit_style.border_color = Color(0.722, 0.525, 0.176, 0.7)
 	edit_style.set_corner_radius_all(4)
 	edit_style.set_content_margin_all(6)
 	_rename_line_edit.add_theme_stylebox_override("normal", edit_style)

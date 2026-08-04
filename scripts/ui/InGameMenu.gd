@@ -6,6 +6,19 @@ class_name InGameMenuUI
 
 signal exit_to_menu_requested()
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 @onready var bg_click_catcher: ColorRect = $BgClickCatcher
 @onready var panel_container: PanelContainer = $Panel
 @onready var tutorial_btn: Button = $Panel/Margin/VBox/TutorialButton
@@ -18,6 +31,9 @@ var _info_panel: PanelContainer = null
 var _current_info: String = ""
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	tutorial_btn.pressed.connect(_on_tutorial_pressed)
 	controls_btn.pressed.connect(_on_controls_pressed)
 	settings_btn.pressed.connect(_on_settings_pressed)
@@ -116,17 +132,7 @@ func _create_info_panel(panel_id: String) -> PanelContainer:
 	panel.position = Vector2((viewport_size.x - pw) / 2.0, (viewport_size.y - ph) / 2.0)
 	panel.size = Vector2(pw, ph)
 	
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.102, 0.063, 0.031, 0.95)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.722, 0.525, 0.176, 1.0)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_right = 8
-	style.corner_radius_bottom_left = 8
+	var style := DARK_WOOD
 	panel.add_theme_stylebox_override("panel", style)
 	
 	var margin := MarginContainer.new()

@@ -18,6 +18,26 @@ var _room_height: int = 0
 var crafting_station: Area2D = null
 var cooking_station: Area2D = null
 var storage_chest: Area2D = null
+
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_WOOD_BORDER: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_WOOD_BORDER = preload("res://resources/ui/dark_wood_border.tres")
+	DARK_SLOT = _make_dark_slot()
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
 var _chest_inventory: ContainerInventory = null
 var bed: Area2D = null
 
@@ -2018,18 +2038,7 @@ func _show_bake_cost_choice() -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_PASS
 	popup.add_child(dim)
 	
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.1, 0.06, 0.03, 0.95)
-	panel_style.border_width_left = 3
-	panel_style.border_width_top = 3
-	panel_style.border_width_right = 3
-	panel_style.border_width_bottom = 3
-	panel_style.border_color = Color(0.72, 0.53, 0.18, 1.0)
-	panel_style.corner_radius_top_left = 8
-	panel_style.corner_radius_top_right = 8
-	panel_style.corner_radius_bottom_right = 8
-	panel_style.corner_radius_bottom_left = 8
-	
+	var panel_style := LIGHT_WOOD
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", panel_style)
 	panel.position = Vector2(160, 150)
@@ -2305,18 +2314,7 @@ func _show_sell_choice_popup(title: String, items: Array, sell_callback: Callabl
 	dim.mouse_filter = Control.MOUSE_FILTER_PASS
 	popup.add_child(dim)
 	
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.1, 0.06, 0.03, 0.95)
-	panel_style.border_width_left = 3
-	panel_style.border_width_top = 3
-	panel_style.border_width_right = 3
-	panel_style.border_width_bottom = 3
-	panel_style.border_color = Color(0.72, 0.53, 0.18, 1.0)
-	panel_style.corner_radius_top_left = 8
-	panel_style.corner_radius_top_right = 8
-	panel_style.corner_radius_bottom_right = 8
-	panel_style.corner_radius_bottom_left = 8
-	
+	var panel_style := LIGHT_WOOD
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", panel_style)
 	panel.position = Vector2(120, 100)
@@ -3021,17 +3019,7 @@ func _open_recruitment_dialog() -> void:
 		hud.get_viewport().get_visible_rect().size.x / 2.0 - 160,
 		hud.get_viewport().get_visible_rect().size.y / 2.0 - 130
 	)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.102, 0.063, 0.031, 0.95)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.722, 0.525, 0.176)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_right = 8
-	style.corner_radius_bottom_left = 8
+	var style := LIGHT_WOOD
 	panel.add_theme_stylebox_override("panel", style)
 	hud.add_child(panel)
 	
@@ -3250,17 +3238,7 @@ func _open_bank_dialog(anchor: Node) -> void:
 		hud.get_viewport().get_visible_rect().size.y / 2.0 - 110
 	)
 	# Style
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.102, 0.063, 0.031, 0.95)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.722, 0.525, 0.176)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_right = 8
-	style.corner_radius_bottom_left = 8
+	var style := LIGHT_WOOD
 	panel.add_theme_stylebox_override("panel", style)
 	hud.add_child(panel)
 	

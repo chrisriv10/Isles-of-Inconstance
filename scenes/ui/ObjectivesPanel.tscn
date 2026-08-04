@@ -1,18 +1,9 @@
 [gd_scene format=3 uid="uid://cow37ch52xhlv"]
 
 [ext_resource type="Script" uid="uid://gwq22xo2fwlh" path="res://scripts/ui/ObjectivesPanel.gd" id="1"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
-bg_color = Color(0.102, 0.063, 0.031, 0.95)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.525, 0.176, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+[ext_resource type="StyleBoxTexture" uid="uid://b22mv3pec3wgq" path="res://assets/generated/wood_planks.png" id="wood_planks"]
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/wood_panel.tres" id="wood_panel"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [node name="ObjectivesPanel" type="CanvasLayer" unique_id=2001968758]
 layer = 6
@@ -40,7 +31,7 @@ offset_right = 375.0
 offset_bottom = 275.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+theme_override_styles/panel = ExtResource("wood_panel")
 
 [node name="Margin" type="MarginContainer" parent="Panel" unique_id=891595580]
 layout_mode = 2

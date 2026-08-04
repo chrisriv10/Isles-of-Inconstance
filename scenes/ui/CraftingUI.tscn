@@ -2,30 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dfofl14ilg36g" path="res://scripts/ui/ButtonSound.gd" id="1_qo0p8"]
 [ext_resource type="Script" uid="uid://23vxxjjdhjf5" path="res://scripts/ui/CraftingUI.gd" id="2_craft"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
-bg_color = Color(0.102, 0.063, 0.031, 0.95)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.525, 0.176, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_detail"]
-bg_color = Color(0.078, 0.047, 0.02, 0.9)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.545, 0.412, 0.122, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
 bg_color = Color(0.29, 0.18, 0.078, 0.9)
@@ -66,7 +44,7 @@ offset_right = 350.0
 offset_bottom = 220.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 
 [node name="Margin" type="MarginContainer" parent="Panel" unique_id=2129616391]
 layout_mode = 2
@@ -149,7 +127,7 @@ layout_mode = 2
 [node name="DetailPanel" type="PanelContainer" parent="Panel/Margin/Layout/MainBody" unique_id=67511018]
 custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_detail")
+theme_override_styles/panel = ExtResource("dark_wood")
 
 [node name="DetailMargin" type="MarginContainer" parent="Panel/Margin/Layout/MainBody/DetailPanel" unique_id=190765944]
 layout_mode = 2

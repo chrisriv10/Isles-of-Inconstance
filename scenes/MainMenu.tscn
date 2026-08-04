@@ -1,18 +1,8 @@
 [gd_scene format=3 uid="uid://b6ky3xxp25pvl"]
 
 [ext_resource type="Script" uid="uid://d0e81hnknct10" path="res://scripts/ui/MainMenu.gd" id="1"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_public_games"]
-bg_color = Color(0.102, 0.063, 0.031, 0.95)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.525, 0.176, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [node name="MainMenu" type="Control" unique_id=2057665313]
 layout_mode = 3
@@ -304,7 +294,7 @@ offset_bottom = 190.0
 grow_horizontal = 2
 grow_vertical = 2
 visible = false
-theme_override_styles/panel = SubResource("StyleBoxFlat_public_games")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 
 [node name="Margin" type="MarginContainer" parent="PublicGamesPanel" unique_id=1900000101]
 layout_mode = 2

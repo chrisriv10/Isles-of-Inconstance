@@ -1,18 +1,8 @@
 [gd_scene format=3 uid="uid://c8j87my3cfvk7"]
 
 [ext_resource type="Script" uid="uid://ccutt5j5lkb4v" path="res://scripts/ui/TownUI.gd" id="1_af0o6"]
-
-[sub_resource type="StyleBoxFlat" id="1"]
-bg_color = Color(0.08, 0.08, 0.12, 0.95)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.35, 0.3, 0.2, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [node name="TownUI" type="CanvasLayer" unique_id=732249491]
 visible = false
@@ -50,7 +40,7 @@ offset_right = 250.0
 offset_bottom = 225.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("1")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MainPanel/Panel" unique_id=2094375482]
 layout_mode = 2

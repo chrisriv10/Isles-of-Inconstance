@@ -150,7 +150,7 @@ func _setup_logo() -> void:
 	sign_style.shadow_size = 8
 	sign_style.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
 	sign_style.shadow_offset = Vector2(0, 4)
-	title_panel.add_theme_stylebox_override(&"panel", sign_style)
+	title_panel.add_theme_stylebox_override("panel", sign_style)
 	
 	# Replace title label + subtitle + divider with logo texture
 	var logo_tex: Texture2D = load("res://assets/generated/logo_isles_of_inconstance_frame_0.png")

@@ -5,6 +5,20 @@
 extends Area2D
 class_name VisitorNPC
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_WOOD_BORDER: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 ## NPC types (mirrors VisitorShip.VisitorType)
 enum VisitorType {
 	EXPLORER,       # 0 — explores buildings and landmarks
@@ -137,6 +151,11 @@ static func get_npc_texture_path(ntype: int) -> String:
 @onready var wander_timer: Timer = $WanderTimer
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_WOOD_BORDER = preload("res://resources/ui/dark_wood_border.tres")
+	DARK_SLOT = _make_dark_slot()
+
 	add_to_group("visitor_npcs")
 	_world = get_tree().get_first_node_in_group("world")
 	
@@ -165,6 +184,9 @@ func _ready() -> void:
 	if wander_timer:
 		wander_timer.timeout.connect(_on_wander_timeout)
 		wander_timer.one_shot = true
+	
+	# Start wandering after a short delay
+	call_deferred("start_wandering")
 
 func _setup_dialogue() -> void:
 	_dialogue_bubble = Node2D.new()
@@ -553,17 +575,7 @@ func _build_conversation_panel(hud: CanvasLayer) -> void:
 		hud.get_viewport().get_visible_rect().size.x / 2.0 - 160,
 		hud.get_viewport().get_visible_rect().size.y / 2.0 - 100
 	)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.102, 0.063, 0.031, 0.95)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = Color(0.722, 0.525, 0.176)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_right = 8
-	style.corner_radius_bottom_left = 8
+	var style := LIGHT_WOOD
 	_recruit_panel.add_theme_stylebox_override("panel", style)
 	hud.add_child(_recruit_panel)
 	

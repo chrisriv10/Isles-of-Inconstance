@@ -19,6 +19,19 @@ signal back_requested()
 signal new_save_requested(slot_index: int, seed: int, game_mode: int)
 signal host_save_selected(slot_index: int, public_lobby: bool)
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 const SLOT_COUNT: int = 5
 const SAVE_SLOT_NAMES: Array[String] = ["Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5"]
 
@@ -43,6 +56,9 @@ var _selected_mode: int = GameManager.GameMode.SURVIVAL
 
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	back_button.pressed.connect(_on_back_pressed)
 	random_seed_button.pressed.connect(_on_random_seed_pressed)
 	peaceful_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.PEACEFUL))
@@ -84,11 +100,7 @@ func _create_slot_widget(slot_idx: int) -> Dictionary:
 	panel.custom_minimum_size = Vector2(220, 110)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0.1, 0.1, 0.12, 0.7)
-	bg.set_border_width_all(2)
-	bg.border_color = Color(0.3, 0.3, 0.35)
-	bg.set_corner_radius_all(6)
+	var bg := LIGHT_WOOD
 	panel.add_theme_stylebox_override("panel", bg)
 	
 	var vbox := VBoxContainer.new()
@@ -179,7 +191,6 @@ func _refresh_all() -> void:
 func _refresh_slot(slot_idx: int) -> void:
 	var w: Dictionary = _slot_widgets[slot_idx]
 	var has_save: bool = SaveManager.has_save_in_slot(slot_idx)
-	var bg: StyleBoxFlat = w["panel"].get_theme_stylebox("panel") as StyleBoxFlat
 	var name_label: Label = w["name_label"]
 	var info_label: Label = w["info_label"]
 	var ts_label: Label = w["ts_label"]
@@ -209,8 +220,6 @@ func _refresh_slot(slot_idx: int) -> void:
 		else:
 			ts_label.text = ""
 		
-		bg.bg_color = Color(0.15, 0.15, 0.18, 0.7)
-		bg.border_color = Color(0.4, 0.4, 0.5)
 		delete_btn.visible = true
 		rename_btn.visible = true
 		hint_label.visible = false
@@ -224,8 +233,6 @@ func _refresh_slot(slot_idx: int) -> void:
 			info_label.text = "No save"
 		else:
 			info_label.text = "Start a new game here"
-		bg.bg_color = Color(0.12, 0.18, 0.12, 0.7)
-		bg.border_color = Color(0.25, 0.35, 0.25)
 		delete_btn.visible = false
 		rename_btn.visible = false
 
@@ -316,11 +323,11 @@ func _on_rename_save(slot_idx: int) -> void:
 	line_edit.text = current_name
 	line_edit.select_all()
 	line_edit.placeholder_text = "Save name..."
-	# Match the golden theme
+	# Match the golden theme - use dark wood for LineEdit borders
 	var edit_style := StyleBoxFlat.new()
-	edit_style.bg_color = Color(0.06, 0.04, 0.02, 0.9)
+	edit_style.bg_color = Color(0.36, 0.25, 0.15, 1)
+	edit_style.border_color = Color(0.545, 0.412, 0.122, 0.6)
 	edit_style.set_border_width_all(2)
-	edit_style.border_color = Color(0.722, 0.525, 0.176, 0.7)
 	edit_style.set_corner_radius_all(4)
 	edit_style.set_content_margin_all(6)
 	line_edit.add_theme_stylebox_override("normal", edit_style)

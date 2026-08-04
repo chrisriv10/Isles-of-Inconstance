@@ -9,15 +9,15 @@ bg_color = Color(0.15, 0.15, 0.18, 1)
 bg_color = Color(0.2, 0.6, 0.3, 1)
 
 [node name="QuestDialogueUI" type="PanelContainer" unique_id=1612874395]
-anchors_preset = 7
+anchors_preset = 8
 anchor_left = 0.5
-anchor_top = 1.0
+anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 1.0
+anchor_bottom = 0.5
 offset_left = -200.0
-offset_top = -300.0
+offset_top = -120.0
 offset_right = 200.0
-offset_bottom = -60.0
+offset_bottom = 120.0
 script = ExtResource("1_6ea6n")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=233814241]

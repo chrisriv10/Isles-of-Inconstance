@@ -1,20 +1,10 @@
 [gd_scene format=3 uid="uid://buyvtvea5ey2a"]
 
 [ext_resource type="Script" uid="uid://b3es1dtuemlpx" path="res://scripts/ui/SaveSelectUI.gd" id="1"]
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [sub_resource type="ButtonGroup" id="bg_mode_group"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-bg_color = Color(0.102, 0.063, 0.031, 0.7)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.525, 0.176, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
 
 [node name="SaveSelectUI" type="Control" unique_id=88115738]
 layout_mode = 3
@@ -39,7 +29,7 @@ offset_right = 240.0
 offset_bottom = 220.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 
 [node name="Margin" type="MarginContainer" parent="Panel" unique_id=968833115]
 layout_mode = 2

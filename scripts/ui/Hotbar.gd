@@ -10,6 +10,19 @@ const SLOT_COUNT: int = 10
 const SLOT_SIZE: int = 58
 const CELL_PAD: int = 4
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 var _slots: Array[PanelContainer] = []
 var _icon_rects: Array[TextureRect] = []
 var _count_labels: Array[Label] = []
@@ -36,6 +49,9 @@ var _player_ref: Node                                  # cached Player node
 
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	# Load pre-generated icons
 	_hoe_tex = load("res://assets/generated/icon_hoe_frame_0.png")
 	_water_tex = load("res://assets/generated/icon_watering_can_frame_0.png")
@@ -70,10 +86,9 @@ func _connect_player() -> void:
 # UI construction
 # ---------------------------------------------------------------------------
 func _build_ui() -> void:
-	# Container: background panel
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(0.0, 0.0, 0.0, 0.6)
-	bg.set_corner_radius_all(6)
+	# Container: background panel - light wood with dark wood border
+	var bg := LIGHT_WOOD.duplicate()
+	bg.modulate_color = Color(1, 1, 1, 0.6)
 
 	var panel := Panel.new()
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -91,11 +106,7 @@ func _build_ui() -> void:
 		slot.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP   # whole slot clickable, not just icon
 
-		var normal_style := StyleBoxFlat.new()
-		normal_style.bg_color = Color(0.15, 0.15, 0.15, 0.85)
-		normal_style.set_border_width_all(2)
-		normal_style.border_color = _normal_border_color
-		normal_style.set_corner_radius_all(4)
+		var normal_style := DARK_SLOT
 		slot.add_theme_stylebox_override("panel", normal_style)
 
 		# Icon area — clicks are handled by the slot itself (full area clickable)
@@ -146,11 +157,7 @@ func _build_ui() -> void:
 	_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip_panel.size = Vector2(240, 70)
 	_tooltip_panel.position = Vector2(0, -76)  # above the hotbar
-	var tooltip_bg := StyleBoxFlat.new()
-	tooltip_bg.bg_color = Color(0.08, 0.06, 0.1, 0.92)
-	tooltip_bg.set_border_width_all(1)
-	tooltip_bg.border_color = Color(0.7, 0.5, 0.2, 0.8)
-	tooltip_bg.set_corner_radius_all(4)
+	var tooltip_bg := DARK_WOOD
 	_tooltip_panel.add_theme_stylebox_override("panel", tooltip_bg)
 	panel.add_child(_tooltip_panel)
 
@@ -225,8 +232,7 @@ func _update_highlight() -> void:
 
 	for i in range(SLOT_COUNT):
 		var is_active: bool = (i == active_idx)
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.2, 0.2, 0.25, 0.9) if is_active else Color(0.15, 0.15, 0.15, 0.85)
+		var style := DARK_SLOT.duplicate()
 		style.set_border_width_all(3 if is_active else 2)
 		style.border_color = _normal_border_color
 		
@@ -236,7 +242,6 @@ func _update_highlight() -> void:
 		elif is_active:
 			style.border_color = _selected_border_color
 		
-		style.set_corner_radius_all(4)
 		_slots[i].add_theme_stylebox_override("panel", style)
 
 func _is_boss_bait_slot(slot_idx: int) -> bool:

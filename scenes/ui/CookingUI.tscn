@@ -2,18 +2,8 @@
 
 [ext_resource type="Script" path="res://scripts/ui/CookingUI.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ui/ButtonSound.gd" id="2"]
-
-[sub_resource type="StyleBoxFlat" id="sb_cooking_panel"]
-bg_color = Color(0.102, 0.063, 0.031, 0.95)
-border_color = Color(0.722, 0.525, 0.176, 1)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_left = 8
-corner_radius_bottom_right = 8
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [node name="CookingUI" type="CanvasLayer"]
 layer = 6
@@ -40,7 +30,7 @@ offset_left = -310.0
 offset_top = -195.0
 offset_right = 310.0
 offset_bottom = 195.0
-theme_override_styles/panel = SubResource("sb_cooking_panel")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 
 [node name="Margin" type="MarginContainer" parent="Panel"]
 layout_mode = 1

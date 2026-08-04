@@ -12,14 +12,16 @@ class_name DialogStyler
 ## MUST be called AFTER add_child() so the dialog's buttons exist
 ## (AcceptDialog builds them in _ready).
 
+# UI Style constants (consts are already static — usable from static functions)
+const LIGHT_WOOD: StyleBoxTexture = preload("res://resources/ui/wood_panel.tres")
+const DARK_WOOD: StyleBoxTexture = preload("res://resources/ui/dark_wood_panel.tres")
+const DARK_WOOD_BORDER: StyleBoxTexture = preload("res://resources/ui/dark_wood_border.tres")
+
 
 static func style_dialog(dialog: AcceptDialog) -> void:
-	# Window panel: dark wood with golden border (matches the game's panels)
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.102, 0.063, 0.031, 0.97)
-	panel_style.set_border_width_all(3)
-	panel_style.border_color = Color(0.722, 0.525, 0.176, 1.0)
-	panel_style.set_corner_radius_all(8)
+	# Window panel: light wood (wood_panel.tres already has a 6px 9-slice
+	# border frame + golden tint baked in via texture margins & modulate_color)
+	var panel_style := LIGHT_WOOD.duplicate()
 	panel_style.set_content_margin_all(8)
 	dialog.add_theme_stylebox_override("panel", panel_style)
 

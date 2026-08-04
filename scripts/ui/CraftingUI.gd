@@ -4,6 +4,19 @@ class_name CraftingUI
 ## Toggleable crafting overlay. Shows available recipes with ingredient details
 ## on the right panel. Click a recipe row to select it and see its full details.
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 @onready var dim: ColorRect = $Dim
 @onready var panel: PanelContainer = $Panel
 @onready var recipe_list: VBoxContainer = %RecipeList
@@ -57,6 +70,9 @@ func get_alchemy_recipes() -> Array[CraftingRecipe]:
 
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	_build_default_recipes()
 	_build_alchemy_recipes()
 	_assign_categories()
@@ -1543,11 +1559,10 @@ func refresh() -> void:
 		bg_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bg_panel.mouse_filter = Control.MOUSE_FILTER_PASS  # allow clicks to reach parent row
 		var bg_style := StyleBoxFlat.new()
+		bg_style.bg_color = Color(0.36, 0.25, 0.15, 1)
 		if recipe == _selected_recipe:
-			bg_style.bg_color = Color(0.290, 0.180, 0.078, 0.85)
 			bg_style.border_color = Color(0.722, 0.525, 0.176, 1)
 		else:
-			bg_style.bg_color = Color(0.165, 0.094, 0.031, 0.7)
 			bg_style.border_color = Color(0.545, 0.412, 0.122, 0.4)
 		bg_style.set_border_width_all(1)
 		bg_style.set_corner_radius_all(6)

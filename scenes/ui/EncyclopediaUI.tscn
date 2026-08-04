@@ -2,18 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dyolif0vumyej" path="res://scripts/ui/EncyclopediaUI.gd" id="1_encyclopedia"]
 [ext_resource type="Script" uid="uid://dfofl14ilg36g" path="res://scripts/ui/ButtonSound.gd" id="2_btn_sound"]
-
-[sub_resource type="StyleBoxFlat" id="sb_bg"]
-bg_color = Color(0.102, 0.063, 0.031, 0.95)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.525, 0.176, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+[ext_resource type="StyleBoxTexture" uid="uid://d4rkwoodpnl01" path="res://resources/ui/dark_wood_panel.tres" id="dark_wood"]
+[ext_resource type="StyleBoxTexture" uid="uid://drkwoodbrdr01" path="res://resources/ui/dark_wood_border.tres" id="dark_wood_border"]
 
 [node name="EncyclopediaUI" type="CanvasLayer" unique_id=962638344]
 layer = 7
@@ -32,7 +22,7 @@ anchor_left = 0.05
 anchor_top = 0.05
 anchor_right = 0.95
 anchor_bottom = 0.95
-theme_override_styles/panel = SubResource("sb_bg")
+theme_override_styles/panel = ExtResource("dark_wood_border")
 
 [node name="VBox" type="VBoxContainer" parent="Panel" unique_id=514787430]
 layout_mode = 2

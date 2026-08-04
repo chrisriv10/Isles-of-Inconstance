@@ -12,6 +12,19 @@ class_name InventoryUI
 const SLOT_SIZE: float = 48.0
 const HOTBAR_COUNT: int = 8  # slots 0-7 are the hotbar (inv slots 0-7)
 
+# UI Style constants
+var LIGHT_WOOD: StyleBoxTexture
+var DARK_WOOD: StyleBoxTexture
+var DARK_SLOT: StyleBoxFlat
+
+static func _make_dark_slot() -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = Color(0.12, 0.12, 0.12, 0.85)
+	s.border_color = Color(0.25, 0.25, 0.25, 1.0)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(4)
+	return s
+
 @onready var dim: ColorRect = $Dim
 @onready var panel: PanelContainer = $Panel
 @onready var capacity_label: Label = %CapacityLabel
@@ -49,6 +62,9 @@ var _placeholder_tex: Texture2D
 
 
 func _ready() -> void:
+	LIGHT_WOOD = preload("res://resources/ui/wood_panel.tres")
+	DARK_WOOD = preload("res://resources/ui/dark_wood_panel.tres")
+	DARK_SLOT = _make_dark_slot()
 	add_to_group("inventory_ui")
 	InventoryManager.changed.connect(_on_inventory_changed)
 	InventoryManager.capacity_changed.connect(_on_capacity_changed)
@@ -171,17 +187,9 @@ func _build_slots() -> void:
 	_slot_count_labels.clear()
 	
 	# Style for hotbar row separators
-	var hotbar_style := StyleBoxFlat.new()
-	hotbar_style.bg_color = Color(0.15, 0.15, 0.15, 0.85)
-	hotbar_style.set_border_width_all(2)
-	hotbar_style.border_color = Color(0.25, 0.2, 0.12)  # slightly warm border
-	hotbar_style.set_corner_radius_all(4)
+	var hotbar_style := DARK_SLOT
 	
-	var normal_style := StyleBoxFlat.new()
-	normal_style.bg_color = Color(0.12, 0.12, 0.12, 0.85)
-	normal_style.set_border_width_all(2)
-	normal_style.border_color = Color(0.25, 0.25, 0.25)
-	normal_style.set_corner_radius_all(4)
+	var normal_style := DARK_SLOT
 	
 	for i in range(InventoryManager.capacity):
 		var is_hotbar := i < HOTBAR_COUNT
@@ -240,11 +248,7 @@ func _restructure_layout() -> void:
 	var item_info: PanelContainer = $Panel/Margin/MainVBox/ItemInfo
 	
 	# Style the item info panel
-	var info_bg := StyleBoxFlat.new()
-	info_bg.bg_color = Color(0.08, 0.08, 0.08, 0.9)
-	info_bg.set_border_width_all(2)
-	info_bg.border_color = Color(0.2, 0.2, 0.25)
-	info_bg.set_corner_radius_all(4)
+	var info_bg := DARK_WOOD
 	item_info.add_theme_stylebox_override("panel", info_bg)
 	
 	# Update ItemNameLabel for autowrap
@@ -259,11 +263,7 @@ func _restructure_layout() -> void:
 
 func _style_right_panel() -> void:
 	# Player portrait background
-	var portrait_bg := StyleBoxFlat.new()
-	portrait_bg.bg_color = Color(0.1, 0.1, 0.1, 0.9)
-	portrait_bg.set_border_width_all(2)
-	portrait_bg.border_color = Color(0.35, 0.3, 0.2)
-	portrait_bg.set_corner_radius_all(4)
+	var portrait_bg := DARK_WOOD
 	var portrait_panel := portrait_rect.get_parent().get_parent() as PanelContainer
 	if portrait_panel:
 		portrait_panel.add_theme_stylebox_override("panel", portrait_bg)
@@ -345,11 +345,7 @@ func _build_armor_slots() -> void:
 	var armor_panel := PanelContainer.new()
 	_armor_panel = armor_panel
 	
-	var armor_bg := StyleBoxFlat.new()
-	armor_bg.bg_color = Color(0.08, 0.08, 0.08, 0.85)
-	armor_bg.set_border_width_all(2)
-	armor_bg.border_color = Color(0.3, 0.25, 0.35)
-	armor_bg.set_corner_radius_all(4)
+	var armor_bg := DARK_WOOD
 	armor_panel.add_theme_stylebox_override("panel", armor_bg)
 	
 	var armor_vbox := VBoxContainer.new()
@@ -374,18 +370,10 @@ func _build_armor_slots() -> void:
 	armor_vbox.add_child(title_row)
 	
 	# ── Slot background style ──
-	var slot_bg := StyleBoxFlat.new()
-	slot_bg.bg_color = Color(0.12, 0.10, 0.15, 0.9)
-	slot_bg.set_border_width_all(2)
-	slot_bg.border_color = Color(0.35, 0.25, 0.45)
-	slot_bg.set_corner_radius_all(4)
+	var slot_bg := DARK_SLOT
 	
 	# Hovered slot border color
-	var slot_hover := StyleBoxFlat.new()
-	slot_hover.bg_color = Color(0.15, 0.12, 0.20, 0.95)
-	slot_hover.set_border_width_all(2)
-	slot_hover.border_color = Color(0.7, 0.5, 0.9, 0.8)
-	slot_hover.set_corner_radius_all(4)
+	var slot_hover := DARK_SLOT
 	
 	for slot_name: String in ARMOR_SLOT_ORDER:
 		# ── Slot container (clickable area) ──
@@ -479,8 +467,8 @@ func _on_armor_slot_hover(slot_name: String, hovering: bool) -> void:
 	
 	var style := StyleBoxFlat.new()
 	style.bg_color = bg
-	style.set_border_width_all(2)
 	style.border_color = border
+	style.set_border_width_all(2)
 	style.set_corner_radius_all(4)
 	slot.add_theme_stylebox_override("panel", style)
 
@@ -708,17 +696,14 @@ func _update_tool_highlight() -> void:
 	var active_idx: int = _tool_to_hotbar_idx(tool_value)
 	
 	for i in range(min(HOTBAR_COUNT, _slot_panels.size())):
-		var style := StyleBoxFlat.new()
+		var style := DARK_SLOT.duplicate()
 		var is_hotbar := i < HOTBAR_COUNT
 		if is_hotbar:
-			style.bg_color = Color(0.2, 0.2, 0.25, 0.9) if i == active_idx else Color(0.15, 0.15, 0.15, 0.85)
-			style.set_border_width_all(3 if i == active_idx else 2)
 			style.border_color = Color(1.0, 0.9, 0.3, 1.0) if i == active_idx else Color(0.25, 0.2, 0.12)
+			style.set_border_width_all(3 if i == active_idx else 2)
 		else:
-			style.bg_color = Color(0.12, 0.12, 0.12, 0.85)
-			style.set_border_width_all(2)
 			style.border_color = Color(0.25, 0.25, 0.25)
-		style.set_corner_radius_all(4)
+			style.set_border_width_all(2)
 		_slot_panels[i].add_theme_stylebox_override("panel", style)
 
 

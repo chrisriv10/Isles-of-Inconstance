@@ -134,6 +134,7 @@ offset_right = 80.0
 offset_bottom = -84.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/panel = SubResource("sb_panel_slim")
 
 [node name="Label" type="Label" parent="Root/InteractionPrompt" unique_id=518288779]
 layout_mode = 2
@@ -249,6 +250,7 @@ offset_right = 130.0
 offset_bottom = 178.0
 grow_horizontal = 2
 mouse_filter = 1
+theme_override_styles/panel = SubResource("sb_panel_slim")
 
 [node name="VBox" type="VBoxContainer" parent="Root/ObjectiveLabel" unique_id=471836344]
 layout_mode = 2
