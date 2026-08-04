@@ -385,7 +385,7 @@ func _update_remote_health_bar() -> void:
 	else:
 		visible = true
 
-_remote_hp_bar_fill.visible = true
+	_remote_hp_bar_fill.visible = true
 	_remote_hp_bar_bg.visible = true
 	# Hide original name_label for remote players, use _remote_nameplate instead
 	if name_label:
