@@ -346,6 +346,10 @@ func _ensure_remote_health_bar() -> void:
 	add_child(fill)
 	_remote_hp_bar_fill = fill
 
+	# Hide original scene NameLabel for remote players
+	if name_label:
+		name_label.visible = false
+
 	# Nameplate label (above health bar)
 	var np := Label.new()
 	np.name = "NameplateLabel"
@@ -1315,21 +1319,21 @@ func _show_downed_ui() -> void:
 	downed_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
 	downed_label.add_theme_constant_override("shadow_offset_x", 2)
 	downed_label.add_theme_constant_override("shadow_offset_y", 2)
-	downed_label.position = Vector2(0, -60)
+	downed_label.position = Vector2(0, -48)
 	add_child(downed_label)
 	
 	# Revive progress bar
 	var bg := ColorRect.new()
 	bg.name = "ReviveProgressBG"
 	bg.size = Vector2(80, 6)
-	bg.position = Vector2(-40, -42)
+	bg.position = Vector2(-40, -34)
 	bg.color = Color(0.1, 0.1, 0.1, 0.8)
 	add_child(bg)
 	
 	var fill := ColorRect.new()
 	fill.name = "ReviveProgressFill"
 	fill.size = Vector2(0, 6)
-	fill.position = Vector2(-40, -42)
+	fill.position = Vector2(-40, -34)
 	fill.color = Color(0.2, 1.0, 0.3, 1.0)
 	add_child(fill)
 

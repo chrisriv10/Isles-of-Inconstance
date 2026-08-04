@@ -390,17 +390,25 @@ func _start_new_game(p_seed: int) -> void:
 	# Re-show all UI CanvasLayers (they were hidden on exit to menu)
 	_show_ui_canvas_layers()
 	
-	# Remove any enemy/boss/animal nodes left from previous creative sessions
+# Remove any enemy/boss/animal nodes left from previous creative sessions
 	for group_name in ["enemies", "bosses", "animals"]:
 		for node in get_tree().get_nodes_in_group(group_name):
 			if is_instance_valid(node):
 				node.queue_free()
 	
+	# Clean up any remote player nodes from previous multiplayer sessions
+	for child in game.get_children():
+		if child.name.begins_with("Player_"):
+			child.queue_free()
+
 	# Reset interior/mine static flags that may be stale from a previous
 	# mine session. These are static vars on GameManager and persist
 	# across the entire Bootstrap lifetime.
 	GameManager.inside_interior = false
 	GameManager.near_campfire = false
+	# Reset downed state
+	GameManager._is_downed = false
+	GameManager._downed_timer = 0.0
 
 	# Reset game state — delete current slot's save
 	SaveManager.delete_save_in_slot(SaveManager.current_slot)
