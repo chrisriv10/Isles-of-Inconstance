@@ -44,7 +44,7 @@ const EXPEDITION_MAP_SCALE: int = 10  # pixels per cell (expedition: 50×50 → 
 @onready var panel: PanelContainer = $Panel
 @onready var map_texture: TextureRect = $Panel/Margin/VBox/MapContainer/MapTexture
 @onready var player_marker: ColorRect = $Panel/Margin/VBox/MapContainer/PlayerMarker
-@onready var legend_container: VBoxContainer = $Panel/Margin/VBox/Legend
+@onready var legend_container: VBoxContainer = $Panel/Margin/VBox/Legend/LegendContent
 @onready var title_label: Label = $Panel/Margin/VBox/Title
 
 var _map_image: Image = null

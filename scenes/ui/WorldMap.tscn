@@ -70,6 +70,15 @@ visible = false
 custom_minimum_size = Vector2(4, 4)
 layout_mode = 1
 
-[node name="Legend" type="VBoxContainer" parent="Panel/Margin/VBox" unique_id=2142157287]
+[node name="Legend" type="ScrollContainer" parent="Panel/Margin/VBox" unique_id=2142157287]
 custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
+size_flags_vertical = 2
+scroll_vertical = 1
+scroll_horizontal = 0
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_right = 4
+
+[node name="LegendContent" type="VBoxContainer" parent="Panel/Margin/VBox/Legend" unique_id=2142157288]
+layout_mode = 2
+theme_override_constants/separation = 2
