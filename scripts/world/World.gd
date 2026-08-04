@@ -2944,6 +2944,7 @@ func can_enter_mine() -> bool:
 
 ## Called when the player presses E near a mine entrance in the overworld.
 ## Returns true if the player was near an entrance and entered the mine.
+## In multiplayer, only the host processes this and broadcasts the mine creation.
 func try_enter_mine() -> bool:
 	if not _player_near_mine_entrance or not _player_mine_entrance_node:
 		return false
@@ -2971,6 +2972,32 @@ func try_enter_mine() -> bool:
 		depth = 3
 	elif dist_from_center < 25.0:
 		depth = 2
+	
+	# In multiplayer, only host creates the mine; clients request via RPC
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_try_enter_mine", entrance_index, depth)
+		return true
+	
+	return _do_enter_mine(entrance_index, depth)
+
+
+## Host-only: create the mine room and broadcast to all peers.
+## entrance_index: which entrance was used (determines spawn chamber)
+## depth: mine depth level (1, 2, or 3)
+@rpc("authority", "reliable")
+func _server_try_enter_mine(entrance_index: int, depth: int) -> void:
+	_do_enter_mine(entrance_index, depth)
+
+
+## Internal: actually create the mine room (host only, called locally or via RPC).
+## Returns true if mine was created.
+func _do_enter_mine(entrance_index: int, depth: int) -> bool:
+	if current_mine_room:
+		return false
+	if _mine_exit_cooldown:
+		return false
+	if GameManager.inside_interior:
+		return false
 	
 	AudioManager.play(AudioManager.Sound.CAVE_AMBIENCE)
 	
@@ -3002,22 +3029,25 @@ func try_enter_mine() -> bool:
 		if enemy and is_instance_valid(enemy) and not enemy.is_in_group("bosses"):
 			enemy.queue_free()
 	
-	# Move player to void position (matching interior pattern)
-	var player := get_tree().get_first_node_in_group("player")
-	if player:
-		_mine_outside_pos = player.global_position
+	# Move all players to void position (matching interior pattern)
+	var players := get_tree().get_nodes_in_group("player")
+	for player in players:
+		if not is_instance_valid(player):
+			continue
+		if player.get_multiplayer_authority() == 1:
+			# Host's local player - save outside position
+			_mine_outside_pos = player.global_position
 		if player is CharacterBody2D:
 			player.velocity = Vector2.ZERO
-		_mine_prev_z = player.z_index
 		player.z_index = 2
 		var spawn_pos := mine_generator.get_spawn_position(entrance_index)
 		player.global_position = INTERIOR_VOID + spawn_pos
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)
-		player.show_dialogue("in here... I should explore deeper and find valuable ores.",
-		4.0
-	)
+		if player.get_multiplayer_authority() == multiplayer.get_unique_id():
+			# Only show dialogue for local player
+			player.show_dialogue("in here... I should explore deeper and find valuable ores.", 4.0)
 	
 	# Add the mine room at the void position (deferred so the room builds
 	# after this frame — same pattern as descending to deeper floors).
@@ -3109,6 +3139,25 @@ func _on_exit_mine() -> void:
 	if not current_mine_room:
 		return
 	
+	# In multiplayer, only host processes exit
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_exit_mine")
+		return
+	
+	_do_exit_mine()
+
+
+## Host-only: process mine exit and broadcast to all peers.
+@rpc("authority", "reliable")
+func _server_exit_mine() -> void:
+	_do_exit_mine()
+
+
+## Internal: actually exit the mine (host only, called locally or via RPC).
+func _do_exit_mine() -> void:
+	if not current_mine_room:
+		return
+	
 	_mine_exit_cooldown = true
 	get_tree().create_timer(0.5).timeout.connect(func(): _mine_exit_cooldown = false)
 	
@@ -3126,9 +3175,11 @@ func _on_exit_mine() -> void:
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
 	
-	# Move player back outside
-	var player := get_tree().get_first_node_in_group("player")
-	if player:
+	# Move all players back outside
+	var players := get_tree().get_nodes_in_group("player")
+	for player in players:
+		if not is_instance_valid(player):
+			continue
 		if _mine_outside_pos != Vector2.ZERO:
 			player.global_position = _mine_outside_pos
 		if player is CharacterBody2D:

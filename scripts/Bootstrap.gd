@@ -255,7 +255,11 @@ func _load_mp_game_as_client() -> void:
 	# Start game in client mode — world will be synced in later chunks
 	print("Bootstrap: Starting game as client")
 	GameManager.set_game_mode(GameManager.GameMode.SURVIVAL)
-	_show_persistent_background()
+	# Stop main menu music — game ambience takes over via day/night cycle
+	var am_node: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
+	if am_node and am_node.has_method("stop_music"):
+		am_node.stop_music(1.0)
+	_hide_persistent_background()
 	if main_menu:
 		main_menu.visible = false
 		main_menu.process_mode = Node.PROCESS_MODE_DISABLED
