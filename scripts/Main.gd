@@ -459,6 +459,10 @@ func _register_me_to_remote(peer_id: int) -> void:
 	else:
 		_pending_seed_peers.append(peer_id)
 
+	# Propagate the host's difficulty so all clients share the same economy
+	# and enemy scaling. Sent unconditionally (the host is authoritative).
+	rpc_id(peer_id, "_receive_host_difficulty", GameManager.difficulty)
+
 	# Broadcast the new peer to all clients
 	rpc("_add_remote_player", peer_id)
 	# Tell the new peer about every other existing peer
@@ -516,6 +520,14 @@ func _receive_world_seed(seed: int) -> void:
 		var p = _remote_players[pid]
 		if p != player:
 			p.global_position = spawn_pos
+
+
+## Sent by the host to a client with the host's difficulty setting so all
+## players share the same economy and enemy scaling in multiplayer.
+@rpc("authority", "reliable")
+func _receive_host_difficulty(diff: int) -> void:
+	print("Main: received host difficulty %d" % diff)
+	GameManager.set_difficulty(diff)
 
 
 ## Creates a remote player node on all clients for the given peer.

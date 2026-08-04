@@ -16,7 +16,7 @@ enum Mode { NEW_GAME, CONTINUE, HOST }
 
 signal save_selected(slot_index: int)
 signal back_requested()
-signal new_save_requested(slot_index: int, seed: int, game_mode: int)
+signal new_save_requested(slot_index: int, seed: int, game_mode: int, difficulty: int)
 signal host_save_selected(slot_index: int, public_lobby: bool)
 
 # UI Style constants
@@ -53,6 +53,8 @@ var _slot_widgets: Array[Dictionary] = []
 
 var _current_mode: Mode = Mode.CONTINUE
 var _selected_mode: int = GameManager.GameMode.SURVIVAL
+var _selected_difficulty: int = GameManager.Difficulty.NORMAL
+var _difficulty_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -65,6 +67,7 @@ func _ready() -> void:
 	survival_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.SURVIVAL))
 	creative_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.CREATIVE))
 	hardcore_btn.pressed.connect(_on_mode_button_pressed.bind(GameManager.GameMode.HARDCORE))
+	_build_difficulty_row()
 	_build_slot_grid()
 
 
@@ -75,6 +78,50 @@ func _on_random_seed_pressed() -> void:
 
 func _on_mode_button_pressed(mode_id: int) -> void:
 	_selected_mode = mode_id
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+
+
+## Builds the difficulty selector row (Casual / Normal / Hard) in the
+## New Game OptionsBox. These are created in code to keep the scene file
+## simple and avoid resource-ordering issues.
+func _build_difficulty_row() -> void:
+	var row := HBoxContainer.new()
+	row.name = "DiffRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6)
+
+	var label := Label.new()
+	label.text = "Difficulty:"
+	row.add_child(label)
+
+	var buttons := HBoxContainer.new()
+	buttons.name = "DiffButtons"
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 6)
+	row.add_child(buttons)
+
+	var group := ButtonGroup.new()
+	for diff_id in [GameManager.Difficulty.CASUAL, GameManager.Difficulty.NORMAL, GameManager.Difficulty.HARD]:
+		var btn := Button.new()
+		btn.text = GameManager.difficulty_name(diff_id)
+		btn.custom_minimum_size = Vector2(76, 30)
+		btn.add_theme_font_size_override("font_size", 13)
+		btn.toggle_mode = true
+		btn.button_group = group
+		btn.button_pressed = (diff_id == _selected_difficulty)
+		btn.pressed.connect(_on_difficulty_button_pressed.bind(diff_id))
+		buttons.add_child(btn)
+		_difficulty_buttons.append(btn)
+
+	# Insert after the ModeRow so it appears below the game-mode buttons.
+	options_box.add_child(row)
+	var mode_row := options_box.get_node_or_null("ModeRow")
+	if mode_row:
+		options_box.move_child(row, mode_row.get_index() + 1)
+
+
+func _on_difficulty_button_pressed(diff_id: int) -> void:
+	_selected_difficulty = diff_id
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
 
 
@@ -258,7 +305,7 @@ func _on_slot_gui_input(event: InputEvent, slot_idx: int) -> void:
 
 func _emit_new_save(slot_idx: int) -> void:
 	var seed: int = seed_input.text.to_int()
-	_fade_out_and_emit("new", slot_idx, seed, _selected_mode)
+	_fade_out_and_emit("new", slot_idx, seed, _selected_mode, _selected_difficulty)
 
 
 ## Applies the shared golden dialog theme. MUST be called AFTER add_child()
@@ -435,7 +482,7 @@ func _on_back_pressed() -> void:
 	_fade_out_and_emit("back")
 
 
-func _fade_out_and_emit(action: String, slot_idx: int = -1, seed: int = 0, game_mode: int = 0) -> void:
+func _fade_out_and_emit(action: String, slot_idx: int = -1, seed: int = 0, game_mode: int = 0, difficulty: int = GameManager.Difficulty.NORMAL) -> void:
 	# Disable all inputs
 	for w: Dictionary in _slot_widgets:
 		var panel_ctrl: Control = w["panel"]
@@ -451,7 +498,7 @@ func _fade_out_and_emit(action: String, slot_idx: int = -1, seed: int = 0, game_
 			"select":
 				save_selected.emit(slot_idx)
 			"new":
-				new_save_requested.emit(slot_idx, seed, game_mode)
+				new_save_requested.emit(slot_idx, seed, game_mode, difficulty)
 			"back":
 				back_requested.emit()
 	)

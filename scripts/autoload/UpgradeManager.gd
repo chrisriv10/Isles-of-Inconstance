@@ -7,7 +7,7 @@ extends Node
 
 signal upgrade_purchased(upgrade: Upgrade, new_level: int)
 
-enum Upgrade { INVENTORY, TOOLS, FARMING_SPEED, RARE_SEEDS }
+enum Upgrade { INVENTORY, TOOLS, FARMING_SPEED, RARE_SEEDS, COMBAT, LUCK }
 
 const MAX_LEVEL: int = 4
 
@@ -16,6 +16,8 @@ const NAMES := {
 	Upgrade.TOOLS: "Tool Forge",
 	Upgrade.FARMING_SPEED: "Green Thumb",
 	Upgrade.RARE_SEEDS: "Seed Vault Access",
+	Upgrade.COMBAT: "Combat Training",
+	Upgrade.LUCK: "Mystic Luck",
 }
 
 const DESCRIPTIONS := {
@@ -23,6 +25,8 @@ const DESCRIPTIONS := {
 	Upgrade.TOOLS: "Your hoe and watering can affect more tiles per swing.",
 	Upgrade.FARMING_SPEED: "Reduces the delay between tool uses.",
 	Upgrade.RARE_SEEDS: "Unlocks rarer seeds - and any mutations you've discovered - in the shop.",
+	Upgrade.COMBAT: "Permanent melee damage boost - strikes hit harder (+3 damage per level).",
+	Upgrade.LUCK: "Enemies drop loot more often, and rarities are more generous.",
 }
 
 const BASE_COSTS := {
@@ -30,6 +34,8 @@ const BASE_COSTS := {
 	Upgrade.TOOLS: 120,
 	Upgrade.FARMING_SPEED: 100,
 	Upgrade.RARE_SEEDS: 150,
+	Upgrade.COMBAT: 600,
+	Upgrade.LUCK: 800,
 }
 
 var levels: Dictionary = {
@@ -37,6 +43,8 @@ var levels: Dictionary = {
 	Upgrade.TOOLS: 0,
 	Upgrade.FARMING_SPEED: 0,
 	Upgrade.RARE_SEEDS: 0,
+	Upgrade.COMBAT: 0,
+	Upgrade.LUCK: 0,
 }
 
 func get_level(upgrade: Upgrade) -> int:

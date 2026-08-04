@@ -192,7 +192,7 @@ func try_collect() -> bool:
 	if earnings <= 0:
 		return false
 	
-	var collected: int = earnings
+	var collected: int = ceil(earnings * GameManager.get_income_mult())
 	GameManager.add_money(collected)
 	# Notify ObjectiveManager about hotel earnings
 	var om_hotel := get_tree().get_first_node_in_group("objective_manager")

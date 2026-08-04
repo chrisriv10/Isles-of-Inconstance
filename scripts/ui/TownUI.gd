@@ -176,7 +176,7 @@ func _calc_tribute_amount() -> int:
 	var tm := _get_town_manager()
 	if not tm:
 		return 0
-	return clampi(10 + tm.reputation / 50 + tm.get_residents().size() * 2, 10, 200)
+	return ceil(clampi(10 + tm.reputation / 50 + tm.get_residents().size() * 2, 10, 200) * GameManager.get_income_mult())
 
 ## Called when the player clicks "Collect Daily Tribute".
 func _on_collect_tribute() -> void:

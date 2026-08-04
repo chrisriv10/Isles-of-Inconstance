@@ -506,7 +506,7 @@ func _on_raid_victory() -> void:
 	ToastNotification.show_toast("🏆 RAID DEFEATED! Pirates routed!", ToastNotification.ToastType.SUCCESS, 5.0)
 	
 	# Reward: gold + pirate-themed loot
-	GameManager.add_money(50 + _rng.randi() % 100)
+	GameManager.add_money(roundi((50 + _rng.randi() % 100) * GameManager.get_income_mult()))
 	InventoryManager.add_item("cutlass", 1)
 	InventoryManager.add_item("cannonball", 3 + _rng.randi() % 5)
 	if _rng.randf() > 0.6:

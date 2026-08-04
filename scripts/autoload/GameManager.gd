@@ -17,11 +17,14 @@ signal game_mode_changed(mode: int)
 signal health_changed(health: int, max_health: int)
 signal hunger_changed(hunger: int, max_hunger: int)
 signal armor_changed(defense: int)
-signal hardcore_death_occurred()
-
+signal hardcore_death_occurred
 ## Peaceful = no enemies, survival = night enemies spawn, creative = god mode + tool.
 ## Hardcore = same as survival, but death deletes the save file.
 enum GameMode { PEACEFUL, SURVIVAL, CREATIVE, HARDCORE }
+
+## Difficulty: a per-save multiplier applied to combat, loot, and economy.
+## CASUAL = forgiving, NORMAL = the intended "harder" balance, HARD = aggressive.
+enum Difficulty { CASUAL, NORMAL, HARD }
 
 ## Dynamic HP/Hunger caps — recalibrated by LevelManager on level-up.
 ## Base values for level 1; LevelManager.get_max_health() / get_max_hunger()
@@ -391,6 +394,86 @@ func is_creative() -> bool:
 
 func is_hardcore() -> bool:
 	return game_mode == GameMode.HARDCORE
+
+# ── Difficulty system ────────────────────────────────────────────────────────
+# Per-save difficulty. NEW_GAME flow sets it from the save-select screen;
+# multiplayer clients inherit it from the host (see Main._receive_host_difficulty).
+signal difficulty_changed(difficulty: int)
+var difficulty: int = Difficulty.NORMAL
+
+func set_difficulty(new_difficulty: int) -> void:
+	difficulty = clampi(new_difficulty, Difficulty.CASUAL, Difficulty.HARD)
+	difficulty_changed.emit(difficulty)
+
+## Enemy (non-boss) HP multiplier for the current difficulty.
+func get_enemy_hp_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 0.8
+		Difficulty.HARD: return 2.0
+		_: return 1.4
+
+## Enemy (non-boss) damage multiplier for the current difficulty.
+func get_enemy_dmg_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 0.8
+		Difficulty.HARD: return 2.0
+		_: return 1.4
+
+## Boss HP multiplier for the current difficulty.
+func get_boss_hp_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 0.8
+		Difficulty.HARD: return 2.5
+		_: return 1.5
+
+## Boss damage multiplier for the current difficulty.
+func get_boss_dmg_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 0.8
+		Difficulty.HARD: return 2.0
+		_: return 1.5
+
+## Spawn interval multiplier (values < 1 = spawns more often).
+func get_spawn_interval_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 1.3
+		Difficulty.HARD: return 0.65
+		_: return 1.0
+
+## Max concurrent enemy multiplier (values < 1 = fewer enemies alive at once).
+func get_max_enemy_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 0.6
+		Difficulty.HARD: return 1.5
+		_: return 1.0
+
+## Enemy loot-drop frequency multiplier.
+func get_loot_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 1.2
+		Difficulty.HARD: return 0.5
+		_: return 1.0
+
+## Item sell-price multiplier (applied in SellUI and other sell points).
+func get_sell_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 1.0
+		Difficulty.HARD: return 0.65
+		_: return 0.85
+
+## Passive income multiplier (town tribute, pirate raid, hotel, restaurant).
+func get_income_mult() -> float:
+	match difficulty:
+		Difficulty.CASUAL: return 1.0
+		Difficulty.HARD: return 0.5
+		_: return 0.8
+
+## Human-readable difficulty label.
+static func difficulty_name(d: int) -> String:
+	match d:
+		Difficulty.CASUAL: return "Casual"
+		Difficulty.HARD: return "Hard"
+		_: return "Normal"
 
 var _minute_timer: float = 0.0
 var _time_sync_timer: float = 0.0

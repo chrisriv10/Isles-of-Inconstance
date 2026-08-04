@@ -144,6 +144,7 @@ func get_save_slot_info(slot_index: int) -> Dictionary:
 		"current_minute": data.get("current_minute", 0),
 		"world_seed": data.get("world_seed", 0),
 		"game_mode": data.get("game_mode", GameManager.GameMode.SURVIVAL),
+		"difficulty": data.get("difficulty", GameManager.Difficulty.NORMAL),
 	}
 
 ## Ensure save directory exists
@@ -193,6 +194,9 @@ func _collect_save_data() -> Dictionary:
 	# Bank balance
 	save_data["bank_balance"] = GameManager.bank_balance
 	
+	# Difficulty
+	save_data["difficulty"] = GameManager.difficulty
+
 	# Day/time
 	save_data["current_day"] = GameManager.current_day
 	save_data["current_hour"] = GameManager.get_hour()
@@ -451,6 +455,10 @@ func _apply_save_data(save_data: Dictionary) -> void:
 	# Game mode
 	if save_data.has("game_mode"):
 		GameManager.set_game_mode(save_data["game_mode"])
+
+	# Difficulty
+	if save_data.has("difficulty"):
+		GameManager.set_difficulty(save_data["difficulty"])
 	
 	# Objectives
 	if save_data.has("objectives"):

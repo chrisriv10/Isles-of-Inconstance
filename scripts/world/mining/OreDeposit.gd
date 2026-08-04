@@ -19,11 +19,11 @@ class_name OreDeposit
 ## What ore type this deposit yields. Must match a DataManager item_id.
 @export var ore_type: String = "copper_ore"
 ## How many hits before this deposit is fully depleted.
-@export var max_hits: int = 5
+@export var max_hits: int = 4
 ## How many ore items drop per hit (min).
 @export var min_per_hit: int = 1
 ## How many ore items drop per hit (max).
-@export var max_per_hit: int = 3
+@export var max_per_hit: int = 2
 ## Optional: chance (0.0–1.0) to drop a bonus gem/extra item on last hit.
 @export var bonus_chance: float = 0.0
 ## The bonus item id to drop on last hit if bonus_chance succeeds.

@@ -89,7 +89,8 @@ func _process(delta: float) -> void:
 	if _spawn_timer <= 0.0:
 		# During blood moon, spawns happen much more frequently
 		var is_blood_moon := GameManager.day_night and GameManager.day_night.blood_moon_active
-		_spawn_timer = SPAWN_INTERVAL_BLOOD_MOON if is_blood_moon else SPAWN_INTERVAL
+		var interval_mult := GameManager.get_spawn_interval_mult()
+		_spawn_timer = (SPAWN_INTERVAL_BLOOD_MOON if is_blood_moon else SPAWN_INTERVAL) * interval_mult
 		_try_spawn_wave()
 
 
@@ -116,14 +117,15 @@ func _try_spawn_wave() -> void:
 	# combat reaches every player, not just the host.
 	_player_ref = _find_nearest_player()
 	var is_blood_moon := GameManager.day_night and GameManager.day_night.blood_moon_active
-	var max_enemies := MAX_ENEMIES_BLOOD_MOON if is_blood_moon else MAX_ENEMIES
+	var max_enemy_mult := GameManager.get_max_enemy_mult()
+	var max_enemies := roundi((MAX_ENEMIES_BLOOD_MOON if is_blood_moon else MAX_ENEMIES) * max_enemy_mult)
 	
 	var current_count := get_tree().get_nodes_in_group("enemies").size()
 	if current_count >= max_enemies:
 		return
 	
-	# Blood moon: 3-4 enemies per wave; normal: 1-2
-	var count := (randi() % 2 + 3) if is_blood_moon else (randi() % 2 + 1)
+	# Blood moon: 3-4 enemies per wave; normal: 1-2 (scaled by difficulty)
+	var count := roundi(((randi() % 2 + 3) if is_blood_moon else (randi() % 2 + 1)) * max_enemy_mult)
 	for i in range(count):
 		if get_tree().get_nodes_in_group("enemies").size() >= max_enemies:
 			return
@@ -180,6 +182,10 @@ func _spawn_enemy() -> void:
 	_next_enemy_id += 1
 	
 	add_child(enemy)
+	# Apply difficulty scaling synchronously so the broadcast below sends the
+	# already-scaled HP to clients (the _ready() deferred call no-ops via the
+	# _stats_scaled guard).
+	enemy.apply_difficulty_scaling()
 	
 	# Broadcast spawn to remote clients
 	if NetworkManager.is_network_active() and multiplayer.is_server():
@@ -206,6 +212,7 @@ func spawn_enemy_at(pos: Vector2, _type: String = "pirate") -> Enemy:
 	enemy.speed = 70.0
 	enemy.damage = 8
 	enemy.add_to_group("enemies")
+	enemy.apply_difficulty_scaling()
 	
 	# Override the ghost sprite with a distinct pirate raider sprite
 	_apply_pirate_sprite(enemy)

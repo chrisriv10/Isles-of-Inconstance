@@ -49,7 +49,7 @@ func refresh() -> void:
 			continue
 		var count: int = counts[item_id]
 		shown = true
-		var display_price: int = floori(item.sell_price * GameManager.rep_sell_price_mult)
+		var display_price: int = floori(item.sell_price * GameManager.rep_sell_price_mult * GameManager.get_sell_mult())
 		var price_text: String = "$%d each" % display_price
 		if GameManager.rep_sell_price_mult > 1.0:
 			price_text = "$%d each (base: $%d)" % [display_price, item.sell_price]
@@ -68,7 +68,7 @@ func _sell_item(item_id: String, count: int) -> void:
 	if not item:
 		return
 	if InventoryManager.remove_item(item_id, count):
-		var price_per: int = floori(item.sell_price * GameManager.rep_sell_price_mult)
+		var price_per: int = floori(item.sell_price * GameManager.rep_sell_price_mult * GameManager.get_sell_mult())
 		GameManager.add_money(price_per * count)
 		AudioManager.play(AudioManager.Sound.SELL)
 		LevelManager.add_xp(mini(count, 10), "sell")  # cap sell XP at 10 per transaction

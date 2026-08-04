@@ -1258,6 +1258,9 @@ func _summon_boss(bait_item_id: String) -> void:
 	var boss: Enemy = boss_scene.instantiate()
 	boss.global_position = spawn_pos
 	world.add_child(boss)
+	# Apply difficulty scaling synchronously (the _ready() deferred call no-ops
+	# via the _stats_scaled guard) so the boss fight starts at final stats.
+	boss.apply_difficulty_scaling()
 	
 	# Dramatic summoning effects (delegates to boss-specific visuals)
 	boss._summon_spawn_effect()
@@ -1816,6 +1819,8 @@ func _try_auto_plant_seed(target_pos: Vector2) -> bool:
 ## including the TOOLS upgrade bonus (+5 per level).
 func _get_melee_damage() -> int:
 	var upgrade_bonus: int = UpgradeManager.get_level(UpgradeManager.Upgrade.TOOLS) * 5
+	# Combat Training upgrade adds +3 melee damage per level.
+	upgrade_bonus += UpgradeManager.get_level(UpgradeManager.Upgrade.COMBAT) * 3
 	var level_mult: float = LevelManager.get_damage_multiplier()
 	var pet_bonus: float = 0.0
 	if Engine.has_singleton("PetManager"):

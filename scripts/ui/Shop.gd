@@ -24,6 +24,18 @@ extends CanvasLayer
 var legendary_header: Label
 var legendary_list: VBoxContainer
 
+## Luxuries: expensive decorative items sold as coin sinks.
+## Each entry: { "item_id": String, "price": int }
+var _luxury_items: Array = [
+	{"item_id": "decorative_fountain_kit", "price": 1500},
+	{"item_id": "decorative_statue_kit", "price": 2500},
+	{"item_id": "decorative_lantern_kit", "price": 800},
+	{"item_id": "decorative_bench_kit", "price": 500},
+	{"item_id": "decorative_sign_kit", "price": 300},
+]
+var _luxury_header: Label
+var _luxury_list: VBoxContainer
+
 ## Custom expedition merchant items, set via open_with_items().
 ## Each entry: { "item_id": String, "price": int, "stock": int }
 var _expedition_items: Array = []
@@ -40,6 +52,7 @@ func _ready() -> void:
 	# Build dynamic sections
 	_build_legendary_section()
 	_build_expedition_section()
+	_build_luxury_section()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_open and event.is_action_pressed("close_menu"):
@@ -112,6 +125,7 @@ func refresh() -> void:
 	_refresh_legendary()
 	_refresh_pets()
 	_refresh_upgrades()
+	_refresh_luxury()
 	_refresh_expedition_items()
 
 func _clear(container: Node) -> void:
@@ -345,6 +359,57 @@ func _buy_expedition_item(item_id: String, price: int) -> void:
 		var item_def = DataManager.get_item(item_id)
 		var item_name: String = item_def.display_name if item_def else item_id.replace("_", " ").capitalize()
 		ToastNotification.show_toast("Bought %s!" % item_name, ToastNotification.ToastType.SUCCESS)
+		refresh()
+	else:
+		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)
+
+# ---------------------------------------------------------------------------
+# Luxuries (expensive decorative coin sinks)
+# ---------------------------------------------------------------------------
+
+## Build the luxury section header + list (hidden by default).
+func _build_luxury_section() -> void:
+	_luxury_header = Label.new()
+	_luxury_header.text = "Luxuries"
+	_luxury_header.add_theme_font_size_override("font_size", 18)
+	_luxury_header.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3, 1.0))
+	sections_container.add_child(_luxury_header)
+	_luxury_header.visible = false
+
+	_luxury_list = VBoxContainer.new()
+	sections_container.add_child(_luxury_list)
+	_luxury_list.visible = false
+
+## Refresh the luxury listing with expensive decorative items.
+func _refresh_luxury() -> void:
+	_clear(_luxury_list)
+	_luxury_header.visible = false
+	_luxury_list.visible = false
+	var shown := false
+	for entry in _luxury_items:
+		var item_id: String = entry.get("item_id", "")
+		var price: int = entry.get("price", 1)
+		if item_id.is_empty():
+			continue
+		var item_def = DataManager.get_item(item_id)
+		var item_name: String = item_def.display_name if item_def else item_id.replace("_", " ").capitalize()
+		shown = true
+		_luxury_list.add_child(_build_row(
+			item_name,
+			"$%d" % price,
+			"Buy",
+			func(): _buy_luxury(item_id, price)
+		))
+	_luxury_header.visible = shown
+	_luxury_list.visible = shown
+
+func _buy_luxury(item_id: String, price: int) -> void:
+	if GameManager.spend_money(price):
+		InventoryManager.add_item(item_id, 1)
+		AudioManager.play(AudioManager.Sound.BUY)
+		var item_def = DataManager.get_item(item_id)
+		var item_name: String = item_def.display_name if item_def else item_id.replace("_", " ").capitalize()
+		ToastNotification.show_toast("Enjoy your %s!" % item_name, ToastNotification.ToastType.SUCCESS)
 		refresh()
 	else:
 		ToastNotification.show_toast("Not enough coins!", ToastNotification.ToastType.ERROR)

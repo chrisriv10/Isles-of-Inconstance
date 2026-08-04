@@ -124,9 +124,10 @@ func _ready() -> void:
 	add_to_group("enemies")
 	collision_layer = 1   # collide with world (TileMapLayer on layer 1)
 	collision_mask = 3    # collide with world (layer 1) AND player (layer 2)
-	# Scale boss stats based on player level to keep them challenging
-	if is_in_group("bosses"):
-		_apply_boss_scaling()
+	# Apply boss level scaling + difficulty multipliers AFTER the subclass
+	# has set its real stats (subclass _ready runs after super()). Running
+	# this deferred ensures the final max_health/damage are scaled correctly.
+	call_deferred("apply_difficulty_scaling")
 	current_health = max_health
 	player_ref = _find_nearest_player()
 	_spawned_at = Time.get_ticks_msec() / 1000.0
@@ -341,6 +342,31 @@ func _apply_boss_scaling() -> void:
 	damage = max(1, roundi(damage * dmg_mult))
 
 
+## Applies boss level scaling (if a boss) and the current difficulty's HP/DMG
+## multipliers. Called deferred from _ready() so it runs AFTER the subclass
+## has set its real stats, and guarded so remote multiplayer copies never
+## re-scale (they receive exact stats from the host's spawn broadcast).
+var _stats_scaled: bool = false
+
+func apply_difficulty_scaling() -> void:
+	if _stats_scaled or _is_remote:
+		return
+	_stats_scaled = true
+
+	# Boss level scaling (fixes the old order bug where subclasses overwrote
+	# the base class's scaling — now it runs after the subclass sets real HP).
+	if is_in_group("bosses"):
+		_apply_boss_scaling()
+
+	var is_boss := is_in_group("bosses")
+	var hp_mult: float = GameManager.get_boss_hp_mult() if is_boss else GameManager.get_enemy_hp_mult()
+	var dmg_mult: float = GameManager.get_boss_dmg_mult() if is_boss else GameManager.get_enemy_dmg_mult()
+	max_health = max(1, roundi(max_health * hp_mult))
+	damage = max(1, roundi(damage * dmg_mult))
+	current_health = max_health
+	_update_health_bar()
+
+
 func _attack_player() -> void:
 	if not player_ref:
 		return
@@ -538,14 +564,17 @@ func _drop_loot() -> void:
 		var pet_mgr: Node = Engine.get_singleton("PetManager")
 		if pet_mgr and pet_mgr.has_method("get_loot_bonus"):
 			loot_bonus = pet_mgr.get_loot_bonus()
+	# Mystic Luck upgrade: +40% drop chance per level.
+	loot_bonus += UpgradeManager.get_level(UpgradeManager.Upgrade.LUCK) * 0.4
 	for entry in loot:
-		if randf() <= (entry.get("chance", 1.0) + loot_bonus) * DROP_RATE_MULTIPLIER:
+		var drop_chance: float = (entry.get("chance", 1.0) + loot_bonus) * DROP_RATE_MULTIPLIER * GameManager.get_loot_mult()
+		if randf() <= drop_chance:
 			var count: int = entry.get("count", 1)
 			InventoryManager.add_item(entry["item_id"], count)
 			_queue_loot(entry["item_id"], count)
 	
 	# Ultra-rare Inconstant Fruit drop from any enemy (0.05% base + tiny pet bonus)
-	if randf() < 0.0005 + loot_bonus * 0.001:
+	if randf() < (0.0005 + loot_bonus * 0.001) * GameManager.get_loot_mult():
 		_try_drop_inconstant_fruit()
 
 

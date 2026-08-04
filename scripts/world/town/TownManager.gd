@@ -524,7 +524,7 @@ func collect_tribute() -> int:
 	if not is_tribute_available():
 		return 0
 	
-	var amount: int = clampi(10 + reputation / 50 + residents.size() * 2, 10, 200)
+	var amount: int = ceil(clampi(10 + reputation / 50 + residents.size() * 2, 10, 200) * GameManager.get_income_mult())
 	GameManager.add_money(amount)
 	
 	_last_tribute_day = GameManager.current_day

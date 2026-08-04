@@ -102,8 +102,8 @@ func sell_crops(item_id: String, count: int, quality: int = 0) -> int:
 	# Remove items from inventory
 	InventoryManager.remove_item(item_id, count)
 	
-	# Add gold
-	GameManager.add_money(price)
+	# Add gold (scaled by difficulty income multiplier)
+	GameManager.add_money(ceil(price * GameManager.get_income_mult()))
 	
 	# Reputation
 	var tm := get_tree().get_first_node_in_group("town_manager")

@@ -147,6 +147,7 @@ func _on_host_save_selected(slot_idx: int, public_lobby: bool = true) -> void:
 	_host_save_seed = int(info.get("world_seed", 0))
 	_host_lobby_public = public_lobby
 	GameManager.set_game_mode(int(info.get("game_mode", GameManager.GameMode.SURVIVAL)))
+	GameManager.set_difficulty(int(info.get("difficulty", GameManager.Difficulty.NORMAL)))
 	SaveManager.current_slot = slot_idx
 	if save_select_ui:
 		save_select_ui.set_status("Starting host...")
@@ -279,10 +280,11 @@ func _on_new_game() -> void:
 		save_select_ui.show_ui(SaveSelectUI.Mode.NEW_GAME)
 
 
-func _on_new_save_from_slot(slot_idx: int, seed: int, mode: int) -> void:
+func _on_new_save_from_slot(slot_idx: int, seed: int, mode: int, difficulty: int = GameManager.Difficulty.NORMAL) -> void:
 	# Player picked a slot in the save select to start a new game there
-	print("Bootstrap._on_new_save_from_slot: slot=", slot_idx, " seed=", seed, " mode=", mode)
+	print("Bootstrap._on_new_save_from_slot: slot=", slot_idx, " seed=", seed, " mode=", mode, " difficulty=", difficulty)
 	GameManager.set_game_mode(mode)
+	GameManager.set_difficulty(difficulty)
 	SaveManager.current_slot = slot_idx
 	# Show the save select before starting the game (hides during load)
 	if save_select_ui:
