@@ -334,14 +334,14 @@ func _ensure_remote_health_bar() -> void:
 	var bg := ColorRect.new()
 	bg.name = "RemoteHPBarBG"
 	bg.size = Vector2(bar_w, bar_h)
-	bg.position = Vector2(-bar_w / 2.0, -32)
+	bg.position = Vector2(-bar_w / 2.0, -28)
 	bg.color = Color(0.1, 0.1, 0.1, 0.6)
 	add_child(bg)
 	_remote_hp_bar_bg = bg
 	var fill := ColorRect.new()
 	fill.name = "RemoteHPBarFill"
 	fill.size = Vector2(bar_w, bar_h)
-	fill.position = Vector2(-bar_w / 2.0, -32)
+	fill.position = Vector2(-bar_w / 2.0, -28)
 	fill.color = Color(0.3, 1.0, 0.3, 0.85)
 	add_child(fill)
 	_remote_hp_bar_fill = fill
@@ -355,7 +355,7 @@ func _ensure_remote_health_bar() -> void:
 	np.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	np.add_theme_constant_override("shadow_offset_x", 1)
 	np.add_theme_constant_override("shadow_offset_y", 1)
-	np.position = Vector2(0, -44)
+	np.position = Vector2(0, -40)
 	add_child(np)
 	_remote_nameplate = np
 
@@ -385,8 +385,11 @@ func _update_remote_health_bar() -> void:
 	else:
 		visible = true
 
-	_remote_hp_bar_fill.visible = true
+_remote_hp_bar_fill.visible = true
 	_remote_hp_bar_bg.visible = true
+	# Hide original name_label for remote players, use _remote_nameplate instead
+	if name_label:
+		name_label.visible = false
 	# Update nameplate
 	if _remote_nameplate and is_instance_valid(_remote_nameplate):
 		var remote_name: String = stats.get("name", "")
