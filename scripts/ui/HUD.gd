@@ -975,8 +975,10 @@ func _on_all_ruins_restored() -> void:
 func _refresh_raid_alert_position() -> void:
 	if _raid_alert:
 		var root_size: Vector2 = $Root.get_rect().size
-		# Position at top-center, below the objective label panel (which ends at ~y=148)
-		_raid_alert.position = Vector2(root_size.x / 2.0 - 200.0, 175.0)
+		# Position at top-center. The objective panel occupies y=132..178 when
+		# expanded, so the alerts sit below it; when it's minimized they move up.
+		var raid_y: float = 190.0 if _objective_minimized else 236.0
+		_raid_alert.position = Vector2(root_size.x / 2.0 - 200.0, raid_y)
 
 
 func _on_raid_wave_spawned(wave: int, total_waves: int) -> void:
@@ -1030,8 +1032,10 @@ func _setup_blood_moon_alert() -> void:
 func _refresh_blood_moon_alert_position() -> void:
 	if _blood_moon_alert:
 		var root_size: Vector2 = $Root.get_rect().size
-		# Position at top-center, just below the raid alert
-		_blood_moon_alert.position = Vector2(root_size.x / 2.0 - 200.0, 130.0)
+		# Position at top-center, above the raid alert but still below the
+		# objective panel (y=132..178 expanded); moves up when minimized.
+		var bm_y: float = 144.0 if _objective_minimized else 190.0
+		_blood_moon_alert.position = Vector2(root_size.x / 2.0 - 200.0, bm_y)
 
 
 func _on_blood_moon_started() -> void:
@@ -1455,6 +1459,10 @@ func _toggle_objective_minimized() -> void:
 			"Show objective panel" if _objective_minimized else "Minimize objective panel"
 		)
 	_update_objective_display()
+	# The raid / blood moon alerts sit below the objective panel, so they
+	# slide up when the panel is minimized and drop back down when expanded.
+	_refresh_raid_alert_position()
+	_refresh_blood_moon_alert_position()
 
 
 func _on_objective_completed(_id: int, _name_str: String) -> void:

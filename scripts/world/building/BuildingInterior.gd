@@ -1910,6 +1910,33 @@ func _spawn_resident_npc() -> void:
 	# Add InteriorWanderNPC so the resident moves around inside the room
 	var wander := InteriorWanderNPC.new()
 	npc.add_child(wander)
+	
+	# Talk interaction — pressing E opens the same quest dialogue panel as
+	# talking to the resident outside, so residents are interactable inside
+	# their own home. Mirrors the hotel guest "Talk" pattern.
+	var npc_sprite: Sprite2D = npc
+	var interact := Interactable.new()
+	interact.name = "Talk"
+	interact.collision_layer = 4
+	interact.interaction_prompt = "Talk to " + _resident_name
+	var ishape := CollisionShape2D.new()
+	var irect := RectangleShape2D.new()
+	irect.size = Vector2(16, 22)
+	ishape.shape = irect
+	interact.add_child(ishape)
+	interact.interacted.connect(func(_i: Node) -> void:
+		if not is_instance_valid(npc_sprite):
+			return
+		# Open the resident's quest dialogue. force=true skips the physical
+		# in-range check (this sprite lives in the interior void, so the
+		# resident's world Area2D can never see the player here).
+		var rn := _find_resident_node()
+		if rn:
+			rn.open_quest_dialogue(true)
+		else:
+			_spawn_npc_dialogue(npc_sprite.global_position, "Hello, neighbor!", 2.5)
+	)
+	npc.add_child(interact)
 
 
 ## Find the recruited resident NPC in the world by its unique id.
@@ -2282,7 +2309,12 @@ func _sell_crops_at_restaurant() -> void:
 	var available: Array[Dictionary] = []
 	for item_id: String in InventoryManager.get_all_counts().keys():
 		var item_data := DataManager.get_item(item_id)
+		# If the id isn't a registered item, it may still be a crop (whose
+		# yield item is registered here) — resolve a friendly name regardless.
 		if not item_data:
+			var crop_for_id: CropData = restaurant.get_crop_for_yield(item_id)
+			if crop_for_id:
+				available.append({"id": item_id, "name": crop_for_id.display_name, "count": InventoryManager.get_count(item_id), "price": restaurant.calculate_price(item_id, InventoryManager.get_count(item_id), 0)})
 			continue
 		if item_data.category != "crop" and item_data.category != "meal":
 			continue

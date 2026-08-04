@@ -256,8 +256,10 @@ func _complete_hit() -> void:
 		if bonus_chance > 0.0 and bonus_item != "":
 			if randf() < bonus_chance:
 				InventoryManager.add_item(bonus_item, 1)
-				# Show floating text for bonus
-				EffectSpawner.spawn_floating_text("+1 " + bonus_item, global_position, Color.GOLD)
+				# Show floating text for bonus (use the item's display name)
+				var bonus_data: ItemData = DataManager.get_item(bonus_item)
+				var bonus_display: String = bonus_data.display_name if bonus_data else bonus_item.replace("_", " ").capitalize()
+				EffectSpawner.spawn_floating_text("+1 " + bonus_display, global_position, Color.GOLD)
 
 		# Bonus XP for fully depleting a deposit
 		LevelManager.add_xp_source("mine_ore_final")

@@ -257,16 +257,21 @@ func _update_schedule() -> void:
 	
 	# Day-night cycle schedule for natural inside/outside rhythm.
 	# Residents are out and about most of the day so the town feels alive:
-	# 22:00-6:00  — sleep, invisible inside
+	# 22:00-6:00  — sleep, invisible inside (all residents)
 	# 6:00-8:00   — inside (waking up)
 	# 8:00-12:00  — wander (morning — out in town)
 	# 12:00-14:00 — post (at workplace offering services)
 	# 14:00-15:00 — inside (afternoon break)
 	# 15:00-20:00 — wander (afternoon/evening — out in town)
 	# 20:00-22:00 — home (heading inside for the night)
+	#
+	# Residents whose building has no navigable interior (general store,
+	# stable, stalls...) still go home and sleep at night — becoming invisible
+	# at their door — instead of standing outside all night. Daytime wander
+	# hours are unchanged for them.
 	
 	if hour >= 22 or hour < 6:
-		_switch_to("sleep" if _has_interior else "wander")
+		_switch_to("sleep")
 	elif hour >= 6 and hour < 8:
 		_switch_to("inside" if _has_interior else "wander")
 	elif hour >= 8 and hour < 12:
@@ -278,9 +283,9 @@ func _update_schedule() -> void:
 	elif hour >= 15 and hour < 20:
 		_switch_to("wander")
 	elif hour >= 20 and hour < 22:
-		_switch_to("home" if _has_interior else "wander")
+		_switch_to("home")
 	else:
-		_switch_to("sleep" if _has_interior else "wander")
+		_switch_to("sleep")
 
 
 ## Switch schedule and handle visibility transitions.
@@ -460,9 +465,12 @@ func _get_ambient_line() -> String:
 ## Track whether the player is in range for interaction
 var _player_in_range: bool = false
 
-## Open the full quest dialogue panel for this NPC
-func open_quest_dialogue() -> void:
-	if not _player_in_range:
+## Open the full quest dialogue panel for this NPC.
+## force = true is used by the interior resident sprite (which lives in the
+## interior void, not the world) — there the physical in-range Area2D can
+## never overlap the player, so the in-range gate is skipped.
+func open_quest_dialogue(force: bool = false) -> void:
+	if not _player_in_range and not force:
 		return
 	
 	# Check if we're at the post (service hours) — emit service signal too

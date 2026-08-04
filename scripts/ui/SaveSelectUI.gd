@@ -332,6 +332,7 @@ func _confirm_overwrite(slot_idx: int) -> void:
 
 	dialog.confirmed.connect(func():
 		AudioManager.play(AudioManager.Sound.UI_CLICK)
+		SaveManager.delete_save_in_slot(slot_idx)
 		_emit_new_save(slot_idx)
 	)
 	dialog.canceled.connect(func():

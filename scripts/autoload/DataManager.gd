@@ -61,6 +61,20 @@ func get_crop(id: String) -> CropData:
 func get_tile_type(id: String) -> TileTypeData:
 	return tile_types.get(id, null)
 
+## Resolve a friendly display name for any id (item or crop).
+## Falls back to the item registry, then the crop registry, then a
+## prettified version of the raw id (e.g. "violet_turnup" -> "Violet Turnup").
+func get_display_name(id: String) -> String:
+	if id == "":
+		return ""
+	var item: ItemData = items.get(id, null)
+	if item and not item.display_name.is_empty():
+		return item.display_name
+	var crop: CropData = crops.get(id, null)
+	if crop and not crop.display_name.is_empty():
+		return crop.display_name
+	return id.replace("_", " ").capitalize()
+
 func get_all_tile_types() -> Array:
 	return tile_types.values()
 

@@ -182,7 +182,8 @@ func _complete_chopping() -> void:
 		var fruit_amt := randi_range(min_fruit, max_fruit)
 		var added_fruit := InventoryManager.add_item(fruit_item_id, fruit_amt)
 		if added_fruit > 0:
-			var fruit_name: String = fruit_item_id.capitalize()
+			var fruit_item_data: ItemData = DataManager.get_item(fruit_item_id)
+			var fruit_name: String = fruit_item_data.display_name if fruit_item_data else fruit_item_id.replace("_", " ").capitalize()
 			EffectSpawner.spawn_resource_notification(fruit_name, added_fruit, global_position + Vector2(0, 8), Color(1.0, 0.6, 0.8))
 			AudioManager.play(AudioManager.Sound.GATHER)
 			LevelManager.add_xp_source("gather")

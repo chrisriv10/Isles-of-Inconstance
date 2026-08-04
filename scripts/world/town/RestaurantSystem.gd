@@ -165,6 +165,14 @@ func get_daily_special() -> Dictionary:
 func get_daily_special_crop() -> String:
 	return _daily_special_crop
 
+## Find the crop whose yield item id matches the given id. Useful for
+## resolving a yield item back to its crop so we can show a friendly name.
+func get_crop_for_yield(item_id: String) -> CropData:
+	for crop: CropData in DataManager.crops.values():
+		if crop.yield_item_id == item_id:
+			return crop
+	return null
+
 func is_recipe_unlocked(ingredient_id: String) -> bool:
 	return _recipes_unlocked.has(ingredient_id)
 

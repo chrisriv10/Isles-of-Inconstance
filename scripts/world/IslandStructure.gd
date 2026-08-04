@@ -207,7 +207,8 @@ func _solve_pyramid(interactor: Node) -> void:
 		ToastNotification.show_toast("The pyramid accepts your offering and reveals its treasure!", ToastNotification.ToastType.SUCCESS, 3.0)
 	else:
 		_was_used = false
-		var item_name: String = tribute_item.replace("_", " ").capitalize()
+		var tribute_data: ItemData = DataManager.get_item(tribute_item)
+		var item_name: String = tribute_data.display_name if tribute_data else tribute_item.replace("_", " ").capitalize()
 		ToastNotification.show_toast("The altar demands a %s as tribute." % [item_name], ToastNotification.ToastType.WARNING, 3.0)
 
 

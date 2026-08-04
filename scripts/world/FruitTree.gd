@@ -71,7 +71,9 @@ func _complete_chopping() -> void:
 		var fruit_amount := randi_range(min_fruit, max_fruit) + level_bonus
 		var added := InventoryManager.add_item(fruit_item_id, fruit_amount)
 		if added > 0:
-			EffectSpawner.spawn_floating_text("+%d %s" % [added, fruit_item_id.capitalize()], global_position + (Vector2(0, 8) if has_axe else Vector2.ZERO), Color(1.0, 0.6, 0.8))
+			var fruit_data: ItemData = DataManager.get_item(fruit_item_id)
+			var fruit_display: String = fruit_data.display_name if fruit_data else fruit_item_id.replace("_", " ").capitalize()
+			EffectSpawner.spawn_floating_text("+%d %s" % [added, fruit_display], global_position + (Vector2(0, 8) if has_axe else Vector2.ZERO), Color(1.0, 0.6, 0.8))
 			AudioManager.play(AudioManager.Sound.GATHER)
 			LevelManager.add_xp_source("gather")
 	else:

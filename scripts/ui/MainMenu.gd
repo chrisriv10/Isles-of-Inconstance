@@ -263,6 +263,11 @@ func _on_join_connect_pressed() -> void:
 	if code.is_empty():
 		return
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	# Set player name for multiplayer (same as host)
+	var p_name: String = name_input.text.strip_edges()
+	if p_name.is_empty():
+		p_name = "Farmer"
+	GameManager.player_name = p_name
 	join_code_box.visible = false
 	_fade_out_and_emit("join", code)
 
