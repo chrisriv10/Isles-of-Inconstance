@@ -168,6 +168,12 @@ var _invulnerability_timer: Timer
 var _invuln_blink_tween: Tween
 var _gingerbread_sparkle_timer: Timer
 
+# Downed state (multiplayer co-op)
+var _is_downed: bool = false
+var _revive_progress: float = 0.0
+const REVIVE_HOLD_TIME: float = 3.0
+var _revive_target: Player = null
+
 ## Base melee damage per tool (before upgrade scaling).
 ## Tools not listed get the default of 15.
 ## The upgrade bonus (+5 per TOOLS level) is added on top.
@@ -584,6 +590,18 @@ func _physics_process(delta: float) -> void:
 			_cancel_mine_interaction()
 		if _is_clearing_rubble:
 			_cancel_rubble_clear()
+	
+	# Cancel revive if player moves
+	if _revive_target and input_direction != Vector2.ZERO:
+		_cancel_revive()
+	
+	# Process revive hold (hold E to revive)
+	if _revive_target:
+		_process_revive(delta)
+	
+	# Update revive progress UI for downed player
+	if _is_downed:
+		_update_revive_progress(delta)
 
 	# ── Post-move guard ──
 	# On expedition island, snap back if standing on water or edge tile.
@@ -1236,7 +1254,221 @@ func _apply_potion_effect(potion_id: String, potion_name: String) -> void:
 			ToastNotification.show_toast("Drank %s! No effect..." % potion_name, ToastNotification.ToastType.INFO, 2.0)
 
 
-## Summon a boss by consuming its bait item from the hotbar.
+# ── Downed State / Revive (Multiplayer Co-op) ──────────────────────────────
+## Called by GameManager when player enters downed state.
+func apply_downed_state() -> void:
+	if _is_downed:
+		return
+	_is_downed = true
+	_revive_progress = 0.0
+	_revive_target = null
+	
+	# Visual effects
+	modulate = Color(1.0, 1.0, 1.0, 0.6)  # Semi-transparent
+	sprite.modulate = Color(1.0, 0.3, 0.3, 1.0)  # Red tint
+	
+	# Disable movement and actions
+	set_physics_process(false)
+	velocity = Vector2.ZERO
+	
+	# Show downed UI
+	_show_downed_ui()
+	
+	# Play downed sound/effect
+	AudioManager.play(AudioManager.Sound.HIT)
+	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.2, 0.2), 12, 20.0)
+	ToastNotification.show_toast("You are downed! Hold E near a teammate to revive.", ToastNotification.ToastType.WARNING, 8.0)
+
+## Called by GameManager when player is revived.
+func remove_downed_state() -> void:
+	if not _is_downed:
+		return
+	_is_downed = false
+	_revive_progress = 0.0
+	_revive_target = null
+	
+	# Restore visuals
+	modulate = Color(1.0, 1.0, 1.0, 1.0)
+	sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	
+	# Re-enable movement
+	set_physics_process(true)
+	
+	# Hide downed UI
+	_hide_downed_ui()
+	
+	# Revive effect
+	EffectSpawner.spawn_particles(global_position, Color(0.2, 1.0, 0.3), 15, 25.0)
+	AudioManager.play(AudioManager.Sound.LEVEL_UP)
+	ToastNotification.show_toast("You have been revived!", ToastNotification.ToastType.SUCCESS, 4.0)
+
+func _show_downed_ui() -> void:
+	# Create a "DOWNED" label above player
+	var downed_label := Label.new()
+	downed_label.name = "DownedLabel"
+	downed_label.text = "DOWNED"
+	downed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	downed_label.add_theme_font_size_override("font_size", 14)
+	downed_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+	downed_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
+	downed_label.add_theme_constant_override("shadow_offset_x", 2)
+	downed_label.add_theme_constant_override("shadow_offset_y", 2)
+	downed_label.position = Vector2(0, -60)
+	add_child(downed_label)
+	
+	# Revive progress bar
+	var bg := ColorRect.new()
+	bg.name = "ReviveProgressBG"
+	bg.size = Vector2(80, 6)
+	bg.position = Vector2(-40, -42)
+	bg.color = Color(0.1, 0.1, 0.1, 0.8)
+	add_child(bg)
+	
+	var fill := ColorRect.new()
+	fill.name = "ReviveProgressFill"
+	fill.size = Vector2(0, 6)
+	fill.position = Vector2(-40, -42)
+	fill.color = Color(0.2, 1.0, 0.3, 1.0)
+	add_child(fill)
+
+func _hide_downed_ui() -> void:
+	var downed_label := get_node_or_null("DownedLabel")
+	if downed_label:
+		downed_label.queue_free()
+	var bg := get_node_or_null("ReviveProgressBG")
+	if bg:
+		bg.queue_free()
+	var fill := get_node_or_null("ReviveProgressFill")
+	if fill:
+		fill.queue_free()
+
+## Update revive progress when holding E near a downed teammate.
+func _update_revive_progress(delta: float) -> void:
+	if not _is_downed:
+		return
+	
+	var fill := get_node_or_null("ReviveProgressFill")
+	if fill:
+		fill.size.x = 80.0 * (_revive_progress / 3.0)
+
+## Try to start reviving a downed teammate (hold E).
+func _try_start_revive() -> bool:
+	if _is_downed:
+		return false
+	if not NetworkManager.is_network_active():
+		return false
+	
+	# Find nearest downed player
+	var nearest_downed: Player = null
+	var nearest_dist: float = 64.0  # max revive range
+	
+	for peer_id in multiplayer.get_peers():
+		if peer_id == multiplayer.get_unique_id():
+			continue
+		var target = get_tree().get_node_or_null("Player_%d" % peer_id)
+		if target and target is Player and target._is_downed:
+			var dist := global_position.distance_to(target.global_position)
+			if dist < nearest_dist:
+				nearest_dist = dist
+				nearest_downed = target
+	
+	if not nearest_downed:
+		return false
+	
+	_revive_target = nearest_downed
+	_revive_progress = 0.0
+	_revive_target._revive_progress = 0.0
+	
+	# Show revive UI on both players
+	_show_revive_ui(nearest_downed)
+	
+	ToastNotification.show_toast("Reviving %s..." % nearest_downed.name_label.text, ToastNotification.ToastType.INFO, 1.5)
+	return true
+
+func _show_revive_ui(target: Player) -> void:
+	# Reviver sees progress bar
+	var bg := ColorRect.new()
+	bg.name = "ReviveUI_BG"
+	bg.size = Vector2(120, 8)
+	bg.position = Vector2(-60, -80)
+	bg.color = Color(0.1, 0.1, 0.1, 0.8)
+	add_child(bg)
+	
+	var fill := ColorRect.new()
+	fill.name = "ReviveUI_Fill"
+	fill.size = Vector2(0, 8)
+	fill.position = Vector2(-60, -80)
+	fill.color = Color(0.2, 1.0, 0.3, 1.0)
+	add_child(fill)
+	
+	var label := Label.new()
+	label.name = "ReviveUI_Label"
+	label.text = "Reviving %s..." % target.name_label.text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_color_override("font_color", Color(0.8, 1.0, 0.8))
+	label.position = Vector2(0, -95)
+	add_child(label)
+
+func _hide_revive_ui() -> void:
+	var bg := get_node_or_null("ReviveUI_BG")
+	if bg:
+		bg.queue_free()
+	var fill := get_node_or_null("ReviveUI_Fill")
+	if fill:
+		fill.queue_free()
+	var label := get_node_or_null("ReviveUI_Label")
+	if label:
+		label.queue_free()
+
+## Called each frame while holding E to revive.
+func _process_revive(delta: float) -> void:
+	if not _revive_target or not is_instance_valid(_revive_target):
+		_cancel_revive()
+		return
+	
+	# Check distance
+	if global_position.distance_to(_revive_target.global_position) > 64.0:
+		_cancel_revive()
+		ToastNotification.show_toast("Too far to revive!", ToastNotification.ToastType.WARNING, 2.0)
+		return
+	
+	_revive_progress += delta
+	_revive_target._revive_progress = _revive_progress
+	
+	# Update progress bars
+	var fill := get_node_or_null("ReviveUI_Fill")
+	if fill:
+		fill.size.x = 120.0 * (_revive_progress / 3.0)
+	var target_fill := _revive_target.get_node_or_null("ReviveProgressFill")
+	if target_fill:
+		target_fill.size.x = 80.0 * (_revive_progress / 3.0)
+	
+	if _revive_progress >= 3.0:
+		# Revive complete!
+		var reviver_name := name_label.text
+		rpc_id(_revive_target.get_multiplayer_authority(), "_request_revive_rpc", reviver_name)
+		_cancel_revive()
+
+func _cancel_revive() -> void:
+	if _revive_target and is_instance_valid(_revive_target):
+		_revive_target._revive_progress = 0.0
+		_revive_target._hide_downed_ui()
+		_revive_target._show_downed_ui()
+		_revive_target = null
+	_hide_revive_ui()
+	_revive_progress = 0.0
+
+@rpc("authority", "reliable")
+func _request_revive_rpc(reviver_name: String) -> void:
+	if not _is_downed:
+		return
+	# Only the host should process this, but we're using authority
+	if multiplayer.is_server() or multiplayer.get_remote_sender_id() == get_multiplayer_authority():
+		GameManager.revive_player(reviver_name)
+
+
+# ── Boss Summoning ──
 ## The boss spawns near the player and attacks immediately.
 func _summon_boss(bait_item_id: String) -> void:
 	var world: Node = _world
@@ -1612,6 +1844,15 @@ func _handle_interact_pressed() -> void:
 		_update_held_item()
 		ToastNotification.show_toast("You stand up.", ToastNotification.ToastType.INFO, 1.5)
 		return
+	
+	# Downed state: if we're downed, we can't do anything
+	if _is_downed:
+		return
+	
+	# Revive teammate: hold E near downed player (multiplayer only)
+	if NetworkManager.is_network_active() and _try_start_revive():
+		return
+	
 	if _is_build_mode_active():
 		_try_build_placement()
 		return
@@ -1630,6 +1871,8 @@ func _handle_interact_released() -> void:
 		_cancel_mine_interaction()
 	if _is_clearing_rubble:
 		_cancel_rubble_clear()
+	if _revive_target:
+		_cancel_revive()
 
 # ── Rubble clearing hold-to-interact ─────────────────────────────────
 

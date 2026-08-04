@@ -18,6 +18,10 @@ signal health_changed(health: int, max_health: int)
 signal hunger_changed(hunger: int, max_hunger: int)
 signal armor_changed(defense: int)
 signal hardcore_death_occurred
+## Downed state signals (multiplayer co-op)
+signal player_downed(player_name: String)
+signal player_revived(player_name: String, reviver_name: String)
+signal player_bleedout(player_name: String)
 ## Peaceful = no enemies, survival = night enemies spawn, creative = god mode + tool.
 ## Hardcore = same as survival, but death deletes the save file.
 enum GameMode { PEACEFUL, SURVIVAL, CREATIVE, HARDCORE }
@@ -98,6 +102,13 @@ var best_quality_tier: int = 0
 # Health & Hunger
 var health: int = MAX_HEALTH
 var hunger: int = MAX_HUNGER
+
+# Downed state (multiplayer co-op)
+var _is_downed: bool = false
+var _downed_timer: float = 0.0
+const BLEEDOUT_TIME: float = 60.0  # seconds before auto-respawn
+const REVIVE_TIME: float = 3.0     # seconds to hold E to revive
+const REVIVE_HEALTH_PCT: float = 0.3  # revive to 30% HP
 
 # Multiplayer: remote player stats keyed by peer_id
 # Each value: {"health": int, "max_health": int, "hunger": int, "max_hunger": int}
@@ -354,11 +365,36 @@ func _on_player_died() -> void:
 		hardcore_death_occurred.emit()
 		return
 	
+	var is_multiplayer := NetworkManager.is_network_active()
+	
+	if is_multiplayer:
+		# Enter downed state instead of instant respawn
+		_enter_downed_state()
+	else:
+		# Singleplayer: instant respawn (original behavior)
+		_instant_respawn()
+
+func _enter_downed_state() -> void:
+	print("Player downed! Waiting for revive...")
+	_is_downed = true
+	_downed_timer = 0.0
+	
+	# Set health to 1 so we don't re-trigger death
+	health = 1
+	health_changed.emit(health, MAX_HEALTH)
+	_try_broadcast_player_stats()
+	
+	# Notify player node to apply downed effects
+	var player := get_tree().get_first_node_in_group("player")
+	if player and player.has_method("apply_downed_state"):
+		player.apply_downed_state()
+	
+	player_downed.emit(player_name)
+
+func _instant_respawn() -> void:
 	print("Player died!")
 	
 	# If the player died inside a mine, clean up the mine state first.
-	# This frees the mine room, resets inside_interior, and clears the
-	# camera limits so the player isn't stuck looking at the mine void.
 	var world_death := get_tree().get_first_node_in_group("world")
 	if world_death and world_death.has_method("emergency_exit_mine"):
 		world_death.emergency_exit_mine()
@@ -366,7 +402,7 @@ func _on_player_died() -> void:
 	# Reset health and hunger to full
 	health = MAX_HEALTH
 	hunger = MAX_HUNGER
-	health_changed.emit(health, MAX_HEALTH)
+	health_changed.emit(health, MAX_HUNGER)
 	hunger_changed.emit(hunger, MAX_HUNGER)
 	_try_broadcast_player_stats()
 	var player := get_tree().get_first_node_in_group("player")
@@ -377,6 +413,54 @@ func _on_player_died() -> void:
 			player.global_position = world_death.cell_to_world(spawn_cell)
 		
 		ToastNotification.show_toast("You collapsed!", ToastNotification.ToastType.WARNING, 4.0)
+
+# Downed state processing
+func _process_downed(delta: float) -> void:
+	if not _is_downed:
+		return
+	if not NetworkManager.is_network_active():
+		return
+	
+	_downed_timer += delta
+	
+	# Check bleedout
+	if _downed_timer >= BLEEDOUT_TIME:
+		_bleedout()
+		return
+
+## Called when bleedout timer expires — auto-respawn
+func _bleedout() -> void:
+	print("Bleedout! Auto-respawning...")
+	_is_downed = false
+	_downed_timer = 0.0
+	player_bleedout.emit(player_name)
+	_instant_respawn()
+
+## Revive a downed player (called by reviver)
+## reviver_name: name of the player doing the revive
+func revive_player(reviver_name: String) -> void:
+	if not _is_downed:
+		return
+	if not NetworkManager.is_network_active():
+		return
+	
+	_is_downed = false
+	_downed_timer = 0.0
+	
+	# Revive to 30% HP
+	health = max(1, roundi(MAX_HEALTH * REVIVE_HEALTH_PCT))
+	hunger = max(hunger, roundi(MAX_HUNGER * 0.5))  # also restore some hunger
+	health_changed.emit(health, MAX_HEALTH)
+	hunger_changed.emit(hunger, MAX_HUNGER)
+	_try_broadcast_player_stats()
+	
+	# Notify player node to remove downed effects
+	var player := get_tree().get_first_node_in_group("player")
+	if player and player.has_method("remove_downed_state"):
+		player.remove_downed_state()
+	
+	player_revived.emit(player_name, reviver_name)
+	ToastNotification.show_toast("%s revived you!" % reviver_name, ToastNotification.ToastType.SUCCESS, 4.0)
 
 # Game mode
 var game_mode: int = GameMode.SURVIVAL
@@ -531,6 +615,9 @@ func _process(delta: float) -> void:
 		if _time_sync_timer >= 15.0:
 			_time_sync_timer = 0.0
 			_broadcast_time_state()
+
+	# Process downed state (multiplayer only)
+	_process_downed(delta)
 
 func _advance_minute() -> void:
 	current_minute_of_day += 1
