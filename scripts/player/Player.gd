@@ -393,9 +393,8 @@ _remote_hp_bar_fill.visible = true
 	# Update nameplate
 	if _remote_nameplate and is_instance_valid(_remote_nameplate):
 		var remote_name: String = stats.get("name", "")
-		var remote_level: int = stats.get("level", 1)
 		if not remote_name.is_empty():
-			_remote_nameplate.text = remote_name + "  Lv" + str(remote_level)
+			_remote_nameplate.text = remote_name
 			_remote_nameplate.visible = true
 		else:
 			_remote_nameplate.visible = false
