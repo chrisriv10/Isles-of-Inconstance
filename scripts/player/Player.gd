@@ -354,12 +354,18 @@ func _ensure_remote_health_bar() -> void:
 	var np := Label.new()
 	np.name = "NameplateLabel"
 	np.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	np.add_theme_font_size_override("font_size", 10)
+	np.add_theme_font_size_override("font_size", 8)
 	np.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
 	np.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	np.add_theme_constant_override("shadow_offset_x", 1)
 	np.add_theme_constant_override("shadow_offset_y", 1)
 	np.position = Vector2(0, -34)
+	np.anchors_preset = Control.PRESET_TOP_CENTER
+	np.anchor_left = 0.5
+	np.anchor_right = 0.5
+	np.anchor_top = 0.0
+	np.anchor_bottom = 0.0
+	np.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	add_child(np)
 	_remote_nameplate = np
 
