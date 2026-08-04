@@ -183,6 +183,8 @@ func _on_phase_changed(phase: int) -> void:
 
 ## Get an available audio player (round-robin).
 func _get_available_player() -> AudioStreamPlayer:
+	if _audio_players.is_empty():
+		return null
 	for i in range(MAX_PLAYERS):
 		var player := _audio_players[_player_index]
 		_player_index = (_player_index + 1) % MAX_PLAYERS

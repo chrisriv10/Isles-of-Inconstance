@@ -333,9 +333,8 @@ func _on_stun_ended() -> void:
 ## Bosses gain +10% HP and +5% damage per player level above 1.
 func _apply_boss_scaling() -> void:
 	var level: int = 1
-	var lm := Engine.get_singleton("LevelManager")
-	if lm and lm.has_method("get_level"):
-		level = max(1, lm.get_level())
+	if LevelManager != null:
+		level = max(1, LevelManager.get_level())
 	var hp_mult: float = 1.0 + (level - 1) * 0.10
 	var dmg_mult: float = 1.0 + (level - 1) * 0.05
 	max_health = max(10, roundi(max_health * hp_mult))

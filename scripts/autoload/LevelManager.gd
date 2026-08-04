@@ -88,6 +88,8 @@ func add_xp(amount: int, source: String = "") -> void:
 
 ## Spawn a floating "+X XP" text above the player's head.
 func _spawn_xp_floating_text(amount: int) -> void:
+	if not is_inside_tree():
+		return
 	var player: Node2D = get_tree().get_first_node_in_group("player") as Node2D
 	if not player:
 		return
@@ -144,6 +146,8 @@ func _check_level_up() -> void:
 
 func _on_level_reached(new_level: int) -> void:
 	level_up.emit(new_level)
+	if not is_inside_tree():
+		return  # headless/test context — skip UI/audio side effects
 	AudioManager.play(AudioManager.Sound.LEVEL_UP)
 	# Perk milestones
 	if new_level == MAX_LEVEL:
