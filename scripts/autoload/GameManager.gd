@@ -390,6 +390,7 @@ func _enter_downed_state() -> void:
 		player.apply_downed_state()
 	
 	player_downed.emit(player_name)
+	print("Downed state entered, timer started")
 
 func _instant_respawn() -> void:
 	print("Player died!")
@@ -423,6 +424,10 @@ func _process_downed(delta: float) -> void:
 	
 	_downed_timer += delta
 	
+	# Debug: print timer every 5 seconds
+	if int(_downed_timer) % 5 == 0 and int(_downed_timer) != int(_downed_timer - delta):
+		print("Downed timer: ", _downed_timer, "/", BLEEDOUT_TIME)
+	
 	# Check bleedout
 	if _downed_timer >= BLEEDOUT_TIME:
 		_bleedout()
@@ -430,7 +435,7 @@ func _process_downed(delta: float) -> void:
 
 ## Called when bleedout timer expires — auto-respawn
 func _bleedout() -> void:
-	print("Bleedout! Auto-respawning...")
+	print("Bleedout! Auto-respawning... timer was:", _downed_timer)
 	_is_downed = false
 	_downed_timer = 0.0
 	player_bleedout.emit(player_name)
