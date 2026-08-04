@@ -874,6 +874,8 @@ func try_show_dialogue(flag_id: String, text: String, duration: float = 3.5) -> 
 func _try_broadcast_player_stats() -> void:
 	if not NetworkManager.is_network_active():
 		return
+	if multiplayer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if now - _last_stat_sync_time < _STAT_SYNC_COOLDOWN:
 		return
