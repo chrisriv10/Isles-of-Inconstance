@@ -285,6 +285,8 @@ func _on_new_save_from_slot(slot_idx: int, seed: int, mode: int, difficulty: int
 	print("Bootstrap._on_new_save_from_slot: slot=", slot_idx, " seed=", seed, " mode=", mode, " difficulty=", difficulty)
 	GameManager.set_game_mode(mode)
 	GameManager.set_difficulty(difficulty)
+	# Default save name for new games (can be renamed later in Save Select)
+	GameManager.save_name = "My Island"
 	SaveManager.current_slot = slot_idx
 	# Show the save select before starting the game (hides during load)
 	if save_select_ui:
