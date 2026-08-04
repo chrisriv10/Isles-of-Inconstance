@@ -56,10 +56,14 @@ func try_recruit() -> Dictionary:
 	
 	# Convert the visitor to a resident
 	var npc_id: String = "resident_%s_%d" % [preferred_vacancy, Time.get_unix_time_from_system()]
-	var npc_name: String = visitor.get("npc_name") if "npc_name" in visitor else "New Resident"
-	if visitor.has_method("get_npc_name"):
-		if "npc_type" in visitor:
-			npc_name = VisitorNPC.get_random_npc_name(visitor.npc_type)
+	# Re-style the visitor's name to the building's role so the resident's name
+	# matches their new profession ("Mara the Explorer" → "Mara the Baker").
+	var base_name: String = str(visitor.get("_npc_display_name")) if "_npc_display_name" in visitor else ""
+	if base_name.is_empty():
+		base_name = str(visitor.get("npc_name"))
+	if base_name.is_empty():
+		base_name = "New Resident"
+	var npc_name: String = VisitorNPC.get_resident_name(def.npc_role, base_name)
 	
 	visitor.convert_to_resident(npc_id, def.npc_role, preferred_vacancy, def.grid_cell, npc_name)
 	# TownManager registration is handled inside convert_to_resident (multiplayer-aware)

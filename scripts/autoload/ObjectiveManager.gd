@@ -55,6 +55,30 @@ enum ObjectiveType {
 	SELL_AT_RESTAURANT,      # 42
 	REACH_TOWN_LEVEL_3,      # 43
 	REACH_TOWN_LEVEL_5,      # 44
+	# === Fishing objectives (v4) ===
+	CATCH_FIRST_FISH,        # 45
+	CATCH_25_FISH,           # 46
+	CATCH_RARE_FISH,         # 47
+	CATCH_ALL_FISH,          # 48
+	HOOK_LEGENDARY_FRUIT,    # 49
+	# === Foraging objectives (v4) ===
+	GATHER_FIRST_BERRY,      # 50
+	GATHER_50_WILD,          # 51
+	GATHER_20_FLOWERS,       # 52
+	# === Special / event objectives (v4) ===
+	MUTATE_FIRST_CROP,       # 53
+	CREATE_HYBRID_CROP,      # 54
+	SURVIVE_BLOOD_MOON,      # 55
+	MINE_500_ORE,            # 56
+	REACH_DEPTH_6,           # 57
+	# === Expedition objectives (v5) ===
+	VISIT_PLAIN_ISLAND,      # 58
+	VISIT_SNOWLAND_ISLAND,   # 59
+	VISIT_ICE_CREAM_ISLAND,  # 60
+	VISIT_DESERT_ISLAND,     # 61
+	VISIT_VOLCANIC_ISLAND,   # 62
+	VISIT_ETHEREAL_ISLAND,   # 63
+	VISIT_ALL_ISLANDS,       # 64
 }
 
 const OBJECTIVE_DEFS := {
@@ -105,6 +129,30 @@ const OBJECTIVE_DEFS := {
 	ObjectiveType.SELL_AT_RESTAURANT: {"name": "Purveyor", "desc": "Sell crops at the restaurant", "icon": "🧺"},
 	ObjectiveType.REACH_TOWN_LEVEL_3: {"name": "Village Status", "desc": "Reach Town Level 3", "icon": "🏘️", "threshold": 3},
 	ObjectiveType.REACH_TOWN_LEVEL_5: {"name": "Thriving Settlement", "desc": "Reach Town Level 5", "icon": "🌟", "threshold": 5},
+	# === Fishing objectives (v4) ===
+	ObjectiveType.CATCH_FIRST_FISH: {"name": "Angler's Debut", "desc": "Catch your first fish", "icon": "🎣"},
+	ObjectiveType.CATCH_25_FISH: {"name": "Fisherman", "desc": "Catch 25 fish", "icon": "🐟", "threshold": 25},
+	ObjectiveType.CATCH_RARE_FISH: {"name": "Rare Catch", "desc": "Catch a rare fish", "icon": "🐠"},
+	ObjectiveType.CATCH_ALL_FISH: {"name": "Ichthyologist", "desc": "Catch every fish species", "icon": "🐠", "threshold": 9},
+	ObjectiveType.HOOK_LEGENDARY_FRUIT: {"name": "Legendary Hook", "desc": "Hook a legendary Inconstant Fruit", "icon": "🍇"},
+	# === Foraging objectives (v4) ===
+	ObjectiveType.GATHER_FIRST_BERRY: {"name": "Berry Picker", "desc": "Gather berries from a bush", "icon": "🫐"},
+	ObjectiveType.GATHER_50_WILD: {"name": "Forager", "desc": "Gather 50 wild items", "icon": "🧺", "threshold": 50},
+	ObjectiveType.GATHER_20_FLOWERS: {"name": "Botanist's Hands", "desc": "Pick 20 flowers", "icon": "🌸", "threshold": 20},
+	# === Special / event objectives (v4) ===
+	ObjectiveType.MUTATE_FIRST_CROP: {"name": "Nature's Surprise", "desc": "Produce a crop mutation", "icon": "🧬"},
+	ObjectiveType.CREATE_HYBRID_CROP: {"name": "Hybridizer", "desc": "Create your first hybrid crop", "icon": "🔬"},
+	ObjectiveType.SURVIVE_BLOOD_MOON: {"name": "Blood Moon Veteran", "desc": "Survive a blood moon", "icon": "🌕"},
+	ObjectiveType.MINE_500_ORE: {"name": "Deep Miner", "desc": "Mine 500 ore total", "icon": "⛏️", "threshold": 500},
+	ObjectiveType.REACH_DEPTH_6: {"name": "Cave Crawler", "desc": "Reach mine depth level 6", "icon": "⬇️", "threshold": 6},
+	# === Expedition objectives (v5) ===
+	ObjectiveType.VISIT_PLAIN_ISLAND: {"name": "Grasslands Explorer", "desc": "Visit the grassy expedition island", "icon": "🏝️"},
+	ObjectiveType.VISIT_SNOWLAND_ISLAND: {"name": "Frostbound", "desc": "Visit the snowy expedition island", "icon": "❄️"},
+	ObjectiveType.VISIT_ICE_CREAM_ISLAND: {"name": "Sweet Tooth", "desc": "Visit the ice cream expedition island", "icon": "🍦"},
+	ObjectiveType.VISIT_DESERT_ISLAND: {"name": "Dune Walker", "desc": "Visit the desert expedition island", "icon": "🏜️"},
+	ObjectiveType.VISIT_VOLCANIC_ISLAND: {"name": "Ash Walker", "desc": "Visit the volcanic expedition island", "icon": "🌋"},
+	ObjectiveType.VISIT_ETHEREAL_ISLAND: {"name": "Beyond the Veil", "desc": "Visit the ethereal expedition island", "icon": "🔮"},
+	ObjectiveType.VISIT_ALL_ISLANDS: {"name": "True Adventurer", "desc": "Visit all 6 expedition islands", "icon": "🧭", "threshold": 6},
 }
 
 # ---------------------------------------------------------------------------
@@ -124,6 +172,28 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.WATER_25_TILES,
 			ObjectiveType.DISCOVER_5_CROPS,
 			ObjectiveType.PLACE_SPRINKLER,
+			ObjectiveType.MUTATE_FIRST_CROP,
+			ObjectiveType.CREATE_HYBRID_CROP,
+		],
+	},
+	"fishing": {
+		"name": "Fishing",
+		"icon": "🎣",
+		"types": [
+			ObjectiveType.CATCH_FIRST_FISH,
+			ObjectiveType.CATCH_25_FISH,
+			ObjectiveType.CATCH_RARE_FISH,
+			ObjectiveType.CATCH_ALL_FISH,
+			ObjectiveType.HOOK_LEGENDARY_FRUIT,
+		],
+	},
+	"foraging": {
+		"name": "Foraging",
+		"icon": "🧺",
+		"types": [
+			ObjectiveType.GATHER_FIRST_BERRY,
+			ObjectiveType.GATHER_50_WILD,
+			ObjectiveType.GATHER_20_FLOWERS,
 		],
 	},
 	"crafting": {
@@ -151,6 +221,7 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.DEFEAT_BLOOMING_WYRM,
 			ObjectiveType.DEFEAT_INCONSTANT_SOUL,
 			ObjectiveType.SURVIVE_PIRATE_RAID,
+			ObjectiveType.SURVIVE_BLOOD_MOON,
 		],
 	},
 	"exploration": {
@@ -159,7 +230,22 @@ const OBJECTIVE_CATEGORIES := {
 		"types": [
 			ObjectiveType.ENTER_MINE,
 			ObjectiveType.COLLECT_100_ORE,
+			ObjectiveType.MINE_500_ORE,
 			ObjectiveType.REACH_DEPTH_3,
+			ObjectiveType.REACH_DEPTH_6,
+		],
+	},
+	"expedition": {
+		"name": "Expeditions",
+		"icon": "🧭",
+		"types": [
+			ObjectiveType.VISIT_PLAIN_ISLAND,
+			ObjectiveType.VISIT_SNOWLAND_ISLAND,
+			ObjectiveType.VISIT_ICE_CREAM_ISLAND,
+			ObjectiveType.VISIT_DESERT_ISLAND,
+			ObjectiveType.VISIT_VOLCANIC_ISLAND,
+			ObjectiveType.VISIT_ETHEREAL_ISLAND,
+			ObjectiveType.VISIT_ALL_ISLANDS,
 		],
 	},
 	"progression": {
@@ -198,7 +284,7 @@ const OBJECTIVE_CATEGORIES := {
 
 ## Returns category keys in display order.
 static func get_category_order() -> Array[String]:
-	return ["farming", "crafting", "combat", "exploration", "progression", "town"]
+	return ["farming", "crafting", "fishing", "foraging", "combat", "exploration", "expedition", "progression", "town"]
 
 
 var _progress: Dictionary = {}  # objective_type -> current_count
@@ -265,6 +351,11 @@ func get_active_objective() -> Dictionary:
 			ObjectiveType.HARVEST_50_CROPS, ObjectiveType.REACH_LEVEL_25,
 			ObjectiveType.REACH_LEVEL_50, ObjectiveType.EARN_5000_GOLD,
 			ObjectiveType.INNKEEPER_100_GOLD,
+			# Expedition objectives
+			ObjectiveType.VISIT_PLAIN_ISLAND, ObjectiveType.VISIT_SNOWLAND_ISLAND,
+			ObjectiveType.VISIT_ICE_CREAM_ISLAND, ObjectiveType.VISIT_DESERT_ISLAND,
+			ObjectiveType.VISIT_VOLCANIC_ISLAND, ObjectiveType.VISIT_ETHEREAL_ISLAND,
+			ObjectiveType.VISIT_ALL_ISLANDS,
 			# Town objectives
 			ObjectiveType.RESTORE_FIRST_BUILDING, ObjectiveType.RESTORE_3_BUILDINGS,
 			ObjectiveType.RESTORE_6_BUILDINGS, ObjectiveType.RECRUIT_FIRST_RESIDENT,
@@ -410,17 +501,21 @@ func on_enter_mine(_depth: int) -> void:
 ## Called when the player collects ore from a mine deposit.
 func on_ore_collected(amount: int) -> void:
 	track_progress(ObjectiveType.COLLECT_100_ORE, amount)
+	track_progress(ObjectiveType.MINE_500_ORE, amount)
 
 ## Called when the player smelts an ingot at the crafting table.
 func on_smelt_ingot() -> void:
 	track_progress(ObjectiveType.SMELT_INGOT)
 
 ## Called when the player reaches a specific mine depth.
-## Depth is tracked as progress (depth 3 = threshold 3).
+## Depth is tracked as progress (depth 3 = threshold 3, depth 6 = threshold 6).
 func on_reach_mine_depth(depth: int) -> void:
 	if depth > _progress.get(ObjectiveType.REACH_DEPTH_3, 0):
 		_progress[ObjectiveType.REACH_DEPTH_3] = depth
 		_check_completion(ObjectiveType.REACH_DEPTH_3)
+	if depth > _progress.get(ObjectiveType.REACH_DEPTH_6, 0):
+		_progress[ObjectiveType.REACH_DEPTH_6] = depth
+		_check_completion(ObjectiveType.REACH_DEPTH_6)
 
 ## Called when a building is placed in the world.
 func on_building_placed() -> void:
@@ -507,6 +602,82 @@ func on_player_level_up(new_level: int) -> void:
 	elif new_level >= 25:
 		track_progress(ObjectiveType.REACH_LEVEL_25)
 
+# ---------------------------------------------------------------------------
+# New objective hooks (v4) — fishing / foraging / special events
+# ---------------------------------------------------------------------------
+
+## Fish species the fishing system can catch (used for rare + all-species detection).
+const FISH_SPECIES: Array[String] = ["raw_fish", "carp", "perch", "salmon", "trout", "tuna", "swordfish", "golden_fish", "moonfish"]
+
+## Fish that count as "rare" for the CATCH_RARE_FISH objective.
+const RARE_FISH: Array[String] = ["swordfish", "golden_fish", "moonfish"]
+
+## Set of fish species the player has caught (for CATCH_ALL_FISH).
+var _caught_fish: Dictionary = {}  # fish_item_id -> true
+
+## Set of expedition island types the player has visited (for VISIT_ALL_ISLANDS).
+var _visited_islands: Dictionary = {}  # island_type -> true
+
+## Called when the player catches any fish (regular or legendary).
+func on_fish_caught(fish_id: String) -> void:
+	track_progress(ObjectiveType.CATCH_FIRST_FISH)
+	track_progress(ObjectiveType.CATCH_25_FISH)
+	if not _caught_fish.has(fish_id):
+		_caught_fish[fish_id] = true
+		_progress[ObjectiveType.CATCH_ALL_FISH] = _caught_fish.size()
+		_check_completion(ObjectiveType.CATCH_ALL_FISH)
+	if fish_id in RARE_FISH:
+		track_progress(ObjectiveType.CATCH_RARE_FISH)
+	if not fish_id in FISH_SPECIES:
+		# Not a regular fish — must be a legendary Inconstant Fruit
+		track_progress(ObjectiveType.HOOK_LEGENDARY_FRUIT)
+
+## Called when the player gathers wild items (berries, flowers, mushrooms, wood).
+func on_gather_wild(item_id: String, amount: int) -> void:
+	if item_id == "flower":
+		track_progress(ObjectiveType.GATHER_20_FLOWERS, amount)
+	track_progress(ObjectiveType.GATHER_50_WILD, amount)
+
+## Called when the player gathers berries from a bush.
+func on_berry_gathered() -> void:
+	track_progress(ObjectiveType.GATHER_FIRST_BERRY)
+
+## Called when a growing crop mutates into a new crop.
+func on_crop_mutated() -> void:
+	track_progress(ObjectiveType.MUTATE_FIRST_CROP)
+
+## Called when a hybrid crop is created.
+func on_hybrid_crop_created() -> void:
+	track_progress(ObjectiveType.CREATE_HYBRID_CROP)
+
+## Called when the player survives a blood moon night.
+func on_blood_moon_survived() -> void:
+	track_progress(ObjectiveType.SURVIVE_BLOOD_MOON)
+
+## Called when the player sets foot on an expedition island.
+## island_type matches ExpeditionIsland.IslandType (0 = PLAIN ... 5 = ETHEREAL).
+func on_expedition_visited(island_type: int) -> void:
+	match island_type:
+		0:  # PLAIN
+			track_progress(ObjectiveType.VISIT_PLAIN_ISLAND)
+		1:  # SNOWLAND
+			track_progress(ObjectiveType.VISIT_SNOWLAND_ISLAND)
+		2:  # ICE_CREAM_LAND
+			track_progress(ObjectiveType.VISIT_ICE_CREAM_ISLAND)
+		3:  # DESERT
+			track_progress(ObjectiveType.VISIT_DESERT_ISLAND)
+		4:  # VOLCANIC
+			track_progress(ObjectiveType.VISIT_VOLCANIC_ISLAND)
+		5:  # ETHEREAL
+			track_progress(ObjectiveType.VISIT_ETHEREAL_ISLAND)
+		_:
+			return
+	if not _visited_islands.has(island_type):
+		_visited_islands[island_type] = true
+		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
+		_check_completion(ObjectiveType.VISIT_ALL_ISLANDS)
+	objectives_updated.emit()
+
 ## Helper: check a single objective for completion without the additive track_progress.
 func _check_completion(type: int) -> void:
 	if _completed.has(type):
@@ -529,6 +700,8 @@ func serialize() -> Dictionary:
 		"progress": _progress.duplicate(),
 		"completed": _completed.duplicate(),
 		"total_earned": _total_earned,
+		"caught_fish": _caught_fish.duplicate(),
+		"visited_islands": _visited_islands.duplicate(),
 	}
 
 
@@ -539,3 +712,13 @@ func deserialize(data: Dictionary) -> void:
 		_completed = data["completed"].duplicate()
 	if data.has("total_earned"):
 		_total_earned = data["total_earned"]
+	if data.has("caught_fish"):
+		_caught_fish = data["caught_fish"].duplicate()
+	if data.has("visited_islands"):
+		_visited_islands = data["visited_islands"].duplicate()
+
+	# Recompute collection-type objective progress from their persisted sets
+	if not _completed.has(ObjectiveType.VISIT_ALL_ISLANDS):
+		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
+	if not _completed.has(ObjectiveType.CATCH_ALL_FISH):
+		_progress[ObjectiveType.CATCH_ALL_FISH] = _caught_fish.size()

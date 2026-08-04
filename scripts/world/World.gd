@@ -171,6 +171,11 @@ func _ready() -> void:
 	# Add blood moon event to scene tree
 	if blood_moon_event and not blood_moon_event.is_inside_tree():
 		add_child(blood_moon_event)
+		# Track blood moon survival against objectives
+		var om := get_tree().get_first_node_in_group("objective_manager")
+		if om and om.has_method("on_blood_moon_survived"):
+			if not blood_moon_event.blood_moon_ended.is_connected(om.on_blood_moon_survived):
+				blood_moon_event.blood_moon_ended.connect(om.on_blood_moon_survived)
 	
 	# Add visitor manager to scene tree
 	if visitor_manager and not visitor_manager.is_inside_tree():
@@ -1186,6 +1191,11 @@ func _on_crop_mutated(_crop: Crop, old_crop_id: String, new_crop_id: String, mut
 	GameManager.crop_mutated.emit(old_name, new_name, mutation_name)
 	LevelManager.add_xp_source("mutation")
 
+	# Track mutation objective
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_crop_mutated"):
+		om.on_crop_mutated()
+
 ## Apply compost to a tilled tile with a growing crop. Boosts growth by 1
 ## day immediately (composted crops grow 2 days on the next day change).
 ## Returns true if compost was used.
@@ -1603,6 +1613,10 @@ func _check_hybrid_opportunity(cell: Vector2i, soil: SoilData) -> bool:
 			var hybrid := hybrid_system.try_hybridize(soil.crop_id, neighbor_soil.crop_id, cell.x, cell.y)
 			if hybrid:
 				ToastNotification.show_toast("New hybrid discovered: %s!" % hybrid.display_name, ToastNotification.ToastType.SUCCESS, 5.0)
+				# Track hybrid objective
+				var om := get_tree().get_first_node_in_group("objective_manager")
+				if om and om.has_method("on_hybrid_crop_created"):
+					om.on_hybrid_crop_created()
 				# Give the player a hybrid seed
 				InventoryManager.add_item(hybrid.seed_item_id, 1)
 				return true
@@ -1940,6 +1954,20 @@ func _spawn_chest() -> void:
 	chest.name = "StarterChest"
 	objects_root.add_child(chest)
 	chest.global_position = cell_to_world(Vector2i(centre_x + 2, centre_y + 1))
+	
+	# Floating label above the chest, matching the mine-entrance label style
+	var label := Label.new()
+	label.name = "StarterChestLabel"
+	label.text = "Starter Chest"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.size = Vector2(120, 20)
+	label.position = Vector2(-60, -34)
+	label.z_index = 5
+	chest.add_child(label)
 
 
 ## Places the Boat at the southernmost point of the island. Scans from the
@@ -3246,6 +3274,11 @@ func travel_to_island() -> void:
 		4.0
 	)
 
+	# Track expedition visited objective
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_expedition_visited"):
+		om.on_expedition_visited(island_type)
+
 
 ## Travel to an expedition island of a specific type. Called by ExpeditionUI
 ## when the player picks a specific island type (more expensive option).
@@ -3308,6 +3341,11 @@ func travel_to_island_with_type(island_type: int) -> void:
 		line,
 		4.0
 	)
+
+	# Track expedition visited objective
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_expedition_visited"):
+		om.on_expedition_visited(island_type)
 
 
 ## Return from the expedition island back to the main world.
@@ -4198,7 +4236,9 @@ func _server_convert_resident(role_name: String, home_ruin_id: String, cell_x: i
 	if not _free_visitor_by_synced_index(synced_index):
 		return
 	var npc_id: String = "resident_%s_%d" % [home_ruin_id, Time.get_unix_time_from_system()]
-	var resident_name: String = VisitorNPC.get_random_npc_name(vtype)
+	# Re-style the resident's name to their new role so the name matches the
+	# dialogue/services of the building they moved into.
+	var resident_name: String = VisitorNPC.get_resident_name(role_name, VisitorNPC.get_random_npc_name(vtype))
 	VisitorNPC.spawn_resident_from(self, npc_id, resident_name, role_name, home_ruin_id, Vector2i(cell_x, cell_y), vtype)
 	_register_converted_resident(npc_id, resident_name, role_name, home_ruin_id, vtype)
 	rpc("_sync_convert_resident", npc_id, resident_name, role_name, home_ruin_id, cell_x, cell_y, vtype, synced_index)

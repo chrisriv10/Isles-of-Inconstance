@@ -137,6 +137,9 @@ func interact(interactor: Node) -> void:
 		EffectSpawner.spawn_floating_text("+%d Mushrooms!" % gathered, global_position, Color(0.8, 0.5, 0.15))
 		AudioManager.play(AudioManager.Sound.GATHER)
 		LevelManager.add_xp_source("gather")
+		var om := get_tree().get_first_node_in_group("objective_manager")
+		if om and om.has_method("on_gather_wild"):
+			om.on_gather_wild("mushroom", gathered)
 	
 	_used = true
 	queue_free()

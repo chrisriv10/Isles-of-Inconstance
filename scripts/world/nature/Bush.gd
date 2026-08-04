@@ -244,6 +244,13 @@ func _complete_harvesting() -> void:
 	AudioManager.play(AudioManager.Sound.GATHER)
 	LevelManager.add_xp_source("gather")
 	
+	# Track foraging objectives
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_berry_gathered"):
+		om.on_berry_gathered()
+	if om and om.has_method("on_gather_wild"):
+		om.on_gather_wild("berry", gathered)
+	
 	_harvested = true
 	# Reduce sprite size to show harvested
 	var sprite_node: Sprite2D = $Sprite2D if has_node("Sprite2D") else null

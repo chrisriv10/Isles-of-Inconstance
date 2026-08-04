@@ -124,6 +124,9 @@ func interact(interactor: Node) -> void:
 		ToastNotification.show_toast("Picked %d flowers!" % gathered, ToastNotification.ToastType.SUCCESS, 1.5)
 		AudioManager.play(AudioManager.Sound.GATHER)
 		LevelManager.add_xp_source("gather")
+		var om := get_tree().get_first_node_in_group("objective_manager")
+		if om and om.has_method("on_gather_wild"):
+			om.on_gather_wild("flower", gathered)
 	
 	_used = true
 	queue_free()

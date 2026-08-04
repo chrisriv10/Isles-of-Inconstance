@@ -120,6 +120,41 @@ static func get_npc_names(ntype: int) -> Array[String]:
 			return ["Fern the Forager", "Clover the Picker", "Moss the Gatherer"]
 	return ["Visitor"]
 
+## Resident name that matches their new role. The visitor's personal name is
+## kept, but any visitor-type descriptor ("the Explorer") is replaced with a
+## role title ("the Baker") so the name matches their new profession/dialogue.
+## Examples: "Mara the Explorer" + baker → "Mara the Baker"; "Old Finn" + baker
+## → "Old Finn the Baker"; villager → plain name with no suffix.
+static func get_resident_name(role_name: String, base_name: String = "") -> String:
+	var title: String = _role_title(role_name)
+	if base_name.is_empty():
+		base_name = get_random_npc_name(VisitorType.EXPLORER)
+	var idx := base_name.find(" the ")
+	if idx >= 0:
+		base_name = base_name.substr(0, idx)
+	if title.is_empty():
+		return base_name
+	return "%s %s" % [base_name, title]
+
+## Role title used in resident names ("the Baker" for role "baker").
+static func _role_title(role_name: String) -> String:
+	match role_name:
+		"baker":
+			return "the Baker"
+		"chef":
+			return "the Chef"
+		"innkeeper":
+			return "the Innkeeper"
+		"blacksmith":
+			return "the Blacksmith"
+		"shopkeep":
+			return "the Shopkeep"
+		"scholar":
+			return "the Scholar"
+		"stablehand":
+			return "the Stablehand"
+	return ""  # villager or unknown → plain name
+
 ## Possible texture paths per NPC type — pick randomly for variety.
 static func get_npc_texture_paths(ntype: int) -> Array[String]:
 	match ntype:
@@ -465,7 +500,7 @@ func convert_to_resident(npc_id: String, role_name: String, home_ruin_id: String
 	# broadcast use the identical name. Callers (ResidentRecruiter) can pass
 	# a pre-generated name so their UI matches the actual resident.
 	if resident_name.is_empty():
-		resident_name = VisitorNPC.get_random_npc_name(npc_type)
+		resident_name = VisitorNPC.get_resident_name(role_name, _npc_display_name)
 	_finish_conversion(npc_id, resident_name, role_name, home_ruin_id, home_cell)
 	if NetworkManager.is_network_active() and multiplayer.is_server():
 		var world := get_tree().get_first_node_in_group("world")
@@ -748,17 +783,18 @@ func _do_recruit_visitor() -> void:
 	
 	# Generate ID and convert
 	var npc_id: String = "resident_%s_%d" % [_recruit_ruin_id, Time.get_unix_time_from_system()]
-	var visitor_name: String = _npc_display_name
+	# Re-style the name to the resident's new role so the name matches the
+	# dialogue/services of the building they moved into.
+	var resident_name: String = VisitorNPC.get_resident_name(_recruit_role_name, _npc_display_name)
 	
 	# Close the panel first, then do the conversion (which queue_frees this node)
-	var visitor_name2: String = visitor_name
 	var bld_name: String = _recruit_building_name
 	_recruit_close()
 	
-	convert_to_resident(npc_id, _recruit_role_name, _recruit_ruin_id, _recruit_home_cell)
+	convert_to_resident(npc_id, _recruit_role_name, _recruit_ruin_id, _recruit_home_cell, resident_name)
 	# town_mgr.add_resident is handled inside convert_to_resident (multiplayer-aware)
 	
-	ToastNotification.show_toast("%s has moved into %s!" % [visitor_name2, bld_name], ToastNotification.ToastType.SUCCESS, 4.0)
+	ToastNotification.show_toast("%s has moved into %s!" % [resident_name, bld_name], ToastNotification.ToastType.SUCCESS, 4.0)
 
 func _recruit_close() -> void:
 	if is_instance_valid(_recruit_dim):

@@ -270,6 +270,24 @@ theme_override_font_sizes/font_size = 11
 text = "✓ Completed!"
 horizontal_alignment = 1
 
+[node name="ObjectiveToggleButton" type="Button" parent="Root" unique_id=17483902]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = 132.0
+offset_top = 138.0
+offset_right = 148.0
+offset_bottom = 154.0
+grow_horizontal = 2
+tooltip_text = "Minimize objective panel"
+focus_mode = 0
+theme_override_colors/font_color = Color(0.8, 0.95, 0.7, 0.9)
+theme_override_font_sizes/font_size = 10
+text = "−"
+
 [node name="MutationLabel" type="PanelContainer" parent="Root" unique_id=782277737]
 unique_name_in_owner = true
 visible = false

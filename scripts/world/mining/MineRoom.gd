@@ -50,6 +50,11 @@ const ENTRANCE_LADDER := preload("res://assets/generated/mine_exit_ladder_frame_
 const DESCENDING_SHAFT := preload("res://assets/generated/mine_exit_ladder_frame_0.png")  # reuse ladder for now
 
 ## Tile texture images (loaded at runtime for direct pixel access)
+## Preloaded textures + get_image() (NOT Image.load_from_file, which can't read
+## project-imported assets reliably and returns null → flat untextured tiles).
+const CAVE_FLOOR_TEX := preload("res://assets/generated/cave_floor_tile.png")
+const CAVE_WALL_TEX := preload("res://assets/generated/cave_wall_tile.png")
+const CAVE_WATER_TEX := preload("res://assets/generated/water_base_48.png")
 var _cave_floor_img: Image = null
 var _cave_wall_img: Image = null
 var _cave_water_img: Image = null
@@ -166,15 +171,9 @@ func _ready() -> void:
 	_rng.seed = depth_level * 1000 + entrance_index
 	
 	# Load tile textures for rocky appearance
-	_cave_floor_img = Image.load_from_file("res://assets/generated/cave_floor_tile.png")
-	if _cave_floor_img == null:
-		_cave_floor_img = null  # fallback handled in draw functions
-	_cave_wall_img = Image.load_from_file("res://assets/generated/cave_wall_tile.png")
-	if _cave_wall_img == null:
-		_cave_wall_img = null
-	_cave_water_img = Image.load_from_file("res://assets/generated/water_base_48.png")
-	if _cave_water_img == null:
-		_cave_water_img = null
+	_cave_floor_img = CAVE_FLOOR_TEX.get_image()
+	_cave_wall_img = CAVE_WALL_TEX.get_image()
+	_cave_water_img = CAVE_WATER_TEX.get_image()
 	
 	_generate_underground()
 	_generate_exit_area()

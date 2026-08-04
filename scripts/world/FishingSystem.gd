@@ -36,6 +36,14 @@ func _init() -> void:
 	_build_fish_table()
 
 
+func _ready() -> void:
+	# Wire fish catches into objective tracking (defensive, matches codebase style)
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_fish_caught"):
+		if not fish_caught.is_connected(om.on_fish_caught):
+			fish_caught.connect(om.on_fish_caught)
+
+
 func _build_fish_table() -> void:
 	_fish_table = [
 		# Common fish (weight 0.0-0.6)

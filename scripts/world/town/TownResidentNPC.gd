@@ -110,8 +110,11 @@ func _ready() -> void:
 func _sprite_modulate_for_role() -> void:
 	if not _sprite:
 		return
-	# Pick a random NPC texture variant for variety
+	# Pick a texture variant deterministically from the resident's id so the
+	# same resident keeps the same look across sessions (and the interior copy
+	# always matches). npc_id is set by initialize() before _ready() runs.
 	var rng := RandomNumberGenerator.new()
+	rng.seed = npc_id.hash() if not npc_id.is_empty() else 12345
 	var npc_variant: int = rng.randi() % 5  # pick from first 5 common types
 	match npc_variant:
 		0:

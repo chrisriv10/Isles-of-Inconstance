@@ -178,7 +178,14 @@ func set_resident_info(name: String, visitor_type: int, npc_id: String = "") -> 
 	_resident_name = name
 	_resident_visitor_type = visitor_type
 	_resident_npc_id = npc_id
-	call_deferred("_spawn_resident_npc")
+	# Wait until the interior is in the tree before spawning the resident so
+	# _spawn_resident_npc can find the resident's world node: it then skips
+	# spawning when the resident is out wandering (no duplicate outside+inside)
+	# and copies the resident's real sprite so the interior copy matches.
+	if is_inside_tree():
+		_spawn_resident_npc()
+	else:
+		tree_entered.connect(_spawn_resident_npc, CONNECT_ONE_SHOT)
 
 func _generate_interior() -> void:
 	match interior_type:
@@ -3152,11 +3159,19 @@ func _recruit_selected_visitor(visitor: Node, ruin_id: String, visitor_name: Str
 	var vtype = visitor.get("npc_type") if "npc_type" in visitor else 0
 	vtype = vtype if vtype is int else 0
 	var npc_id: String = "resident_%s_%d" % [ruin_id, Time.get_unix_time_from_system()]
+	# Re-style the name to the resident's new role so the name matches the
+	# dialogue/services of the building they moved into.
+	var visitor_display: String = visitor_name
+	if "_npc_display_name" in visitor:
+		var vdisp: String = str(visitor.get("_npc_display_name"))
+		if not vdisp.is_empty():
+			visitor_display = vdisp
+	var resident_name: String = VisitorNPC.get_resident_name(def.npc_role, visitor_display)
 	
-	visitor.convert_to_resident(npc_id, def.npc_role, ruin_id, def.grid_cell)
-	town_mgr.add_resident(npc_id, visitor_name, def.npc_role, ruin_id, vtype)
+	visitor.convert_to_resident(npc_id, def.npc_role, ruin_id, def.grid_cell, resident_name)
+	town_mgr.add_resident(npc_id, resident_name, def.npc_role, ruin_id, vtype)
 	
-	ToastNotification.show_toast("%s has moved into %s!" % [visitor_name, def.building_name], ToastNotification.ToastType.SUCCESS, 4.0)
+	ToastNotification.show_toast("%s has moved into %s!" % [resident_name, def.building_name], ToastNotification.ToastType.SUCCESS, 4.0)
 	_close_recruitment_dialog(hud)
 
 func _close_recruitment_dialog(hud: CanvasLayer) -> void:

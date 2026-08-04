@@ -35,6 +35,10 @@ signal exit_to_menu_requested()
 @onready var objective_progress_bar: ProgressBar = null  # created at runtime
 @onready var objective_progress_label: Label = null  # created at runtime
 @onready var objective_desc_label: Label = null  # created at runtime
+@onready var objective_toggle_button: Button = %ObjectiveToggleButton
+
+## Whether the objective panel is collapsed to just the toggle button.
+var _objective_minimized: bool = false
 @onready var level_label: Label = %LevelLabel
 @onready var xp_bar: ProgressBar = %XPBar
 @onready var pet_indicator: Label = %PetIndicator
@@ -77,6 +81,8 @@ var _current_boss: Node = null
 var _buff_container: VBoxContainer = null
 var _buff_panels: Dictionary = {}  # buff_type -> PanelContainer
 var _buff_update_timer: float = 0.0
+var _buff_toggle_button: Button = null
+var _buff_minimized: bool = false
 
 # Bow charge progress bar
 var _bow_charge_bar: ProgressBar = null
@@ -110,6 +116,8 @@ func _ready() -> void:
 	
 	# Build enhanced objective widget (progress bar + progress label)
 	_build_objective_widget()
+	if objective_toggle_button:
+		objective_toggle_button.pressed.connect(_toggle_objective_minimized)
 	var obj_mgr := get_tree().get_first_node_in_group("objective_manager")
 	if obj_mgr and obj_mgr.has_signal("objective_completed"):
 		obj_mgr.objective_completed.connect(_on_objective_completed)
@@ -240,8 +248,32 @@ func _ready() -> void:
 	_buff_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_buff_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_buff_container.add_theme_constant_override("separation", 4)
-	_buff_container.position = Vector2(12.0, 108.0)
 	$Root.add_child(_buff_container)
+
+	# Small toggle button to minimize/expand the buff bars
+	_buff_toggle_button = Button.new()
+	_buff_toggle_button.name = "BuffToggleButton"
+	_buff_toggle_button.text = "−"
+	_buff_toggle_button.tooltip_text = "Minimize buff bars"
+	_buff_toggle_button.focus_mode = Control.FOCUS_NONE
+	_buff_toggle_button.visible = false
+	_buff_toggle_button.custom_minimum_size = Vector2(22, 20)
+	_buff_toggle_button.add_theme_font_size_override("font_size", 12)
+	_buff_toggle_button.add_theme_color_override("font_color", Color(0.8, 0.95, 0.7, 0.9))
+	_buff_toggle_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var buff_btn_style := StyleBoxFlat.new()
+	buff_btn_style.bg_color = Color(0.1, 0.12, 0.1, 0.85)
+	buff_btn_style.border_color = Color(0.5, 0.7, 0.4, 0.9)
+	buff_btn_style.set_border_width_all(1)
+	buff_btn_style.set_corner_radius_all(4)
+	var buff_btn_pressed := buff_btn_style.duplicate()
+	buff_btn_pressed.bg_color = Color(0.25, 0.3, 0.2, 0.9)
+	_buff_toggle_button.add_theme_stylebox_override("normal", buff_btn_style)
+	_buff_toggle_button.add_theme_stylebox_override("hover", buff_btn_style)
+	_buff_toggle_button.add_theme_stylebox_override("pressed", buff_btn_pressed)
+	$Root.add_child(_buff_toggle_button)
+	_buff_toggle_button.pressed.connect(_toggle_buff_minimized)
+	_refresh_buff_position()
 	
 	# Listen for buff changes
 	if BuffManager and BuffManager.has_signal("buffs_updated"):
@@ -328,8 +360,7 @@ func _on_root_resized() -> void:
 	_refresh_rubble_bar_position()
 	_refresh_fishing_bar_position()
 	_refresh_ore_mining_bar_position()
-	if _buff_container:
-		_buff_container.position = Vector2(12.0, 108.0)
+	_refresh_buff_position()
 
 
 # ---------------------------------------------------------------------------
@@ -1415,6 +1446,17 @@ func _build_objective_widget() -> void:
 	objective_progress_label = prog_label
 
 
+## Toggle the objective goal panel between expanded and minimized (button-only) states.
+func _toggle_objective_minimized() -> void:
+	_objective_minimized = not _objective_minimized
+	# Mirror the button tooltip so the affordance stays discoverable in both states.
+	if objective_toggle_button:
+		objective_toggle_button.tooltip_text = (
+			"Show objective panel" if _objective_minimized else "Minimize objective panel"
+		)
+	_update_objective_display()
+
+
 func _on_objective_completed(_id: int, _name_str: String) -> void:
 	# Toast is already shown by ObjectiveManager
 	# Show completion fanfare in the widget
@@ -1483,6 +1525,8 @@ func _update_objective_display() -> void:
 	
 	if obj.is_empty():
 		objective_panel.visible = false
+		if objective_toggle_button:
+			objective_toggle_button.visible = false
 		if objective_progress_bar:
 			objective_progress_bar.visible = false
 		if objective_progress_label:
@@ -1490,6 +1534,18 @@ func _update_objective_display() -> void:
 		if objective_desc_label:
 			objective_desc_label.visible = false
 		return
+	
+	# When minimized, collapse the panel to just the toggle button
+	if _objective_minimized:
+		objective_panel.visible = false
+		if objective_toggle_button:
+			objective_toggle_button.visible = true
+			objective_toggle_button.text = "＋"
+		_stop_near_completion_pulse()
+		return
+	if objective_toggle_button:
+		objective_toggle_button.visible = true
+		objective_toggle_button.text = "−"
 	
 	objective_panel.visible = true
 	objective_label.text = "%s %s" % [obj.icon, obj.name]
@@ -1876,9 +1932,22 @@ func _refresh_buff_display() -> void:
 	var buffs: Array = BuffManager.get_all_buffs()
 	if buffs.is_empty():
 		_buff_container.visible = false
+		if _buff_toggle_button:
+			_buff_toggle_button.visible = false
 		return
 	
-	_buff_container.visible = true
+	# Show the toggle button whenever there's at least one active buff
+	if _buff_toggle_button:
+		_buff_toggle_button.visible = true
+		_buff_toggle_button.text = "＋" if _buff_minimized else "−"
+		_buff_toggle_button.tooltip_text = (
+			"Show buff bars" if _buff_minimized else "Minimize buff bars"
+		)
+
+	# When minimized, collapse to just the toggle button
+	_buff_container.visible = not _buff_minimized
+	if _buff_minimized:
+		return
 	
 	for buff in buffs:
 		var panel := PanelContainer.new()
@@ -1912,6 +1981,27 @@ func _refresh_buff_display() -> void:
 		
 		_buff_container.add_child(panel)
 		_buff_panels[buff.buff_type] = panel
+
+
+## Toggle the buff bars between expanded and minimized (button-only) states.
+func _toggle_buff_minimized() -> void:
+	_buff_minimized = not _buff_minimized
+	_refresh_buff_display()
+
+
+## Positions the buff container below the stat cluster normally, but drops
+## it below the chat panel whenever chat is visible so the two never overlap.
+func _refresh_buff_position() -> void:
+	if not _buff_container:
+		return
+	var y: float = 148.0
+	if _chat_panel and _chat_panel.visible:
+		y = 340.0  # below the chat panel (which ends at y=315)
+	# The toggle button sits where the bars normally start; the bars render
+	# below it so the button never overlaps the first buff panel.
+	if _buff_toggle_button:
+		_buff_toggle_button.position = Vector2(12.0, y - 2.0)
+	_buff_container.position = Vector2(12.0, y + 22.0)
 
 
 func _periodic_buff_refresh(delta: float) -> void:
@@ -2172,6 +2262,7 @@ func _refresh_chat_visibility() -> void:
 	if not is_instance_valid(_chat_panel):
 		return
 	_chat_panel.visible = not _chat_hidden
+	_refresh_buff_position()
 	if not _chat_panel.visible and _chat_open:
 		_close_chat_input()
 
@@ -2212,6 +2303,7 @@ func _on_chat_submitted(text: String) -> void:
 	_chat_input.visible = false
 	# Keep chat log visible so recent messages stay readable
 	_chat_panel.visible = true
+	_refresh_buff_position()
 
 
 func _toggle_chat_input() -> void:
@@ -2222,6 +2314,7 @@ func _toggle_chat_input() -> void:
 	_chat_hidden = false
 	_chat_open = true
 	_chat_panel.visible = true
+	_refresh_buff_position()
 	_chat_input.visible = true
 	_chat_input.grab_focus()
 

@@ -486,7 +486,7 @@ func _open_npc_interaction() -> void:
 		for rid: String in _town_manager.residents:
 			var rd = _town_manager.residents[rid] as TownManager.ResidentData
 			if rd and rd.home_ruin_id == ruin_id:
-				interior.set_resident_info(rd.npc_name, rd.visitor_type)
+				interior.set_resident_info(rd.npc_name, rd.visitor_type, rd.npc_id)
 				break
 	
 	_world.enter_building(interior)

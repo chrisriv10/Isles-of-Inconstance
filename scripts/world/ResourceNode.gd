@@ -173,6 +173,11 @@ func _complete_gathering() -> void:
 	AudioManager.play(AudioManager.Sound.GATHER)
 	LevelManager.add_xp_source("gather")
 
+	# Track foraging objectives
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_gather_wild"):
+		om.on_gather_wild(item_id, gathered)
+
 	super.interact(_gatherer_ref)
 	var world: Node = get_tree().get_first_node_in_group("world")
 	if world and world.has_method("notify_cell_object_removed"):
