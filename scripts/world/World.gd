@@ -1278,11 +1278,36 @@ func apply_compost(world_pos: Vector2) -> bool:
 	if _crop_nodes.has(cell):
 		_crop_nodes[cell].modulate = fert_color
 	
-	EffectSpawner.spawn_particles(cell_to_world(cell), fert_color, 8, 14.0)
-	var fert_name := soil.fertilizer.get_name() if soil.fertilizer else "Compost"
-	ToastNotification.show_toast("%s applied! Growth & soil boosted." % fert_name, ToastNotification.ToastType.SUCCESS, 2.0)
-	AudioManager.play(AudioManager.Sound.PLANT)
-	return true
+EffectSpawner.spawn_particles(cell_to_world(cell), fert_color, 8, 14.0)
+ 	var fert_name := soil.fertilizer.get_name() if soil.fertilizer else "Compost"
+ 	ToastNotification.show_toast("%s applied! Growth & soil boosted." % fert_name, ToastNotification.ToastType.SUCCESS, 2.0)
+ 	AudioManager.play(AudioManager.Sound.PLANT)
+ 	
+ 	# Sync to all peers
+ 	if NetworkManager.is_network_active() and multiplayer.is_server():
+ 		rpc("_sync_apply_compost", cell, int(fertilizer_type), fertilizer_duration)
+ 	
+ 	return true
+
+
+## Received by all peers: apply compost/fertilizer to soil.
+@rpc("authority", "call_local")
+func _sync_apply_compost(cell: Vector2i, fertilizer_type: int, duration: int) -> void:
+	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled:
+		return
+	var soil: SoilData = _soil_data[cell]
+	if soil.crop_id == "":
+		return
+	
+	if fertilizer_type == int(FertilizerSystem.FertilizerType.BASIC_COMPOST):
+		soil.is_composted = true
+	
+	soil.apply_fertilizer(FertilizerSystem.FertilizerType(fertilizer_type), duration)
+	
+	# Visual feedback
+	var fert_color := soil.fertilizer.get_color() if soil.fertilizer else Color(0.3, 0.7, 0.3)
+	if _crop_nodes.has(cell):
+		_crop_nodes[cell].modulate = fert_color
 
 # ---------------------------------------------------------------------------
 # Sprinkler system
@@ -1330,29 +1355,46 @@ func place_sprinkler(world_pos: Vector2) -> bool:
 	if tier < 0 or not InventoryManager.remove_item(item_id, 1):
 		return false
 	
+_sprinklers[cell] = {"active": true, "placed_day": GameManager.current_day, "tier": tier}
+ 	
+ 	# Sync to all peers
+ 	if NetworkManager.is_network_active() and multiplayer.is_server():
+ 		rpc("_sync_place_sprinkler", cell, tier)
+ 	
+ 	# Visual feedback based on tier
+ 	var color: Color
+ 	var toast_msg: String
+ 	match tier:
+ 		0:
+ 			color = Color(0.3, 0.6, 1.0)
+ 			toast_msg = "Sprinkler placed! Waters 3×3 area each dawn."
+ 		1:
+ 			color = Color(0.2, 0.8, 1.0)
+ 			toast_msg = "Quality Sprinkler placed! Waters 5×5 area each dawn."
+ 		2:
+ 			color = Color(0.6, 0.3, 1.0)
+ 			toast_msg = "Iridium Sprinkler placed! Waters 7×7 area with fertilizer each dawn."
+ 	
+ 	EffectSpawner.spawn_particles(cell_to_world(cell), color, 6, 10.0)
+ 	AudioManager.play(AudioManager.Sound.PLANT)
+ 	ToastNotification.show_toast(toast_msg, ToastNotification.ToastType.SUCCESS, 2.5)
+ 	var spr_mgr := get_tree().get_first_node_in_group("objective_manager")
+ 	if spr_mgr and spr_mgr.has_method("on_sprinkler_placed"):
+ 		spr_mgr.on_sprinkler_placed()
+ 	return true
+
+
+## Received by all peers: place sprinkler.
+@rpc("authority", "call_local")
+func _sync_place_sprinkler(cell: Vector2i, tier: int) -> void:
+	if not _is_in_bounds(cell):
+		return
+	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled:
+		return
+	if _sprinklers.has(cell):
+		return
+	
 	_sprinklers[cell] = {"active": true, "placed_day": GameManager.current_day, "tier": tier}
-	
-	# Visual feedback based on tier
-	var color: Color
-	var toast_msg: String
-	match tier:
-		0:
-			color = Color(0.3, 0.6, 1.0)
-			toast_msg = "Sprinkler placed! Waters 3×3 area each dawn."
-		1:
-			color = Color(0.2, 0.8, 1.0)
-			toast_msg = "Quality Sprinkler placed! Waters 5×5 area each dawn."
-		2:
-			color = Color(0.6, 0.3, 1.0)
-			toast_msg = "Iridium Sprinkler placed! Waters 7×7 area with fertilizer each dawn."
-	
-	EffectSpawner.spawn_particles(cell_to_world(cell), color, 6, 10.0)
-	AudioManager.play(AudioManager.Sound.PLANT)
-	ToastNotification.show_toast(toast_msg, ToastNotification.ToastType.SUCCESS, 2.5)
-	var spr_mgr := get_tree().get_first_node_in_group("objective_manager")
-	if spr_mgr and spr_mgr.has_method("on_sprinkler_placed"):
-		spr_mgr.on_sprinkler_placed()
-	return true
 
 # ---------------------------------------------------------------------------
 # Scythe — mass harvest all mature crops in tool area
@@ -2901,10 +2943,13 @@ func enter_building(interior: BuildingInterior) -> void:
 		player.set_physics_process(true)
 		break
 
-	# Fade transition (safe to call anytime)
-	var hud := get_tree().get_first_node_in_group("hud")
-	if hud and hud.has_method("fade_to_black"):
-		hud.fade_to_black(0.3)
+# Fade transition (safe to call anytime)
+ 	var hud := get_tree().get_first_node_in_group("hud")
+ 	if hud and hud.has_method("fade_to_black"):
+ 		hud.fade_to_black(0.3)
+ 	
+ 	# Broadcast updated stats so remote peers see inside_interior=true immediately
+ 	GameManager._try_broadcast_player_stats()
 
 func _deferred_setup_interior(interior: BuildingInterior) -> void:
 	if not is_instance_valid(interior):

@@ -49,6 +49,14 @@ var _resident_npc_id: String = ""
 
 signal exited_interior()
 
+## True when `player` is this peer's own copy. Without a network peer (single
+## player) every node is local, so these checks never touch the network API.
+func _is_local_player(player: Node) -> bool:
+	if not NetworkManager.is_network_active():
+		return true
+	return player.get_multiplayer_authority() == multiplayer.get_unique_id()
+
+
 # Preloaded animal scene for barn interiors
 const ANIMAL_SCENE := preload("res://scenes/world/Animal.tscn")
 
@@ -378,20 +386,24 @@ func _add_exit_door(pos: Vector2 = Vector2(32, 80)) -> void:
 	# Note: no text label — the door sprite is self-explanatory
 
 func _on_exit_entered(body: Node) -> void:
-	if body.is_in_group("player"):
+	if body.is_in_group("player") and _is_local_player(body):
 		_exit_interior()
+
 
 func _exit_interior() -> void:
 	_save_chest_contents()
+	
+	# Multiplayer: route exit through World RPC so all peers exit together.
+	# Do NOT emit the local signal in multiplayer (would cause double-exit).
+	if NetworkManager.is_network_active():
+		var world := get_tree().root.find_child("World", true, false)
+		if world and world.has_method("_server_exit_building"):
+			world.rpc_id(1, "_server_exit_building")
+			queue_free()
+			return
+	
+	# Single player: use the local signal path
 	exited_interior.emit()
-	
-	# Multiplayer: route exit through World so the host can coordinate
-	if NetworkManager.is_network_active() and get_tree().root.find_child("World", true, false).has_method("_server_exit_building"):
-		get_tree().root.find_child("World", true, false).rpc_id(1, "_server_exit_building")
-		queue_free()
-		return
-	
-	# Single player
 	queue_free()
 
 ## Persist chest inventory to GameManager so it survives interior destruction.

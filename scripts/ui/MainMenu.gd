@@ -115,6 +115,9 @@ func reset_visual_state() -> void:
 		if child is Button:
 			child.disabled = false
 
+	# Update name input to reflect current player name
+	name_input.text = GameManager.player_name
+
 	# Update continue button state (save may have been created)
 	var save_count: int = SaveManager.count_saves()
 	continue_button.disabled = save_count == 0
