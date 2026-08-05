@@ -89,6 +89,9 @@ const MELEE_LUNGE_TIME: float = 0.12
 const BOW_CHARGE_MAX_TIME: float = 0.7
 const BOW_CHARGE_DAMAGE_MULT: float = 2.0
 
+## Deterministic ID counter for arrow spawns (host-authoritative)
+static var _next_arrow_id: int = 1
+
 @onready var name_label: Label = $NameLabel
 @onready var interactor: Area2D = $Interactor
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D

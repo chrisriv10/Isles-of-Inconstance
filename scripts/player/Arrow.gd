@@ -29,12 +29,22 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 
 
 ## Hit detection: damages enemies/animals, stops on world terrain, ignores the shooter.
+## Only the host's authoritative arrow deals damage; remote copies are visual only.
 func _on_body_entered(body: Node) -> void:
 	# Don't hit the player who fired the arrow
 	if body == shooter:
 		return
 	
-	# Damage enemies, animals, and bosses
+	# Only the host applies damage (authoritative hit detection)
+	if not multiplayer.is_server():
+		# Remote clients: just play hit effect on any collision
+		if body.has_method("take_damage") and (body.is_in_group("enemies") or body.is_in_group("animals") or body.is_in_group("bosses")):
+			_on_hit_effect()
+		elif body != shooter:
+			_on_hit_effect()
+		return
+	
+	# Host: apply actual damage
 	if body.has_method("take_damage") and (body.is_in_group("enemies") or body.is_in_group("animals") or body.is_in_group("bosses")):
 		body.take_damage(arrow_damage, shooter, is_critical)
 		_on_hit_effect()
