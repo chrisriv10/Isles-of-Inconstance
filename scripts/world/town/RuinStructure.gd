@@ -218,16 +218,30 @@ func _clear_rubble() -> void:
 	if not _town_manager or not _ruin_def:
 		return
 	
-	# Transition from RUBBLE to CLEARED
+	# Use RPC in multiplayer - only the host can actually clear rubble
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		# This is a client, request from host via RPC
+		rpc_id(1, "_server_request_clear_rubble", ruin_id)
+		return
+
+	# Host or single player - direct execution
 	var state: TownManager.RuinState = _town_manager.get_ruin_state(ruin_id)
 	if state and state.status == TownManager.RuinStatus.RUBBLE:
 		state.status = TownManager.RuinStatus.CLEARED
 		_town_manager.ruin_status_changed.emit(ruin_id, state.status)
 		rubble_cleared.emit(ruin_id)
-		# _update_visual() is called by the signal handler above, swapping
-		# from darkened building sprite to foundation texture.
+		_update_visual()
 		
 		ToastNotification.show_toast("Rubble cleared! Now bring materials to rebuild.", ToastNotification.ToastType.INFO, 3.0)
+
+
+## Host authority: clear rubble on behalf of a client.
+@rpc("authority", "reliable")
+func _server_request_clear_rubble(requested_ruin_id: String) -> void:
+	if not multiplayer.is_server():
+		return
+	if requested_ruin_id == ruin_id:
+		_clear_rubble()
 
 func _on_status_changed(p_ruin_id: String, status: int) -> void:
 	if p_ruin_id != ruin_id:

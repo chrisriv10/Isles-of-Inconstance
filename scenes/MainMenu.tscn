@@ -208,6 +208,11 @@ size_flags_horizontal = 3
 text = "Farmer"
 placeholder_text = "Enter your name..."
 
+[node name="NameSetButton" type="Button" parent="ContentCenter/ButtonContainer/NameBox" unique_id=232538415]
+custom_minimum_size = Vector2(80, 30)
+layout_mode = 2
+text = "Set"
+
 [node name="NewGameButton" type="Button" parent="ContentCenter/ButtonContainer" unique_id=324046670]
 custom_minimum_size = Vector2(220, 44)
 layout_mode = 2

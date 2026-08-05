@@ -28,6 +28,11 @@ const RESPAWN_FILL_RATIO: float = 0.7
 ## Set by World before _ready() to determine spawn location.
 var entrance_index: int = 0
 
+## Deterministic enemy id counter — both peers generate the room in the same
+## order, so assigning ids here makes host broadcasts resolve to matching
+## remote copies on clients (same pattern as overworld Enemy.enemy_id).
+var _next_enemy_id: int = 0
+
 ## Reference to the MineGenerator for this underground instance
 var generator: MineGenerator = null
 
@@ -44,6 +49,11 @@ const ORE_DEPOSIT_SCENE := preload("res://scenes/world/mine_objects/OreDeposit.t
 const CAVE_CRAWLER_SCENE := preload("res://scenes/world/mine_objects/CaveCrawler.tscn")
 const STONE_GOLEM_SCENE := preload("res://scenes/world/mine_objects/StoneGolem.tscn")
 const CAVE_BAT_SCENE := preload("res://scenes/world/mine_objects/CaveBat.tscn")
+
+## Enemy type keys used by the host-authoritative respawn broadcast
+const MINE_ENEMY_CRAWLER: int = 0
+const MINE_ENEMY_GOLEM: int = 1
+const MINE_ENEMY_BAT: int = 2
 
 ## Preloaded textures
 const ENTRANCE_LADDER := preload("res://assets/generated/mine_exit_ladder_frame_0.png")
@@ -362,6 +372,16 @@ func _draw_water_tile(img: Image, px: int, py: int, size: int, gx: int, gy: int)
 				img.set_pixel(px + dx, py + dy, COLOR_WATER)
 
 
+## Fisher-Yates shuffle driven by the deterministic _rng so every peer
+## generates identical mine rooms (enemies/ores land in the same cells).
+func _shuffle_with_rng(arr: Array) -> void:
+	for i in range(arr.size() - 1, 0, -1):
+		var j: int = _rng.randi_range(0, i)
+		var tmp: Variant = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
+
+
 ## Add a collision rectangle for a wall tile
 func _add_wall_collision(tx: int, ty: int) -> void:
 	var px := tx * TILE_PX + TILE_PX / 2.0
@@ -391,7 +411,7 @@ func _place_ores() -> void:
 	if floor_cells.is_empty():
 		return
 	
-	floor_cells.shuffle()
+	_shuffle_with_rng(floor_cells)
 	
 	var cell_idx := 0
 	for cfg in configs:
@@ -418,6 +438,24 @@ func _place_ores() -> void:
 			add_child(ore)
 
 
+## Assign deterministic ids and per-peer remote flag, then attach the enemy.
+## Because generation order is identical on every peer, `_next_enemy_id` yields
+## the same ids on both the host and clients. The explicit stable node name also
+## keeps node-path RPC routing (World/MineRoom/MineEnemy_N) resolving to the
+## matching copy on every peer — clients just render host-authoritative state.
+func _add_mine_enemy(enemy: Node2D, cell: Vector2i) -> void:
+	enemy.enemy_id = _next_enemy_id
+	enemy.name = "MineEnemy_%d" % _next_enemy_id
+	_next_enemy_id += 1
+	enemy.z_index = 10
+	enemy.position = Vector2(cell.x * TILE_PX + 8, cell.y * TILE_PX + 8)
+	if enemy.has_method("set_hp_multiplier"):
+		enemy.set_hp_multiplier(get_enemy_hp_multiplier(depth_level))
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		enemy._is_remote = true
+	add_child(enemy)
+
+
 ## Spawn enemies on floor tiles, preferring chambers
 func _spawn_enemies() -> void:
 	var spawn_count: int = get_enemy_count(depth_level)
@@ -442,7 +480,7 @@ func _spawn_enemies() -> void:
 	
 	# Spawn ground enemies on floor cells
 	if not ground_cells.is_empty():
-		ground_cells.shuffle()
+		_shuffle_with_rng(ground_cells)
 		var ground_count: int = maxi(1, spawn_count - (water_cells.size() / 2 if not water_cells.is_empty() else 0))
 		# Ensure at least 60% are ground enemies
 		ground_count = mini(ground_count, ground_cells.size())
@@ -466,26 +504,18 @@ func _spawn_enemies() -> void:
 				else:
 					enemy = STONE_GOLEM_SCENE.instantiate()
 			
-			enemy.z_index = 10
-			enemy.position = Vector2(cell.x * TILE_PX + 8, cell.y * TILE_PX + 8)
-			if enemy.has_method("set_hp_multiplier"):
-				enemy.set_hp_multiplier(get_enemy_hp_multiplier(depth_level))
-			add_child(enemy)
+			_add_mine_enemy(enemy, cell)
 			total_enemies += 1
 	
 	# Spawn bats near water
 	if not water_cells.is_empty():
-		water_cells.shuffle()
+		_shuffle_with_rng(water_cells)
 		var bat_count: int = maxi(1, mini(water_cells.size(), 3 + depth_level))
 		
 		for i in range(bat_count):
 			var cell: Vector2i = water_cells[i % water_cells.size()]
 			var bat := CAVE_BAT_SCENE.instantiate()
-			bat.z_index = 10
-			bat.position = Vector2(cell.x * TILE_PX + 8, cell.y * TILE_PX + 8)
-			if bat.has_method("set_hp_multiplier"):
-				bat.set_hp_multiplier(get_enemy_hp_multiplier(depth_level))
-			add_child(bat)
+			_add_mine_enemy(bat, cell)
 			total_enemies += 1
 	
 	# Fallback: if no enemies spawned at all, place some on ground
@@ -493,9 +523,7 @@ func _spawn_enemies() -> void:
 		for i in range(mini(3, ground_cells.size())):
 			var cell: Vector2i = ground_cells[i]
 			var crawler := CAVE_CRAWLER_SCENE.instantiate()
-			crawler.z_index = 10
-			crawler.position = Vector2(cell.x * TILE_PX + 8, cell.y * TILE_PX + 8)
-			add_child(crawler)
+			_add_mine_enemy(crawler, cell)
 
 
 # ── Enemy Respawn (always active — underground, day/night doesn't matter) ──
@@ -503,6 +531,10 @@ func _spawn_enemies() -> void:
 
 ## Create and start the periodic enemy respawn timer.
 func _setup_enemy_respawn() -> void:
+	# Host-authoritative respawn: only the server runs the timer and broadcasts
+	# spawns so clients stay in lockstep. Clients just mirror host copies.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
 	_enemy_respawn_timer = Timer.new()
 	_enemy_respawn_timer.name = "EnemyRespawnTimer"
 	_enemy_respawn_timer.wait_time = ENEMY_RESPAWN_INTERVAL
@@ -537,7 +569,7 @@ func _on_enemy_respawn_timeout() -> void:
 		return
 	
 	# Shuffle for random selection each wave
-	_respawn_floor_cells.shuffle()
+	_shuffle_with_rng(_respawn_floor_cells)
 	
 	# Get player cell to avoid spawning on top of them
 	var player := get_tree().get_first_node_in_group("player")
@@ -559,26 +591,65 @@ func _on_enemy_respawn_timeout() -> void:
 				continue
 		
 		var enemy: Node2D
+		var type_key: int = 0
 		if depth_level <= 1 and _rng.randf() < 0.7:
 			enemy = CAVE_CRAWLER_SCENE.instantiate()
+			type_key = MINE_ENEMY_CRAWLER
 		elif depth_level <= 2:
 			if _rng.randf() < 0.6:
 				enemy = CAVE_CRAWLER_SCENE.instantiate()
+				type_key = MINE_ENEMY_CRAWLER
 			else:
 				enemy = STONE_GOLEM_SCENE.instantiate()
+				type_key = MINE_ENEMY_GOLEM
 		else:
 			# Depth 3+: more golems, tougher
 			if _rng.randf() < 0.4:
 				enemy = CAVE_CRAWLER_SCENE.instantiate()
+				type_key = MINE_ENEMY_CRAWLER
 			else:
 				enemy = STONE_GOLEM_SCENE.instantiate()
+				type_key = MINE_ENEMY_GOLEM
 		
-		enemy.z_index = 10
-		enemy.position = Vector2(cell.x * TILE_PX + 8, cell.y * TILE_PX + 8)
-		if enemy.has_method("set_hp_multiplier"):
-			enemy.set_hp_multiplier(get_enemy_hp_multiplier(depth_level))
-		add_child(enemy)
+		_add_mine_enemy(enemy, cell)
 		spawned += 1
+		if NetworkManager.is_network_active() and multiplayer.is_server():
+			for pid in get_sync_peer_ids():
+				rpc_id(pid, "_receive_mine_respawn", enemy.enemy_id, type_key,
+					Vector2(cell.x * TILE_PX + 8, cell.y * TILE_PX + 8),
+					get_enemy_hp_multiplier(depth_level))
+
+
+## Peers that have a fully built mine room and can receive node-path RPCs.
+## The host is authoritative and is never included (it drives locally).
+func get_sync_peer_ids() -> Array[int]:
+	var world: Node = get_tree().get_first_node_in_group("world")
+	if is_instance_valid(world) and world.has_method("get_mine_ready_peer_ids"):
+		return world.get_mine_ready_peer_ids()
+	return []
+
+
+## Host-authoritative respawn mirror: clients instantiate a matching remote
+## copy so node-path RPC routing keeps working for the new enemy.
+@rpc("authority", "reliable")
+func _receive_mine_respawn(enemy_id: int, type_key: int, pos: Vector2, hp_mult: float) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		return
+	var enemy: Node2D
+	if type_key == MINE_ENEMY_CRAWLER:
+		enemy = CAVE_CRAWLER_SCENE.instantiate()
+	elif type_key == MINE_ENEMY_GOLEM:
+		enemy = STONE_GOLEM_SCENE.instantiate()
+	else:
+		enemy = CAVE_BAT_SCENE.instantiate()
+	enemy.enemy_id = enemy_id
+	enemy.name = "MineEnemy_%d" % enemy_id
+	enemy.z_index = 10
+	enemy.position = pos
+	if enemy.has_method("set_hp_multiplier"):
+		enemy.set_hp_multiplier(hp_mult)
+	enemy._is_remote = true
+	add_child(enemy)
 
 
 ## Generate the exit area in the central chamber

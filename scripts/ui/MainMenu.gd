@@ -14,6 +14,7 @@ signal join_online_requested(join_code: String)
 @onready var continue_button: Button = $ContentCenter/ButtonContainer/ContinueButton
 @onready var quit_button: Button = $ContentCenter/ButtonContainer/QuitButton
 @onready var name_input: LineEdit = $ContentCenter/ButtonContainer/NameBox/NameInput
+@onready var name_set_button: Button = $ContentCenter/ButtonContainer/NameBox/NameSetButton
 @onready var title_panel: PanelContainer = $TitlePanel
 @onready var content_center: Control = $ContentCenter
 @onready var star_field: Node2D = $StarField
@@ -49,6 +50,12 @@ func _ready() -> void:
 	public_games_button.pressed.connect(_on_public_games_pressed)
 	refresh_button.pressed.connect(_on_refresh_pressed)
 	back_button.pressed.connect(_on_public_games_back_pressed)
+	name_set_button.pressed.connect(_on_name_set_pressed)
+	# Pressing Enter in the name field also applies the name
+	name_input.text_submitted.connect(_on_name_set_pressed)
+
+	# Reflect the current player name (persisted across sessions)
+	name_input.text = GameManager.player_name
 	
 	# Enable continue if any save exists
 	var save_count: int = SaveManager.count_saves()
@@ -226,6 +233,24 @@ func _draw() -> void:
 		draw_circle(star["pos"], star["size"], color)
 
 # ---- Button Effects ----
+
+## Set button (or Enter in the name field) — applies the typed name to the
+## current session immediately instead of waiting for New Game/Host/Join.
+func _on_name_set_pressed() -> void:
+	var p_name: String = name_input.text.strip_edges()
+	if p_name.is_empty():
+		p_name = "Farmer"
+		name_input.text = p_name
+	GameManager.player_name = p_name
+	AudioManager.play(AudioManager.Sound.UI_CLICK)
+	# Brief visual confirmation
+	name_set_button.text = "Saved"
+	var tw := create_tween()
+	tw.tween_interval(1.0)
+	tw.tween_callback(func():
+		if is_instance_valid(name_set_button):
+			name_set_button.text = "Set"
+	)
 
 func _on_new_game_pressed() -> void:
 	print("MainMenu: New Game clicked!")

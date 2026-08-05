@@ -360,12 +360,14 @@ func _ensure_remote_health_bar() -> void:
 	np.add_theme_constant_override("shadow_offset_x", 1)
 	np.add_theme_constant_override("shadow_offset_y", 1)
 	np.position = Vector2(0, -34)
-	np.anchors_preset = Control.PRESET_TOP_CENTER
 	np.anchor_left = 0.5
 	np.anchor_right = 0.5
 	np.anchor_top = 0.0
 	np.anchor_bottom = 0.0
-	np.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	np.offset_left = -50
+	np.offset_right = 50
+	np.offset_top = -34
+	np.offset_bottom = -26
 	add_child(np)
 	_remote_nameplate = np
 
@@ -384,9 +386,13 @@ func _update_remote_health_bar() -> void:
 		_remote_hp_bar_bg.visible = false
 		return
 
-	# Hide remote player when they're inside an interior (mine, expedition, building)
+	# Hide remote player when they're inside a PRIVATE interior (building,
+	# expedition) — those are per-peeer instances rendered only on the owner.
+	# The shared co-op mine is deterministic per peer, so remote players inside
+	# it stay visible and co-located at the same void position.
 	var interior: bool = stats.get("inside_interior", false)
-	if interior:
+	var in_mine: bool = stats.get("inside_mine", false)
+	if interior and not in_mine:
 		visible = false
 		if _remote_pet_node:
 			_remote_pet_node.queue_free()
@@ -1290,6 +1296,11 @@ func apply_downed_state() -> void:
 	AudioManager.play(AudioManager.Sound.HIT)
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.2, 0.2), 12, 20.0)
 	ToastNotification.show_toast("You are downed! Hold E near a teammate to revive.", ToastNotification.ToastType.WARNING, 8.0)
+	
+	# Notify remote peers so their copy of this player shows the downed state
+	# (tint + DOWNED label) and becomes revivable.
+	if NetworkManager.is_network_active():
+		rpc("_sync_downed_state", true)
 
 ## Called by GameManager when player is revived.
 func remove_downed_state() -> void:
@@ -1313,6 +1324,10 @@ func remove_downed_state() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.2, 1.0, 0.3), 15, 25.0)
 	AudioManager.play(AudioManager.Sound.LEVEL_UP)
 	ToastNotification.show_toast("You have been revived!", ToastNotification.ToastType.SUCCESS, 4.0)
+	
+	# Notify remote peers so their copy clears the downed state.
+	if NetworkManager.is_network_active():
+		rpc("_sync_downed_state", false)
 
 func _show_downed_ui() -> void:
 	# Create a "DOWNED" label above player
@@ -1354,6 +1369,47 @@ func _hide_downed_ui() -> void:
 	if fill:
 		fill.queue_free()
 
+## Received on remote copies when the owning peer enters/leaves the downed
+## state. Mirrors the downed visuals and toggles the downed flag so the copy
+## can be detected and revived by nearby teammates.
+@rpc("authority", "reliable")
+func _sync_downed_state(is_downed: bool) -> void:
+	if _is_downed == is_downed:
+		return
+	_is_downed = is_downed
+	if is_downed:
+		modulate = Color(1.0, 1.0, 1.0, 0.6)
+		sprite.modulate = Color(1.0, 0.3, 0.3, 1.0)
+		_show_downed_ui()
+	else:
+		modulate = Color(1.0, 1.0, 1.0, 1.0)
+		sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		_hide_downed_ui()
+
+## Called by GameManager when a downed player bleeds out and auto-respawns.
+## Clears the downed state and visuals without the revive feedback/noise, and
+## tells remote copies to clear theirs too.
+func clear_downed_state() -> void:
+	if not _is_downed:
+		return
+	_is_downed = false
+	_revive_progress = 0.0
+	_revive_target = null
+
+	# Restore visuals
+	modulate = Color(1.0, 1.0, 1.0, 1.0)
+	sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+	# Re-enable movement
+	set_physics_process(true)
+
+	# Hide downed UI
+	_hide_downed_ui()
+
+	# Notify remote peers so their copy clears the downed state
+	if NetworkManager.is_network_active():
+		rpc("_sync_downed_state", false)
+
 ## Update revive progress when holding E near a downed teammate.
 func _update_revive_progress(delta: float) -> void:
 	if not _is_downed:
@@ -1363,14 +1419,8 @@ func _update_revive_progress(delta: float) -> void:
 	if fill:
 		fill.size.x = 80.0 * (_revive_progress / 3.0)
 
-## Try to start reviving a downed teammate (hold E).
-func _try_start_revive() -> bool:
-	if _is_downed:
-		return false
-	if not NetworkManager.is_network_active():
-		return false
-	
-	# Find nearest downed player
+## Returns the nearest downed teammate within revive range (64 px), or null.
+func get_nearest_downed_player() -> Player:
 	var nearest_downed: Player = null
 	var nearest_dist: float = 64.0  # max revive range
 	
@@ -1383,7 +1433,27 @@ func _try_start_revive() -> bool:
 			if dist < nearest_dist:
 				nearest_dist = dist
 				nearest_downed = target
+	return nearest_downed
+
+
+## True when a downed teammate is in revive range and we're able to revive.
+## Used by the HUD to show/hide the [E] revive prompt.
+func can_start_revive() -> bool:
+	if _is_downed or not NetworkManager.is_network_active():
+		return false
+	if _revive_target:
+		return false
+	return get_nearest_downed_player() != null
+
+
+## Try to start reviving a downed teammate (hold E).
+func _try_start_revive() -> bool:
+	if _is_downed:
+		return false
+	if not NetworkManager.is_network_active():
+		return false
 	
+	var nearest_downed := get_nearest_downed_player()
 	if not nearest_downed:
 		return false
 	
@@ -1471,13 +1541,17 @@ func _cancel_revive() -> void:
 	_hide_revive_ui()
 	_revive_progress = 0.0
 
-@rpc("authority", "reliable")
+## Called on the downed player's own peer when a teammate finishes reviving
+## them. any_peer: the reviver is not the authority of this node, so the
+## default authority-only call would be silently rejected.
+@rpc("any_peer", "reliable")
 func _request_revive_rpc(reviver_name: String) -> void:
 	if not _is_downed:
 		return
-	# Only the host should process this, but we're using authority
-	if multiplayer.is_server() or multiplayer.get_remote_sender_id() == get_multiplayer_authority():
-		GameManager.revive_player(reviver_name)
+	var sender := multiplayer.get_remote_sender_id()
+	if sender <= 0 or sender not in multiplayer.get_peers():
+		return
+	GameManager.revive_player(reviver_name)
 
 
 # ── Boss Summoning ──

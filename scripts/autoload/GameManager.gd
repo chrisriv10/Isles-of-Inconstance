@@ -71,6 +71,9 @@ var weather_system: WeatherSystem = null
 # Cooking proximity flags
 static var near_campfire: bool = false
 static var inside_interior: bool = false
+# True only while inside the shared co-op mine (remote players stay visible
+# there), as opposed to private interiors (buildings, expeditions).
+static var inside_mine: bool = false
 
 # Game completion flag — set when the Inconstant Soul is defeated
 var game_completed: bool = false
@@ -410,8 +413,7 @@ func _instant_respawn() -> void:
 	if player:
 		# Teleport to overworld spawn (the player's starting island)
 		if world_death:
-			var spawn_cell := Vector2i(world_death.world_width - 35, world_death.world_height / 2)
-			player.global_position = world_death.cell_to_world(spawn_cell)
+			player.global_position = world_death.get_default_spawn_position()
 		
 		ToastNotification.show_toast("You collapsed!", ToastNotification.ToastType.WARNING, 4.0)
 
@@ -434,12 +436,39 @@ func _process_downed(delta: float) -> void:
 		return
 
 ## Called when bleedout timer expires — auto-respawn
+## Called when bleedout timer expires — auto-respawn
 func _bleedout() -> void:
 	print("Bleedout! Auto-respawning... timer was:", _downed_timer)
 	_is_downed = false
 	_downed_timer = 0.0
 	player_bleedout.emit(player_name)
+
+	var player := get_tree().get_first_node_in_group("player")
+
+	# Apply damage based on how long the player was downed (simulating bleeding)
+	# At 1 minute (60 seconds), reduce to 0 HP
+	var hp_loss: int = roundi(_downed_timer / 60.0)  # 1 HP per real minute of down time
+	if hp_loss > 0:
+		health = max(0, health - hp_loss)
+		health_changed.emit(health, MAX_HEALTH)
+		EffectSpawner.spawn_player_damage(hp_loss, player.global_position if player else Vector2.ZERO, 0)
+		
+		# If health reaches 0 or below, trigger hardcore death (singleplayer) or normal death (multiplayer)
+		if health <= 0:
+			if is_hardcore():
+				print("Hardcore death! Deleting save...")
+				hardcore_death_occurred.emit()
+			elif is_survival():
+				print("Player died!")
+				_instant_respawn()
+		
 	_instant_respawn()
+
+	# Clear the downed visuals on the player node (and its remote copies).
+	# _instant_respawn resets health/position but not the downed tint/UI,
+	# which was stuck semi-transparent after bleedout.
+	if player and player.has_method("clear_downed_state"):
+		player.clear_downed_state()
 
 ## Revive a downed player (called by reviver)
 ## reviver_name: name of the player doing the revive
@@ -874,7 +903,8 @@ func try_show_dialogue(flag_id: String, text: String, duration: float = 3.5) -> 
 func _try_broadcast_player_stats() -> void:
 	if not NetworkManager.is_network_active():
 		return
-	if multiplayer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+	var peer: MultiplayerPeer = multiplayer.get_multiplayer_peer()
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
 		return
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if now - _last_stat_sync_time < _STAT_SYNC_COOLDOWN:
@@ -886,17 +916,18 @@ func _try_broadcast_player_stats() -> void:
 		var _pm_val: Variant = pm.get("active_pet_id")
 		pet_id = str(_pm_val)
 	var interior: int = 1 if inside_interior else 0
+	var in_mine: int = 1 if inside_mine else 0
 	var armor: String = compute_armor_set()
 	var lvl: int = 1
 	if Engine.has_singleton("LevelManager"):
 		var lm: Node = Engine.get_singleton("LevelManager")
 		if lm.has_method("get_current_level"):
 			lvl = lm.get_current_level()
-	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, armor, lvl)
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl)
 
 
 @rpc("unreliable", "any_peer")
-func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, armor_set: String = "", level: int = 1) -> void:
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == multiplayer.get_unique_id():
 		return  # ignore our own broadcast
@@ -908,6 +939,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"name": name,
 		"pet_id": pet_id,
 		"inside_interior": interior != 0,
+		"inside_mine": in_mine != 0,
 		"armor_set": armor_set,
 		"level": level,
 	}
@@ -1144,6 +1176,11 @@ func _on_network_peer_disconnected(peer_id: int) -> void:
 	remote_player_stats.erase(peer_id)
 	player_list_changed.emit()
 	if multiplayer.is_server() and NetworkManager.is_network_active():
+		# Free the peer's membership in the host-coordinated shared mine
+		# so the session closes if they were the last one inside.
+		var world: Node = get_tree().get_first_node_in_group("world")
+		if world and world.has_method("mine_peer_disconnected"):
+			world.mine_peer_disconnected(peer_id)
 		broadcast_toast("%s left the farm." % name, ToastNotification.ToastType.INFO, 3.0)
 
 

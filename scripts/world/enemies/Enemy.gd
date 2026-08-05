@@ -223,7 +223,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 	
 	# Host: periodically broadcast position/state to remote peers
-	if NetworkManager.is_network_active() and multiplayer.is_server():
+	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
 		_sync_timer += delta
 		if _sync_timer >= SYNC_INTERVAL:
 			_sync_timer = 0.0
@@ -389,7 +389,7 @@ func _damage_target(amount: int) -> void:
 	if NetworkManager.is_network_active():
 		var target_peer: int = player_ref.get_multiplayer_authority()
 		if target_peer != multiplayer.get_unique_id():
-			rpc_id(target_peer, "_receive_remote_enemy_damage", amount)
+			GameManager.rpc_id(target_peer, "_receive_remote_enemy_damage", amount)
 		else:
 			GameManager.take_damage(amount)
 	else:
@@ -461,7 +461,7 @@ func take_damage(amount: int, _source: Node2D = null, is_critical: bool = false)
 			hit_tween.set_ease(Tween.EASE_OUT)
 	
 	# Host: broadcast damage update to all clients
-	if NetworkManager.is_network_active() and multiplayer.is_server():
+	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
 		rpc("_sync_enemy_damage", enemy_id, current_health, amount, is_critical, global_position, max_health)
 
 
@@ -479,7 +479,7 @@ func _die() -> void:
 	_drop_loot()
 	
 	# Host: broadcast death and loot to all clients
-	if NetworkManager.is_network_active() and multiplayer.is_server():
+	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
 		rpc("_sync_enemy_died", enemy_id, _pending_loot_drops)
 	_pending_loot_drops.clear()
 	
@@ -621,6 +621,18 @@ func _queue_loot(item_id: String, count: int = 1) -> void:
 
 
 # ── Multiplayer RPC ──────────────────────────────────────────────────────
+
+## Returns true if this node lives under a host-only subtree (expedition
+## island, mine room, or building interior). Such interiors are generated
+## only on the host, so per-node RPC broadcasts from them can never resolve
+## on clients — skip broadcasting to avoid error floods.
+func _is_in_host_only_subtree() -> bool:
+	var p: Node = get_parent()
+	while p:
+		if p is ExpeditionIsland or p is MineRoom or p is BuildingInterior:
+			return true
+		p = p.get_parent()
+	return false
 
 ## Host → all clients: sync position, health, and state for a remote copy.
 @rpc("unreliable", "authority", "call_local")

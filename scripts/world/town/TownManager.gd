@@ -455,7 +455,12 @@ func get_ruin_state(ruin_id: String) -> RuinState:
 
 ## Creative mode: instantly restore all ruins to their completed state.
 ## Sets every ruin to RESTORED, updates town level, and signals changes.
-func creative_restore_all() -> void:
+## In multiplayer, this should be called via _server_request_creative_restore_all() from the host.
+func creative_restore_all(is_host_called: bool = false) -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		# This is a client requesting creative restore - should have come via RPC
+		return
+		
 	for ruin_id: String in ruins.keys():
 		var state: RuinState = ruins[ruin_id]
 		if state.status < RuinStatus.RESTORED:
@@ -479,6 +484,13 @@ func creative_restore_all() -> void:
 	
 	# Also directly swap the plaza sprite — find TownPlaza under the World node
 	_swap_plaza_to_restored()
+
+## Host authority: creative restore request from a client
+## In multiplayer, only the host can execute this
+@rpc("authority", "reliable")
+func _server_request_creative_restore_all() -> void:
+	# Only the host executes creative restore
+	creative_restore_all(true)
 
 func _swap_plaza_to_restored() -> void:
 	# Walk up from self to find the World node (more reliable than _world

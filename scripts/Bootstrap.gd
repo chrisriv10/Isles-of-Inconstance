@@ -267,9 +267,24 @@ func _load_mp_game_as_client() -> void:
 	if game and game.has_node("HUD"):
 		hud = game.get_node("HUD") as CanvasLayer
 		hud.visible = true
+		# Connect exit-to-menu signal — the host path wires this in
+		# _start_new_game(), so clients need it here too or "Return to Main
+		# Menu" silently does nothing.
+		if not hud.exit_to_menu_requested.is_connected(_on_exit_to_menu):
+			hud.exit_to_menu_requested.connect(_on_exit_to_menu)
 	if game:
 		game.process_mode = Node.PROCESS_MODE_INHERIT
 		game.visible = true
+	# Apply the typed player name to the local player. Player._ready ran at
+	# scene load (before the menu name input), and the host-only path that
+	# normally fixes this never runs for clients joining a session.
+	var local_player: Node = null
+	if game:
+		local_player = game.get_node_or_null("Player_%d" % multiplayer.get_unique_id())
+		if local_player == null:
+			local_player = game.get_node_or_null("Player")
+		if local_player and local_player.get("name_label") != null:
+			local_player.name_label.text = GameManager.player_name
 	_show_ui_canvas_layers()
 
 ## New Game clicked — seed + game mode are chosen on the save select screen.
@@ -409,6 +424,7 @@ func _start_new_game(p_seed: int) -> void:
 	# mine session. These are static vars on GameManager and persist
 	# across the entire Bootstrap lifetime.
 	GameManager.inside_interior = false
+	GameManager.inside_mine = false
 	GameManager.near_campfire = false
 	# Reset downed state
 	GameManager._is_downed = false
@@ -448,8 +464,7 @@ func _start_new_game(p_seed: int) -> void:
 				player.name_label.text = GameManager.player_name
 			if world and player:
 				# Spawn 6 cells inland from the coastline (away from the Boat's StaticBody2D)
-				var spawn_cell := Vector2i(world.world_width - 35, world.world_height / 2)
-				player.global_position = world.cell_to_world(spawn_cell)
+				player.global_position = world.get_default_spawn_position()
 				# Spawn starter animals near the player so they're visible immediately
 				if world.has_method("spawn_starter_animals_near"):
 					world.spawn_starter_animals_near(player.global_position)
@@ -674,8 +689,7 @@ func _on_exit_to_menu() -> void:
 	if was_in_mine and world_boot:
 		var player := get_tree().get_first_node_in_group("player")
 		if player:
-			var spawn_cell := Vector2i(world_boot.world_width - 35, world_boot.world_height / 2)
-			player.global_position = world_boot.cell_to_world(spawn_cell)
+			player.global_position = world_boot.get_default_spawn_position()
 
 	# Save current game state before exiting
 	SaveManager.save_game()

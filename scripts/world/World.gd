@@ -70,6 +70,18 @@ var current_mine_room: MineRoom = null
 var _mine_exit_cooldown: bool = false
 var _player_near_mine_entrance: bool = false
 var _player_mine_entrance_node: Node2D = null
+# Host-coordinated shared-mine session. The mine is deterministic per peer,
+# so every peer renders an identical room; the host only decides WHICH room
+# (entrance + depth) is "the shared mine" so late joiners end up together.
+# Sessions exist even when the host's own player is not inside.
+var _mine_session_active: bool = false
+var _mine_session_entrance: int = 1
+var _mine_session_depth: int = 1
+var _mine_session_members: Dictionary = {}  # peer_id -> true
+# Peers that have ACKed their local mine room is fully built. The host only
+# broadcasts enemy state/damage/death/respawn/loot to these peers, because
+# node-path RPCs fail on peers that do not have the MineRoom/MineEnemy_N copy.
+var _mine_session_room_ready: Dictionary = {}  # peer_id -> true
 # Player's overworld position before entering mine (used to return on exit)
 
 const MINE_ENTRANCE_TEX: Texture2D = preload("res://assets/generated/mine_entrance_frame_0.png")
@@ -746,7 +758,7 @@ func till_tile(world_pos: Vector2) -> bool:
 			"Tilled! Select seeds in your hotbar (keys 3-0), then left-click the tilled soil to plant.")
 	return tilled_any
 
-func _till_cell(cell: Vector2i) -> bool:
+func _till_cell(cell: Vector2i, simulate: bool = false) -> bool:
 	if not _is_in_bounds(cell):
 		return false
 	var tile_id: String = _tile_grid[cell.y][cell.x]
@@ -773,11 +785,14 @@ func _till_cell(cell: Vector2i) -> bool:
 	# Effects
 	EffectSpawner.spawn_dirt_puff(cell_to_world(cell))
 	AudioManager.play(AudioManager.Sound.TILL)
-	
+
+	# Only the player who performed the action gets credit (XP/objectives).
+	# Simulated runs (remote sync) replicate the tile state but grant nothing.
 	var til_mgr := get_tree().get_first_node_in_group("objective_manager")
-	if til_mgr and til_mgr.has_method("on_tile_tilled"):
+	if not simulate and til_mgr and til_mgr.has_method("on_tile_tilled"):
 		til_mgr.on_tile_tilled()
-	LevelManager.add_xp_source("till")
+	if not simulate:
+		LevelManager.add_xp_source("till")
 	
 	# Sync to remote peers
 	if NetworkManager.is_network_active():
@@ -888,19 +903,22 @@ func plant_seed(world_pos: Vector2, crop_id: String) -> bool:
 			"Planted! Press [2] for the Watering Can, then left-click or [F] to water it.")
 	return planted_any
 
-## Plant a single seed cell. Returns true if planted.
-func _plant_seed_cell(cell: Vector2i, crop_id: String) -> bool:
+## Plant a single seed cell. Returns true if planted. `simulate` marks
+## remote-sync runs, which replicate state but must NOT consume the remote
+## player's inventory or grant any rewards.
+func _plant_seed_cell(cell: Vector2i, crop_id: String, simulate: bool = false) -> bool:
 	if not _soil_data.has(cell) or not _soil_data[cell].is_tilled or _soil_data[cell].crop_id != "":
 		return false
 
 	var crop_data: CropData = DataManager.get_crop(crop_id)
 	if not crop_data or crop_data.seed_item_id == "":
 		return false
-	if not InventoryManager.has_item(crop_data.seed_item_id, 1):
+	if not simulate and not InventoryManager.has_item(crop_data.seed_item_id, 1):
 		return false
 
-	InventoryManager.remove_item(crop_data.seed_item_id, 1)
-	GameManager.total_seeds_planted += 1
+	if not simulate:
+		InventoryManager.remove_item(crop_data.seed_item_id, 1)
+		GameManager.total_seeds_planted += 1
 	
 	# Apply biome-specific traits if the trait generator and biome generator are available
 	var effective_crop_id := crop_id
@@ -932,10 +950,11 @@ func _plant_seed_cell(cell: Vector2i, crop_id: String) -> bool:
 		# Give an extra growth day as a rotation bonus
 		_soil_data[cell].days_grown = 1
 		_soil_data[cell].previous_crop_id = ""  # Reset so bonus only applies once per rotation
-		ToastNotification.show_toast("Crop rotation! Soil quality +1", ToastNotification.ToastType.SUCCESS, 1.5)
+		if not simulate:
+			ToastNotification.show_toast("Crop rotation! Soil quality +1", ToastNotification.ToastType.SUCCESS, 1.5)
 	
 	# Season feedback on planting
-	if GameManager.season_system and _soil_data[cell].season_tag != "":
+	if not simulate and GameManager.season_system and _soil_data[cell].season_tag != "":
 		var season_desc: String = GameManager.season_system.get_season_description(_soil_data[cell].season_tag)
 		ToastNotification.show_toast(season_desc, ToastNotification.ToastType.INFO, 3.0)
 	
@@ -2356,7 +2375,13 @@ func _scatter_mine_entrances() -> void:
 	# Pick entrance positions with minimum spacing between them
 	const MIN_ENTRANCE_SPACING: int = 10  # cells (160px) between entrances
 	var picked_cells: Array[Vector2i] = []
-	eligible_cells.shuffle()
+	# Deterministic Fisher-Yates shuffle using the seeded RNG so host and
+	# clients generate the same entrance positions.
+	for i in range(eligible_cells.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var tmp: Vector2i = eligible_cells[i]
+		eligible_cells[i] = eligible_cells[j]
+		eligible_cells[j] = tmp
 	
 	for cell in eligible_cells:
 		if picked_cells.size() >= entrance_count:
@@ -2453,8 +2478,13 @@ func _scatter_buildings() -> void:
 		{"type": BuildingSystem.BuildingType.STORAGE_SHED, "offset": Vector2i(-2, -5), "rot": 0},
 		{"type": BuildingSystem.BuildingType.DECORATIVE_BENCH, "offset": Vector2i(-4, 3), "rot": 0},
 	]
-	# Shuffle offsets a bit with the rng so placement varies per seed
-	buildings_to_place.shuffle()
+	# Shuffle offsets a bit with the rng so placement varies per seed but
+	# stays identical between host and clients (deterministic Fisher-Yates).
+	for _bi in range(buildings_to_place.size() - 1, 0, -1):
+		var _bj: int = rng.randi_range(0, _bi)
+		var _btmp: Dictionary = buildings_to_place[_bi]
+		buildings_to_place[_bi] = buildings_to_place[_bj]
+		buildings_to_place[_bj] = _btmp
 	
 	for entry in buildings_to_place:
 		var cell: Vector2i = spawn_cell + (entry["offset"] as Vector2i)
@@ -2812,6 +2842,11 @@ var _previous_player_z: int = 0  # z_index to restore on exit
 # Void location for interior rendering — far from world tiles so nothing shows through
 const INTERIOR_VOID := Vector2(10000, 10000)
 const INTERIOR_SCALE := 1.0
+# The co-op mine lives at its own void region so it can never overlap the
+# expedition island or building interiors (which share INTERIOR_VOID).
+# Without this, a player sailing to an island while a teammate is downed in
+# the mine sees the downed teammate's copy inside the island.
+const MINE_VOID := INTERIOR_VOID + Vector2(20000, 0)
 
 func enter_building(interior: BuildingInterior) -> void:
 	if current_interior:
@@ -2973,24 +3008,56 @@ func try_enter_mine() -> bool:
 	elif dist_from_center < 25.0:
 		depth = 2
 	
-	# In multiplayer, only host creates the mine; clients request via RPC
+	# In multiplayer, clients request entry via RPC; the host coordinates
+	# which shared room (entrance + depth) everyone joins.
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		rpc_id(1, "_server_try_enter_mine", entrance_index, depth)
 		return true
 	
-	return _do_enter_mine(entrance_index, depth)
+	return _server_try_enter_mine(entrance_index, depth)
 
 
-## Host-only: create the mine room and broadcast to all peers.
-## entrance_index: which entrance was used (determines spawn chamber)
-## depth: mine depth level (1, 2, or 3)
+## Host: decide the shared mine room for the requesting peer and tell only
+## that peer to enter it. Each peer renders its own deterministic copy, so
+## the host's own player is NOT moved when a client enters.
+## When called directly (host pressing E), sender defaults to the host.
+## Returns true if the caller's own player was moved into the mine.
+@rpc("any_peer", "reliable")
+func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	
+	var target_e: int = entrance_index
+	var target_d: int = depth
+	if _mine_session_active:
+		# Someone is already inside — join the same shared room so
+		# co-op players end up together.
+		target_e = _mine_session_entrance
+		target_d = _mine_session_depth
+	else:
+		_mine_session_active = true
+		_mine_session_entrance = entrance_index
+		_mine_session_depth = depth
+	_mine_session_members[sender] = true
+	
+	if sender == multiplayer.get_unique_id():
+		return _do_enter_mine(target_e, target_d)
+	rpc_id(sender, "_receive_enter_mine", target_e, target_d)
+	return true
+
+
+## Client-side receiver: run the same local mine entry so this client's own
+## player is transported into its local copy of the shared room.
 @rpc("authority", "reliable")
-func _server_try_enter_mine(entrance_index: int, depth: int) -> void:
+func _receive_enter_mine(entrance_index: int, depth: int) -> void:
 	_do_enter_mine(entrance_index, depth)
 
 
-## Internal: actually create the mine room (host only, called locally or via RPC).
-## Returns true if mine was created.
+## Internal: actually create the mine room so THIS peer's player enters.
+## The room is generated deterministically, so each peer's copy matches.
+## Only the local player is moved (remote players enter on their own peers).
+## Returns true if the mine was created.
 func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 	if current_mine_room:
 		return false
@@ -3005,6 +3072,7 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 	var world_seed_val: int = world_seed if world_seed > 0 else 0
 	var mine_generator := MineGenerator.create(world_seed_val + depth * 7777, 64, 48)
 	var mine := MineRoom.new()
+	mine.name = "MineRoom"
 	mine.depth_level = depth
 	mine.entrance_index = entrance_index
 	mine.generator = mine_generator
@@ -3023,31 +3091,33 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 		"Mine! Deeper floors have better ores but tougher enemies.")
 	
 	GameManager.inside_interior = true
+	GameManager.inside_mine = true
 	
 	# Despawn non-boss enemies
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if enemy and is_instance_valid(enemy) and not enemy.is_in_group("bosses"):
 			enemy.queue_free()
 	
-	# Move all players to void position (matching interior pattern)
-	var players := get_tree().get_nodes_in_group("player")
-	for player in players:
-		if not is_instance_valid(player):
-			continue
-		if player.get_multiplayer_authority() == 1:
-			# Host's local player - save outside position
-			_mine_outside_pos = player.global_position
-		if player is CharacterBody2D:
-			player.velocity = Vector2.ZERO
-		player.z_index = 2
+	# Move ONLY the local player to the void position (matching the interior
+	# pattern). Remote copies on this peer stay put — their own peers move them.
+	var local_player: Node = null
+	for player in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(player) and player.get_multiplayer_authority() == multiplayer.get_unique_id():
+			local_player = player
+			break
+	if local_player:
+		# Save this peer's own local player's outside position so we can
+		# return it to the surface on exit.
+		_mine_outside_pos = local_player.global_position
+		if local_player is CharacterBody2D:
+			local_player.velocity = Vector2.ZERO
+		local_player.z_index = 2
 		var spawn_pos := mine_generator.get_spawn_position(entrance_index)
-		player.global_position = INTERIOR_VOID + spawn_pos
-		player.visible = true
-		player.set_process(true)
-		player.set_physics_process(true)
-		if player.get_multiplayer_authority() == multiplayer.get_unique_id():
-			# Only show dialogue for local player
-			player.show_dialogue("in here... I should explore deeper and find valuable ores.", 4.0)
+		local_player.global_position = MINE_VOID + spawn_pos
+		local_player.visible = true
+		local_player.set_process(true)
+		local_player.set_physics_process(true)
+		local_player.show_dialogue("in here... I should explore deeper and find valuable ores.", 4.0)
 	
 	# Add the mine room at the void position (deferred so the room builds
 	# after this frame — same pattern as descending to deeper floors).
@@ -3077,12 +3147,21 @@ func _set_mine_camera_limits(grid_w: int, grid_h: int) -> void:
 	var cam := player.get_node_or_null("Camera2D") as Camera2D
 	if not cam:
 		return
+	if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+		# Only clamp the local player's camera (remote copies have disabled cameras).
+		for p in get_tree().get_nodes_in_group("player"):
+			if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+				player = p
+				cam = (player.get_node_or_null("Camera2D") as Camera2D)
+				break
+		if not cam:
+			return
 	var pixel_w := grid_w * 16
 	var pixel_h := grid_h * 16
-	cam.limit_left = int(INTERIOR_VOID.x)
-	cam.limit_top = int(INTERIOR_VOID.y)
-	cam.limit_right = int(INTERIOR_VOID.x + pixel_w)
-	cam.limit_bottom = int(INTERIOR_VOID.y + pixel_h)
+	cam.limit_left = int(MINE_VOID.x)
+	cam.limit_top = int(MINE_VOID.y)
+	cam.limit_right = int(MINE_VOID.x + pixel_w)
+	cam.limit_bottom = int(MINE_VOID.y + pixel_h)
 
 
 func _clear_mine_camera_limits() -> void:
@@ -3094,6 +3173,14 @@ func _clear_mine_camera_limits() -> void:
 	var cam := player.get_node_or_null("Camera2D") as Camera2D
 	if not cam:
 		return
+	if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+		for p in get_tree().get_nodes_in_group("player"):
+			if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+				player = p
+				cam = (player.get_node_or_null("Camera2D") as Camera2D)
+				break
+		if not cam:
+			return
 	cam.limit_left = -10000000
 	cam.limit_top = -10000000
 	cam.limit_right = 10000000
@@ -3103,11 +3190,43 @@ func _clear_mine_camera_limits() -> void:
 func _deferred_setup_mine_room(mine: MineRoom) -> void:
 	if not is_instance_valid(mine):
 		return
-	mine.position = INTERIOR_VOID
+	mine.position = MINE_VOID
 	mine.scale = Vector2(1.0, 1.0)
 	add_child(mine)
 	mine.exited.connect(_on_exit_mine)
 	mine.descended.connect(_on_mine_descended)
+
+	# Once the room (and its enemy subtree) is built on this peer, tell the
+	# host so it can start node-path RPCs to us. The host's own copy is the
+	# authority and is never sent broadcasts, so it only acks when a client.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_notify_mine_room_ready")
+
+	# Push fresh stats now that we are inside the mine: remote copies rely on
+	# inside_interior/inside_mine flags to stay visible and show their health
+	# bar (stats otherwise only broadcast on damage/heal/hunger events).
+	GameManager._try_broadcast_player_stats()
+
+
+## Client → host: this peer's local mine room is fully built. The host then
+## includes the sender in enemy state/damage/death/respawn/loot broadcasts.
+@rpc("any_peer", "reliable")
+func _notify_mine_room_ready() -> void:
+	if not multiplayer.is_server():
+		return
+	_mine_session_room_ready[multiplayer.get_remote_sender_id()] = true
+
+
+## Peers whose local mine room is built and ready to receive node-path RPCs.
+## Excludes the host's own id (the host is authoritative and drives locally).
+func get_mine_ready_peer_ids() -> Array[int]:
+	var ids: Array[int] = []
+	var self_id: int = multiplayer.get_unique_id()
+	for pid in _mine_session_room_ready:
+		if pid != self_id:
+			ids.append(pid)
+	ids.sort()
+	return ids
 
 
 ## Force-exit the mine. Cleans up all mine state without requiring
@@ -3123,37 +3242,78 @@ func emergency_exit_mine() -> void:
 	_mine_prev_z = 0
 	_mine_exit_cooldown = false
 	GameManager.inside_interior = false
+	GameManager.inside_mine = false
 	_clear_mine_camera_limits()
 	
-	var player := get_tree().get_first_node_in_group("player")
-	if player:
-		if player is CharacterBody2D:
-			player.velocity = Vector2.ZERO
-		player.z_index = 1  # match the player's outdoor layer (above buildings)
-		player.visible = true
-		player.set_process(true)
-		player.set_physics_process(true)
+	var local_player: Node = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+			local_player = p
+			break
+	if local_player:
+		if local_player is CharacterBody2D:
+			local_player.velocity = Vector2.ZERO
+		local_player.z_index = 1  # match the player's outdoor layer (above buildings)
+		local_player.visible = true
+		local_player.set_process(true)
+		local_player.set_physics_process(true)
+
+
+## Host: remove a peer from the shared-mine session when they disconnect.
+## The disconnected peer's own copy is cleaned up on their side.
+func mine_peer_disconnected(peer_id: int) -> void:
+	_mine_session_members.erase(peer_id)
+	_mine_session_room_ready.erase(peer_id)
+	if _mine_session_members.is_empty():
+		_mine_session_active = false
+		_mine_session_entrance = 1
+		_mine_session_depth = 1
 
 
 func _on_exit_mine() -> void:
 	if not current_mine_room:
 		return
 	
-	# In multiplayer, only host processes exit
+	# In multiplayer, the host coordinates the shared session; clients
+	# request their own exit (only the requesting peer leaves).
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		rpc_id(1, "_server_exit_mine")
 		return
 	
-	_do_exit_mine()
+	_server_exit_mine()
 
 
-## Host-only: process mine exit and broadcast to all peers.
-@rpc("authority", "reliable")
+## Host: remove the requesting peer from the shared-mine session and tell
+## ONLY that peer to exit. When called directly (host's own exit), sender
+## defaults to the host. Single-player runs this locally too.
+@rpc("any_peer", "reliable")
 func _server_exit_mine() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	
+	_mine_session_members.erase(sender)
+	_mine_session_room_ready.erase(sender)
+	if _mine_session_members.is_empty():
+		_mine_session_active = false
+		_mine_session_entrance = 1
+		_mine_session_depth = 1
+	
+	if sender == multiplayer.get_unique_id():
+		_do_exit_mine()
+	else:
+		rpc_id(sender, "_receive_exit_mine")
+
+
+## Client-side receiver: run the same local mine exit so this client's own
+## player is returned to the overworld.
+@rpc("authority", "reliable")
+func _receive_exit_mine() -> void:
 	_do_exit_mine()
 
 
-## Internal: actually exit the mine (host only, called locally or via RPC).
+## Internal: actually exit the mine for THIS peer (called locally or via RPC).
+## Only the local player is moved back out.
 func _do_exit_mine() -> void:
 	if not current_mine_room:
 		return
@@ -3166,6 +3326,10 @@ func _do_exit_mine() -> void:
 	current_mine_room = null
 	_mine_current_depth = 0
 	GameManager.inside_interior = false
+	GameManager.inside_mine = false
+
+	# Fresh stats so remote copies flip back to the overworld visibility.
+	GameManager._try_broadcast_player_stats()
 	
 	# Clear camera limits so the overworld camera scrolls freely
 	_clear_mine_camera_limits()
@@ -3175,10 +3339,11 @@ func _do_exit_mine() -> void:
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
 	
-	# Move all players back outside
-	var players := get_tree().get_nodes_in_group("player")
-	for player in players:
+	# Move ONLY the local player back outside
+	for player in get_tree().get_nodes_in_group("player"):
 		if not is_instance_valid(player):
+			continue
+		if player.get_multiplayer_authority() != multiplayer.get_unique_id():
 			continue
 		if _mine_outside_pos != Vector2.ZERO:
 			player.global_position = _mine_outside_pos
@@ -3188,11 +3353,44 @@ func _do_exit_mine() -> void:
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)
+		break
 
 
 ## Called when the player walks into the descent shaft in a mine room.
 ## Destroys the current room and creates a new deeper one.
+## In multiplayer the host decides the shared depth, then mirrors so
+## every member of the shared mine descends together (stays co-op).
 func _on_mine_descended(new_depth: int) -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_try_descend", new_depth)
+		return
+	if _mine_session_active:
+		_mine_session_depth = new_depth
+		_mine_session_entrance = 0
+	_do_mine_descended(new_depth)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_receive_mine_descended", new_depth)
+
+
+## Client-only: mirror the host's descent onto this peer's local mine room.
+@rpc("authority", "reliable")
+func _receive_mine_descended(new_depth: int) -> void:
+	_do_mine_descended(new_depth)
+
+
+## Host-only: a client wants to descend; update the shared session and mirror.
+@rpc("any_peer", "reliable")
+func _server_try_descend(new_depth: int) -> void:
+	if _mine_session_active:
+		_mine_session_depth = new_depth
+		_mine_session_entrance = 0
+	_do_mine_descended(new_depth)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_receive_mine_descended", new_depth)
+
+
+## Internal: actually rebuild a deeper local mine room.
+func _do_mine_descended(new_depth: int) -> void:
 	if not current_mine_room:
 		return
 	
@@ -3202,6 +3400,12 @@ func _on_mine_descended(new_depth: int) -> void:
 	var player := get_tree().get_first_node_in_group("player")
 	var relative_pos := Vector2.ZERO
 	if player:
+		if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+			# Prefer the local player so per-peer descent teleports the right copy.
+			for p in get_tree().get_nodes_in_group("player"):
+				if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+					player = p
+					break
 		relative_pos = player.global_position - current_mine_room.global_position
 		if player is CharacterBody2D:
 			player.velocity = Vector2.ZERO
@@ -3229,13 +3433,18 @@ func _on_mine_descended(new_depth: int) -> void:
 	# Move player to spawn position in new room
 	if player:
 		var spawn_pos := mine_generator.get_spawn_position(0)
-		player.global_position = INTERIOR_VOID + spawn_pos
+		player.global_position = MINE_VOID + spawn_pos
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)
 	
 	# Add new room at void position
 	call_deferred("_deferred_setup_mine_room", mine)
+
+	# The old room is freed now, so client copies of it are stale. Drop every
+	# ready-ack; clients re-ack once their rebuilt room is ready again.
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_mine_session_room_ready.clear()
 	
 	# Re-apply camera limits for the new deeper room
 	_set_mine_camera_limits(64, 48)
@@ -3844,6 +4053,17 @@ func get_boat_position() -> Vector2:
 func get_dock_position() -> Vector2:
 	return _dock_position
 
+
+## The cell every player should spawn at on the overworld: 35 cells from the
+## right edge (6 inland from the coastline), centered vertically. Single
+## source of truth so host, clients, remote copies, and respawns agree.
+func get_default_spawn_cell() -> Vector2i:
+	return Vector2i(world_width - 35, world_height / 2)
+
+
+func get_default_spawn_position() -> Vector2:
+	return cell_to_world(get_default_spawn_cell())
+
 ## Returns an array of world positions for all mine entrances.
 ## Returns the current MineRoom node if the player is in a mine, or null.
 func get_current_mine_room():
@@ -4023,7 +4243,7 @@ func _sync_harvest_if_active(cell: Vector2i, action: int) -> void:
 
 @rpc("any_peer", "call_local")
 func _sync_till_cell(cell: Vector2i) -> void:
-	_till_cell(cell)
+	_till_cell(cell, true)
 
 
 @rpc("any_peer", "call_local")
@@ -4034,7 +4254,7 @@ func _sync_water_cell(cell: Vector2i) -> void:
 @rpc("any_peer", "call_local")
 func _sync_plant_cell(cell: Vector2i, crop_id: String) -> void:
 	if _soil_data.has(cell) and _soil_data[cell].is_tilled and _soil_data[cell].crop_id == "":
-		_plant_seed_cell(cell, crop_id)
+		_plant_seed_cell(cell, crop_id, true)
 
 
 ## action: 0 = removed, 1 = regrow, 2 = sprout

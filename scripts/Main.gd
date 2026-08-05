@@ -146,6 +146,8 @@ func _ready() -> void:
 
 	# Multiplayer setup
 	NetworkManager.connection_succeeded.connect(_on_network_session_started)
+	NetworkManager.peer_connected.connect(_on_peer_connected)
+	NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
 	_setup_multiplayer()
 
 
@@ -286,8 +288,7 @@ func _input(event: InputEvent) -> void:
 
 func _position_player_at_spawn() -> void:
 	if world and world.has_method("cell_to_world"):
-		var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
-		player.global_position = world.cell_to_world(spawn_cell)
+		player.global_position = world.get_default_spawn_position()
 
 # --------------------------------------------------------------------------
 # Pet spawning
@@ -462,6 +463,8 @@ func _register_me_to_remote(peer_id: int) -> void:
 	# Propagate the host's difficulty so all clients share the same economy
 	# and enemy scaling. Sent unconditionally (the host is authoritative).
 	rpc_id(peer_id, "_receive_host_difficulty", GameManager.difficulty)
+	# Propagate the host's game mode so all clients share the same rules.
+	rpc_id(peer_id, "_receive_host_game_mode", GameManager.game_mode)
 
 	# Broadcast the new peer to all clients
 	rpc("_add_remote_player", peer_id)
@@ -495,6 +498,11 @@ func _receive_world_seed(seed: int) -> void:
 	world.generate_world_with_seed(seed)
 	player.set_process(true)
 	player.set_physics_process(true)
+	# The HUD seed label was set from world.world_seed at _ready (0 for a
+	# client, before the seed arrived) — refresh it with the real seed.
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("set_seed_display"):
+		hud.set_seed_display(seed)
 	_position_player_at_spawn()
 	if not multiplayer.is_server():
 		# The host's starter animals (Animal_20/21) were spawned before we
@@ -514,8 +522,7 @@ func _receive_world_seed(seed: int) -> void:
 	if bootstrap and bootstrap.has_method("hide_world_background"):
 		bootstrap.hide_world_background()
 	# Reposition any remote players to the default spawn
-	var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
-	var spawn_pos: Vector2 = world.cell_to_world(spawn_cell) if world.has_method("cell_to_world") else Vector2.ZERO
+	var spawn_pos: Vector2 = world.get_default_spawn_position() if world.has_method("get_default_spawn_position") else Vector2.ZERO
 	for pid in _remote_players:
 		var p = _remote_players[pid]
 		if p != player:
@@ -528,6 +535,14 @@ func _receive_world_seed(seed: int) -> void:
 func _receive_host_difficulty(diff: int) -> void:
 	print("Main: received host difficulty %d" % diff)
 	GameManager.set_difficulty(diff)
+
+
+## Sent by the host to a client with the host's game mode (peaceful,
+## survival, creative, hardcore) so all players share the same rules.
+@rpc("authority", "reliable")
+func _receive_host_game_mode(mode: int) -> void:
+	print("Main: received host game mode %d" % mode)
+	GameManager.set_game_mode(mode)
 
 
 ## Creates a remote player node on all clients for the given peer.
@@ -568,9 +583,8 @@ func _instantiate_remote_player(peer_id: int) -> void:
 		cam.enabled = false
 
 	# Place near spawn initially (position will be overwritten by first RPC sync)
-	if world and world.has_method("cell_to_world"):
-		var spawn_cell := Vector2i(world.world_width / 2, world.world_height / 2)
-		remote.global_position = world.cell_to_world(spawn_cell)
+	if world and world.has_method("get_default_spawn_position"):
+		remote.global_position = world.get_default_spawn_position()
 
 	player.get_parent().add_child(remote)
 	_remote_players[peer_id] = remote

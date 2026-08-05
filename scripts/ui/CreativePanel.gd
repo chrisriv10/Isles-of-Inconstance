@@ -239,7 +239,18 @@ func _on_restore_all_pressed() -> void:
 	if not tm:
 		ToastNotification.show_toast("No TownManager found!", ToastNotification.ToastType.ERROR, 2.0)
 		return
-	tm.creative_restore_all()
+	
+	# Use RPC to forward to host in multiplayer
+	if NetworkManager.is_network_active():
+		if not multiplayer.is_server():
+			# This is a client, request from host
+			tm.rpc_id(1, "_server_request_creative_restore_all")
+		else:
+			# This is the host, execute directly
+			tm.creative_restore_all()
+	else:
+		# Single player
+		tm.creative_restore_all()
 	ToastNotification.show_toast("All ruins restored!", ToastNotification.ToastType.SUCCESS, 3.0)
 
 

@@ -316,6 +316,18 @@ func _on_arrow_hit(body: Node) -> void:
 
 # ── Multiplayer RPC ──────────────────────────────────────────────────────
 
+## Returns true if this node lives under a host-only subtree (expedition
+## island, mine room, or building interior). Such interiors are generated
+## only on the host, so per-node RPC broadcasts from them can never resolve
+## on clients — skip broadcasting to avoid error floods.
+func _is_in_host_only_subtree() -> bool:
+	var p: Node = get_parent()
+	while p:
+		if p is ExpeditionIsland or p is MineRoom or p is BuildingInterior:
+			return true
+		p = p.get_parent()
+	return false
+
 ## Host → all clients: sync position for a remote copy.
 @rpc("unreliable", "authority", "call_local")
 func _sync_animal_pos(aid: int, pos: Vector2) -> void:
@@ -392,7 +404,7 @@ func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false
 	if current_health <= 0:
 		_die()
 	# Host: broadcast damage update to all clients
-	if NetworkManager.is_network_active() and multiplayer.is_server():
+	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
 		rpc("_sync_animal_damage", animal_id, current_health, amount, _is_critical, global_position, max_health)
 
 func _die() -> void:
@@ -410,7 +422,7 @@ func _die() -> void:
 			_loot_drops.append({"item_id": item_id, "count": amount})
 	
 	# Host: broadcast death and loot to all clients
-	if NetworkManager.is_network_active() and multiplayer.is_server():
+	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
 		rpc("_sync_animal_died", animal_id, _loot_drops)
 	_loot_drops.clear()
 	
@@ -2541,7 +2553,7 @@ func _process(delta: float) -> void:
 				animated_sprite.play("idle")
 	
 	# Host: broadcast position to remote clients
-	if NetworkManager.is_network_active() and multiplayer.is_server():
+	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
 		_last_pos_sync_time += delta
 		if _last_pos_sync_time >= POS_SYNC_INTERVAL:
 			_last_pos_sync_time = 0.0

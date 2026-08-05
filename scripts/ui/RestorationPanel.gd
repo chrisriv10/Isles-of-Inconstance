@@ -116,6 +116,13 @@ func _on_deposit_pressed(item_id: String, count: int) -> void:
 		ToastNotification.show_toast("You don't have that item!", ToastNotification.ToastType.WARNING, 2.0)
 		return
 	
+	# Use RPC in multiplayer - only the host can actually contribute materials
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		# This is a client, request from host via RPC
+		rpc_id(1, "_server_request_contribute", _ruin_id, item_id, count)
+		return
+
+	# Host or single player - direct execution
 	var contributed: int = tm.contribute_materials(_ruin_id, item_id, count)
 	if contributed > 0:
 		# Actually remove items from inventory
@@ -134,6 +141,15 @@ func _on_deposit_pressed(item_id: String, count: int) -> void:
 			get_tree().create_timer(1.0).timeout.connect(close)
 	else:
 		ToastNotification.show_toast("You don't have that item!", ToastNotification.ToastType.WARNING, 2.0)
+
+
+## Host authority: process a contribution requested by a client.
+@rpc("authority", "reliable")
+func _server_request_contribute(requested_ruin_id: String, item_id: String, count: int) -> void:
+	if not multiplayer.is_server():
+		return
+	_ruin_id = requested_ruin_id
+	_on_deposit_pressed(item_id, count)
 
 func _on_close() -> void:
 	close()

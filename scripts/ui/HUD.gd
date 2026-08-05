@@ -57,6 +57,9 @@ var _showing_mine_prompt: bool = false  # whether we're showing a mine prompt at
 var _rubble_bar: ProgressBar = null
 var _rubble_label: Label = null
 
+# Revive teammate [E] prompt at the bottom
+var _showing_revive_prompt: bool = false
+
 # Fishing reel progress bar (created at runtime)
 var _fishing_bar: ProgressBar = null
 var _fishing_label: Label = null
@@ -152,10 +155,26 @@ func _ready() -> void:
 	add_child(fishing_prompt_timer)
 	fishing_prompt_timer.start()
 
+	# Revive prompt timer — poll every 0.25s to show/hide [E] revive prompt
+	var revive_prompt_timer := Timer.new()
+	revive_prompt_timer.name = "RevivePromptTimer"
+	revive_prompt_timer.wait_time = 0.25
+	revive_prompt_timer.timeout.connect(_check_revive_proximity_prompt)
+	add_child(revive_prompt_timer)
+	revive_prompt_timer.start()
+
 	# Add numeric text overlays to health/hunger/armor bars
 	_add_bar_numeric_label(health_bar, "health")
 	_add_bar_numeric_label(hunger_bar, "hunger")
 	_add_bar_numeric_label(armor_bar, "armor")
+
+	# Initialize bars from current values. A joining client never emits the
+	# initial health_changed/hunger_changed signals (only the host's new-game
+	# flow calls reset_health()), so without this the client's HUD would show
+	# the scene-default bar (yellow fill, no numbers) until the first event.
+	_on_health_changed(GameManager.health, GameManager.MAX_HEALTH)
+	_on_hunger_changed(GameManager.hunger, GameManager.MAX_HUNGER)
+	_on_armor_changed(GameManager.get_armor_defense())
 
 	# Show initial objective after delay
 	get_tree().create_timer(3.0).timeout.connect(_update_objective_display)
@@ -540,6 +559,37 @@ func _check_mine_proximity_prompt() -> void:
 	else:
 		if _showing_mine_prompt:
 			_showing_mine_prompt = false
+			interaction_prompt_panel.visible = false
+
+
+## Periodically checks if the player stands near a downed teammate and shows
+## the bottom "[E] Hold E to revive <name>" prompt. Follows the mine prompt
+## pattern: only when no Interactable is in range (Interactables win).
+func _check_revive_proximity_prompt() -> void:
+	var player := get_tree().get_first_node_in_group("player") as Player
+	if not player:
+		if _showing_revive_prompt:
+			_showing_revive_prompt = false
+			interaction_prompt_panel.visible = false
+		return
+
+	if _last_interactable and is_instance_valid(_last_interactable):
+		if _showing_revive_prompt:
+			_showing_revive_prompt = false
+		return
+
+	if player.has_method("can_start_revive") and player.can_start_revive():
+		if not _showing_revive_prompt:
+			_showing_revive_prompt = true
+			var target: Player = player.get_nearest_downed_player()
+			var target_name: String = "Teammate"
+			if target and target.name_label:
+				target_name = target.name_label.text
+			interaction_prompt.text = "[E] Hold E to revive %s" % target_name
+			interaction_prompt_panel.visible = true
+	else:
+		if _showing_revive_prompt:
+			_showing_revive_prompt = false
 			interaction_prompt_panel.visible = false
 
 
