@@ -226,8 +226,12 @@ func _complete_hit() -> void:
 	if remaining_hits <= 0:
 		return
 
-	# In multiplayer, forward the hit to the host for authoritative processing
-	if NetworkManager.is_network_active() and not _is_remote:
+	# In multiplayer, forward the hit to the host for authoritative processing.
+	# _is_remote marks deposits on client peers (MineRoom sets it during
+	# generation), so those copies defer to the host; the host's own copy
+	# (and single-player) processes locally. Without this the mining client
+	# would apply the hit on its own copy only — the host never learns.
+	if NetworkManager.is_network_active() and _is_remote:
 		var miner_peer: int = 0
 		if _miner_ref and _miner_ref.has_method("get_multiplayer_authority"):
 			miner_peer = _miner_ref.get_multiplayer_authority()
@@ -262,6 +266,14 @@ func _process_hit_locally(miner_peer: int = 0) -> void:
 
 	var amount := randi_range(min_per_hit, max_per_hit)
 	var ore_name := get_ore_display_name()
+
+	# Pay the ore ONLY to the mining peer (host-authoritative loot). The host
+	# rolls the amount; single-player and host-mining-for-self add locally.
+	# (_receive_ore_drop is the targeted payout RPC.)
+	if multiplayer.is_server() and NetworkManager.is_network_active() and miner_peer != 0 and miner_peer != multiplayer.get_unique_id():
+		rpc_id(miner_peer, "_receive_ore_drop", ore_type, amount, ore_name)
+	else:
+		InventoryManager.add_item(ore_type, amount)
 
 	# Visual feedback — flash and update depletion
 	if sprite:
@@ -456,3 +468,23 @@ func get_depletion_ratio() -> float:
 	if max_hits <= 0:
 		return 0.0
 	return 1.0 - (float(remaining_hits) / float(max_hits))
+
+
+## Update the deposit sprite based on remaining ore. Called after every hit on
+## every peer (host inside _process_hit_locally, clients inside the state
+## broadcast). Dims and slightly shrinks the sprite as ore is removed and hides
+## it entirely once depleted, until regeneration restores it.
+func _update_depletion_visual() -> void:
+	if not sprite:
+		return
+	if remaining_hits <= 0:
+		sprite.visible = false
+		return
+	var ratio: float = clampf(get_depletion_ratio(), 0.0, 1.0)
+	sprite.visible = true
+	sprite.scale = Vector2.ONE * (1.0 - 0.25 * ratio)
+	# Use self_modulate so the hit-flash tween on `modulate` isn't overridden.
+	sprite.self_modulate = Color(
+		1.0 - 0.45 * ratio,
+		1.0 - 0.45 * ratio,
+		1.0 - 0.45 * ratio)

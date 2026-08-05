@@ -417,13 +417,14 @@ func _place_ores() -> void:
 	for cfg in configs:
 		var count: int = cfg["count"]
 		# Deeper tiles get extra ores
+		var cell: Vector2i = floor_cells[cell_idx % floor_cells.size()]
 		for _i in range(count):
 			if cell_idx >= floor_cells.size():
 				cell_idx = 0
-			var cell: Vector2i = floor_cells[cell_idx % floor_cells.size()]
+			cell = floor_cells[cell_idx % floor_cells.size()]
 			cell_idx += 1
 			
-var ore := ORE_DEPOSIT_SCENE.instantiate()
+		var ore := ORE_DEPOSIT_SCENE.instantiate()
 		ore.ore_type = cfg["type"]
 		ore.max_hits = cfg["max_hits"]
 		ore.min_per_hit = cfg["min"]

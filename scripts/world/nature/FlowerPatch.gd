@@ -128,10 +128,10 @@ func interact(interactor: Node) -> void:
 		if om and om.has_method("on_gather_wild"):
 			om.on_gather_wild("flower", gathered)
 	
-_used = true
- 	# Notify remote peers so they remove their copy
- 	if NetworkManager.is_network_active():
- 		var world = get_tree().get_first_node_in_group("world")
- 		if world and world.has_method("notify_cell_object_removed"):
- 			world.notify_cell_object_removed(global_position)
- 	queue_free()
+	_used = true
+	# Notify remote peers so they remove their copy of this patch.
+	if NetworkManager.is_network_active():
+		var world = get_tree().get_first_node_in_group("world")
+		if world and world.has_method("notify_cell_object_removed"):
+			world.notify_cell_object_removed(global_position)
+	queue_free()
