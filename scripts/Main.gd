@@ -429,8 +429,10 @@ func _setup_multiplayer() -> void:
 	if local_cam and not local_cam.is_current():
 		local_cam.make_current()
 
-	NetworkManager.peer_connected.connect(_on_peer_connected)
-	NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
+	if not NetworkManager.peer_connected.is_connected(_on_peer_connected):
+		NetworkManager.peer_connected.connect(_on_peer_connected)
+	if not NetworkManager.peer_disconnected.is_connected(_on_peer_disconnected):
+		NetworkManager.peer_disconnected.connect(_on_peer_disconnected)
 
 	# Host: register with any peers that connected before Main was ready
 	# We create remote players locally and let _register_me_to_remote handle

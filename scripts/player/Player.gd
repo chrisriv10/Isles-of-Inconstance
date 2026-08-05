@@ -334,14 +334,14 @@ func _ensure_remote_health_bar() -> void:
 	var bg := ColorRect.new()
 	bg.name = "RemoteHPBarBG"
 	bg.size = Vector2(bar_w, bar_h)
-	bg.position = Vector2(-bar_w / 2.0, -30)
+	bg.position = Vector2(-bar_w / 2.0, -24)
 	bg.color = Color(0.1, 0.1, 0.1, 0.6)
 	add_child(bg)
 	_remote_hp_bar_bg = bg
 	var fill := ColorRect.new()
 	fill.name = "RemoteHPBarFill"
 	fill.size = Vector2(bar_w, bar_h)
-	fill.position = Vector2(-bar_w / 2.0, -30)
+	fill.position = Vector2(-bar_w / 2.0, -24)
 	fill.color = Color(0.3, 1.0, 0.3, 0.85)
 	add_child(fill)
 	_remote_hp_bar_fill = fill
@@ -359,15 +359,15 @@ func _ensure_remote_health_bar() -> void:
 	np.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	np.add_theme_constant_override("shadow_offset_x", 1)
 	np.add_theme_constant_override("shadow_offset_y", 1)
-	np.position = Vector2(0, -24)
+	np.position = Vector2(0, -18)
 	np.anchor_left = 0.5
 	np.anchor_right = 0.5
 	np.anchor_top = 0.0
 	np.anchor_bottom = 0.0
 	np.offset_left = -50
 	np.offset_right = 50
-	np.offset_top = -24
-	np.offset_bottom = -16
+	np.offset_top = -18
+	np.offset_bottom = -10
 	add_child(np)
 	_remote_nameplate = np
 
