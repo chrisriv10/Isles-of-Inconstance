@@ -120,6 +120,9 @@ var _guest_sprites: Array[Node] = []
 # Whether the hotel currently has active registered guests
 var _guests_active: bool = false
 
+# Seeded RNG for deterministic interior generation (multiplayer sync)
+var _rng: RandomNumberGenerator = null
+
 ## Positions where guest NPCs appear in the hotel interior.
 const _HOTEL_GUEST_SPOTS: Array[Vector2] = [
 	Vector2(68, 48),   # Guest Room 1 - beside nightstand
@@ -154,7 +157,11 @@ const BARN_STALLS: Array[Dictionary] = [
 	{"id": "sheep",    "name": "Sheep",    "sprite": BARN_SHEEP_PEN,  "product": "wool", "amount": 1, "product_name": "Wool"},
 ]
 
-func setup(type: int, cell: Vector2i) -> void:
+func setup(type: int, cell: Vector2i, seed: int = 0) -> void:
+	# Initialize seeded RNG for deterministic generation (multiplayer sync)
+	_rng = RandomNumberGenerator.new()
+	_rng.seed = seed
+	
 	# Map building type to interior type — BuildingType enum values may not
 	# match InteriorType enum values for types added later (e.g. HOTEL).
 	# Types 0-5 match 1:1 (SMALL_HOME..GREENHOUSE), but HOTEL is handled explicitly.

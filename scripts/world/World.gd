@@ -99,6 +99,12 @@ var _ore_cells: Dictionary = {}
 # checked by tree scattering to prevent overlap.
 var _nature_cells: Dictionary = {}
 
+## Building interior sessions (host-authoritative, keyed by building cell).
+## Each building cell that has players inside gets a session with a deterministic
+## seed so all peers generate identical interior layouts.
+var _building_sessions: Dictionary = {}  # "cell_x,cell_y" -> { "seed": int, "type": int, "members": {peer_id: true} }
+var _peer_building: Dictionary = {}  # peer_id -> "cell_x,cell_y" the peer is currently inside
+
 # Build mode state
 var build_mode_active: bool = false
 var build_item_id: String = ""
@@ -3841,45 +3847,77 @@ func _do_exit_island() -> void:
 
 
 ## ── Building Interior Sync ──
-## In multiplayer each peer runs its own local interior (deterministic from
-## building type + cell). The host coordinates entry/exit so peers enter/exit
-## together and remote player copies are moved into the interior on each peer.
+## In multiplayer, building interiors are shared sessions keyed by building cell.
+## The host manages a session per building cell with a deterministic seed so
+## all peers generate identical interior layouts. Multiple peers can be inside
+## the same building simultaneously and see each other.
 
-## Host: a peer wants to enter a building. The host creates the interior
-## locally and tells the requesting peer to enter. Other peers are NOT told
-## (they enter on their own when they interact with the door).
-## Returns true if the caller's own player was moved into the interior.
+## Host: a peer wants to enter a building. The host checks/creates a session
+## for that building cell, assigns a deterministic seed, and tells the requesting
+## peer to enter its local copy. Returns true if the caller's own player
+## was moved into the interior.
 @rpc("any_peer", "reliable")
 func _server_try_enter_building(building_type: int, building_cell_x: int, building_cell_y: int) -> bool:
 	if not multiplayer.is_server():
 		return false
 	var sender: int = _sender_id()
+	var cell_key: String = "%d,%d" % [building_cell_x, building_cell_y]
+	
+	# Get or create session for this building cell
+	var session: Dictionary
+	if _building_sessions.has(cell_key):
+		session = _building_sessions[cell_key]
+		# Verify the building type matches (should always be true)
+		if session["type"] != building_type:
+			return false
+	else:
+		# Create new session with deterministic seed based on world seed + cell
+		var seed: int = hash(str(world_seed) + ":building:" + cell_key)
+		session = { "seed": seed, "type": building_type, "members": {} }
+		_building_sessions[cell_key] = session
+	
+	# Add sender to session members
+	session["members"][sender] = true
+	_peer_building[sender] = cell_key
+	
 	if sender == _self_id():
 		# Host's own entry — run the local logic directly
 		var interior := BuildingInterior.new()
-		interior.setup(building_type, Vector2i(building_cell_x, building_cell_y))
+		interior.setup(building_type, Vector2i(building_cell_x, building_cell_y), session["seed"])
 		enter_building(interior)
 		return true
-	# Client requested entry — tell that client to run local entry
-	rpc_id(sender, "_receive_enter_building", building_type, building_cell_x, building_cell_y)
+	
+	# Client requested entry — tell that client to run local entry with the session seed
+	rpc_id(sender, "_receive_enter_building", building_type, building_cell_x, building_cell_y, session["seed"])
 	return true
 
 
 ## Client-side receiver: run the local building entry so this peer's player
-## is transported into its local copy of the interior.
+## is transported into its local copy of the interior (deterministic from seed).
 @rpc("authority", "reliable")
-func _receive_enter_building(building_type: int, building_cell_x: int, building_cell_y: int) -> void:
+func _receive_enter_building(building_type: int, building_cell_x: int, building_cell_y: int, interior_seed: int) -> void:
 	var interior := BuildingInterior.new()
-	interior.setup(building_type, Vector2i(building_cell_x, building_cell_y))
+	interior.setup(building_type, Vector2i(building_cell_x, building_cell_y), interior_seed)
 	enter_building(interior)
 
 
-## Host: a peer wants to exit the building. Only that peer leaves.
+## Host: a peer wants to exit the building. Remove them from the session.
+## If the session becomes empty, clean it up.
 @rpc("any_peer", "reliable")
 func _server_exit_building() -> void:
 	if not multiplayer.is_server():
 		return
 	var sender: int = _sender_id()
+	var cell_key: String = _peer_building.get(sender, "")
+	if cell_key == "":
+		return
+	var session: Dictionary = _building_sessions.get(cell_key, {})
+	if session:
+		session["members"].erase(sender)
+		if session["members"].is_empty():
+			_building_sessions.erase(cell_key)
+	_peer_building.erase(sender)
+	
 	if sender == _self_id():
 		_on_exit_interior()
 	else:
@@ -3893,12 +3931,17 @@ func _receive_exit_building() -> void:
 	_on_exit_interior()
 
 
-## Host: remove a peer from interior when they disconnect.
+## Host: remove a peer from interior session when they disconnect.
 func building_peer_disconnected(peer_id: int) -> void:
-	# No persistent session state for buildings (unlike mines/islands),
-	# but if the host was holding an interior for a client that disconnected,
-	# the interior will be cleaned up when the host exits or on next entry.
-	pass
+	var cell_key: String = _peer_building.get(peer_id, "")
+	if cell_key == "":
+		return
+	var session: Dictionary = _building_sessions.get(cell_key, {})
+	if session:
+		session["members"].erase(peer_id)
+		if session["members"].is_empty():
+			_building_sessions.erase(cell_key)
+	_peer_building.erase(peer_id)
 
 
 # ── Ruined town ──
