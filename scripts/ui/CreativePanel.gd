@@ -1093,9 +1093,28 @@ func _spawn_enemy(scene_path: String) -> void:
 		_show_feedback("Failed to create enemy!")
 		return
 
-	enemy.global_position = _get_spawn_position()
+	var spawner := get_tree().get_first_node_in_group("enemy_spawner") as EnemySpawner
+	var pos := _get_spawn_position()
 
-	# Add to the world root (Main scene's children)
+	if NetworkManager.is_network_active():
+		if not multiplayer.is_server():
+			# Client: ask the host to spawn so every peer gets a copy.
+			if spawner:
+				spawner.rpc_id(1, "_server_request_creative_spawn_enemy", scene_path, pos.x, pos.y)
+				_show_feedback("Requested " + enemy.display_name + " spawn!")
+			else:
+				_show_feedback("No enemy spawner found!")
+			return
+		if spawner:
+			spawner.spawn_creative_enemy(enemy, pos)
+			_show_feedback("Spawned " + enemy.display_name + "!")
+		else:
+			enemy.queue_free()
+			_show_feedback("No enemy spawner found!")
+		return
+
+	# Single player
+	enemy.global_position = pos
 	var world := get_tree().current_scene
 	if world:
 		world.add_child(enemy)
@@ -1116,8 +1135,31 @@ func _spawn_boss(scene_path: String) -> void:
 		_show_feedback("Failed to create boss!")
 		return
 
-	enemy.global_position = _get_spawn_position()
+	var spawner := get_tree().get_first_node_in_group("enemy_spawner") as EnemySpawner
+	var pos := _get_spawn_position()
 
+	if NetworkManager.is_network_active():
+		if not multiplayer.is_server():
+			# Client: ask the host to spawn so every peer gets a copy.
+			if spawner:
+				spawner.rpc_id(1, "_server_request_creative_spawn_boss", scene_path, pos.x, pos.y)
+				_show_feedback("Requested " + enemy.display_name + " summon!")
+			else:
+				_show_feedback("No enemy spawner found!")
+			return
+		if spawner:
+			spawner.spawn_creative_boss(enemy, scene_path, pos)
+			# Trigger dramatic boss entrance effects
+			if enemy.has_method("_summon_spawn_effect"):
+				enemy._summon_spawn_effect()
+			_show_feedback("Spawned " + enemy.display_name + "!")
+		else:
+			enemy.queue_free()
+			_show_feedback("No enemy spawner found!")
+		return
+
+	# Single player
+	enemy.global_position = pos
 	var world := get_tree().current_scene
 	if world:
 		world.add_child(enemy)

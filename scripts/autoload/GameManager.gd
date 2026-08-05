@@ -1043,8 +1043,10 @@ func _apply_chest_data(key: String, slots: Array) -> void:
 	if slots.is_empty():
 		if chest_ui._container.slots.is_empty():
 			chest_ui._container.slots.resize(chest_ui._container.capacity)
+			chest_ui._chest_dirty = false
 		return
 	chest_ui._container.slots = slots.duplicate(true)
+	chest_ui._chest_dirty = false
 	chest_ui._container.changed.emit()
 
 
@@ -1065,7 +1067,7 @@ func _server_sync_chest_on_close(key: String, slots: Array) -> void:
 	rpc("_broadcast_chest_update", key, slots)
 
 
-@rpc("authority", "reliable")
+@rpc("authority", "call_local", "reliable")
 func _broadcast_chest_update(key: String, slots: Array) -> void:
 	chest_inventories[key] = slots
 	_apply_chest_data(key, slots)

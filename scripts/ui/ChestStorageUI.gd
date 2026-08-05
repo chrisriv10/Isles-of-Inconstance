@@ -15,6 +15,7 @@ var is_open: bool = false
 ## The container inventory we're currently viewing/editing.
 var _container: ContainerInventory = null
 var _chest_key: String = ""
+var _chest_dirty: bool = false
 
 ## Optional callback for "Deposit All" button (e.g. silo deposit_all_crops).
 var _deposit_all_callback: Callable = Callable()
@@ -39,6 +40,7 @@ func open_for(container: ContainerInventory, title: String = "Storage Chest",
 
 	_container = container
 	_chest_key = chest_key
+	_chest_dirty = false
 
 	# Safely connect — avoid "already connected" errors
 	if not _container.changed.is_connected(_on_container_changed):
@@ -64,7 +66,7 @@ func open_for(container: ContainerInventory, title: String = "Storage Chest",
 	if NetworkManager.is_network_active() and chest_key != "":
 		if multiplayer.is_server():
 			var stored: Array = GameManager.chest_inventories.get(chest_key, [])
-			if not stored.is_empty():
+			if stored.size() > 0:
 				_container.slots = stored.duplicate(true)
 		else:
 			GameManager.request_chest_data(chest_key)
@@ -84,9 +86,10 @@ func close() -> void:
 	is_open = false
 	_deposit_all_callback = Callable()
 
-	# Multiplayer: sync chest contents to host
-	if NetworkManager.is_network_active() and _chest_key != "" and _container != null:
+	# Multiplayer: sync chest contents to host only if local changes were made
+	if NetworkManager.is_network_active() and _chest_key != "" and _container != null and _chest_dirty:
 		GameManager.sync_chest_on_close(_chest_key, _container.slots)
+		_chest_dirty = false
 
 	if _container and _container.changed.is_connected(_on_container_changed):
 		_container.changed.disconnect(_on_container_changed)
@@ -215,6 +218,7 @@ func _transfer_to_player(item_id: String, amount: int) -> void:
 				ToastNotification.ToastType.WARNING,
 				2.0
 			)
+		_chest_dirty = true
 		refresh()
 
 
@@ -231,6 +235,7 @@ func _transfer_to_chest(item_id: String, amount: int) -> void:
 				ToastNotification.ToastType.WARNING,
 				2.0
 			)
+		_chest_dirty = true
 		refresh()
 
 
@@ -285,4 +290,5 @@ func _update_deposit_all_button() -> void:
 func _on_deposit_all_pressed() -> void:
 	if _deposit_all_callback.is_valid():
 		_deposit_all_callback.call()
+		_chest_dirty = true
 		refresh()

@@ -220,6 +220,91 @@ func spawn_enemy_at(pos: Vector2, _type: String = "pirate") -> Enemy:
 	return enemy
 
 
+## Host: spawn a creative-panel enemy (already instantiated by the panel) with
+## full network sync — proper id/name so RPC routing matches on every peer, and
+## a spawn broadcast so clients create a remote copy under the same node path.
+func spawn_creative_enemy(enemy: Enemy, pos: Vector2) -> void:
+	if GameManager.inside_interior:
+		enemy.queue_free()
+		return
+	enemy.global_position = pos
+	enemy.enemy_id = _next_enemy_id
+	enemy.name = "Enemy_%d" % _next_enemy_id
+	_next_enemy_id += 1
+	add_child(enemy)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		# Scale synchronously so the broadcast sends final HP (same as night spawns)
+		enemy.apply_difficulty_scaling()
+		var type_name: String = enemy.get_script().get_global_name()
+		rpc("_receive_spawn_enemy", type_name, pos.x, pos.y,
+			enemy.enemy_id, enemy.current_health, enemy.max_health)
+
+
+## Host: spawn a creative-panel boss (instantiated from a .tscn by the panel)
+## with full network sync. scene_path is the .tscn the client will re-instantiate.
+func spawn_creative_boss(enemy: Enemy, scene_path: String, pos: Vector2) -> void:
+	if GameManager.inside_interior:
+		enemy.queue_free()
+		return
+	enemy.global_position = pos
+	enemy.enemy_id = _next_enemy_id
+	enemy.name = "Enemy_%d" % _next_enemy_id
+	_next_enemy_id += 1
+	add_child(enemy)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		enemy.apply_difficulty_scaling()
+		rpc("_receive_spawn_boss", scene_path, pos.x, pos.y,
+			enemy.enemy_id, enemy.current_health, enemy.max_health)
+
+
+## Client: request the host to spawn a creative-panel enemy at a position.
+## The host broadcasts the spawn so every peer (including the requester) gets a copy.
+@rpc("any_peer", "reliable")
+func _server_request_creative_spawn_enemy(scene_path: String, pos_x: float, pos_y: float) -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var gdscript := load(scene_path) as GDScript
+	if not gdscript:
+		return
+	var enemy: Enemy = gdscript.new()
+	if not enemy:
+		return
+	spawn_creative_enemy(enemy, Vector2(pos_x, pos_y))
+
+
+## Client: request the host to spawn a creative-panel boss at a position.
+@rpc("any_peer", "reliable")
+func _server_request_creative_spawn_boss(scene_path: String, pos_x: float, pos_y: float) -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var boss_scene := load(scene_path) as PackedScene
+	if not boss_scene:
+		return
+	var enemy: Enemy = boss_scene.instantiate()
+	if not enemy:
+		return
+	spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y))
+
+
+## Client: create a remote copy of a creative-panel boss spawn.
+@rpc("authority", "reliable")
+func _receive_spawn_boss(scene_path: String, pos_x: float, pos_y: float, eid: int, hp: int, max_hp: int) -> void:
+	if multiplayer.is_server():
+		return
+	var boss_scene := load(scene_path) as PackedScene
+	if not boss_scene:
+		return
+	var enemy: Enemy = boss_scene.instantiate()
+	enemy.enemy_id = eid
+	enemy.name = "Enemy_%d" % eid
+	enemy._is_remote = true
+	enemy.global_position = Vector2(pos_x, pos_y)
+	add_child(enemy)
+	enemy.max_health = max_hp
+	enemy.current_health = hp
+	enemy._update_health_bar()
+
+
 ## Replace the ghost sprite on a pirate raider enemy with the pirate raider sprite
 ## and remove the ghostly glow (PointLight2D) so pirates look like human raiders.
 func _apply_pirate_sprite(enemy: GhostEnemy) -> void:

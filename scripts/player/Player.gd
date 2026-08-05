@@ -1600,6 +1600,19 @@ func _summon_boss(bait_item_id: String) -> void:
 	
 	var boss: Enemy = boss_scene.instantiate()
 	boss.global_position = spawn_pos
+
+	# Multiplayer: route through the spawner so clients get a synced remote copy
+	# under the same node path (id + name + broadcast), same as creative-panel spawns.
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var spawner := get_tree().get_first_node_in_group("enemy_spawner") as EnemySpawner
+		if spawner:
+			spawner.spawn_creative_boss(boss, boss_scene.resource_path, spawn_pos)
+			# Dramatic summoning effects (delegates to boss-specific visuals)
+			boss._summon_spawn_effect()
+			ToastNotification.show_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+			return
+		# Fall through to local spawn if no spawner exists
+
 	world.add_child(boss)
 	# Apply difficulty scaling synchronously (the _ready() deferred call no-ops
 	# via the _stats_scaled guard) so the boss fight starts at final stats.
