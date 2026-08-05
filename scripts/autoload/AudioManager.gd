@@ -90,10 +90,10 @@ func _load_streams() -> void:
 		Sound.MENU_OPEN: "res://assets/audio/menu_open.wav",
 		Sound.MENU_CLOSE: "res://assets/audio/menu_close.wav",
 		Sound.EQUIP_ARMOR: "res://assets/audio/equip_armor.mp3",
-		Sound.AMBIENT_DAY: "res://assets/audio/day_ambience_theme.mp3",
+		Sound.AMBIENT_DAY: "res://assets/audio/day_ambience_theme.wav",
 		Sound.AMBIENT_NIGHT: "res://assets/audio/night_ambience_theme.mp3",
 		Sound.CAVE_AMBIENCE: "res://assets/audio/cave_ambience_effect.mp3",
-		Sound.MAIN_MENU: "res://assets/audio/main_menu.mp3",
+		Sound.MAIN_MENU: "res://assets/audio/main_menu_theme.mp3",
 	}
 
 	for sound_type in sound_config:

@@ -3017,6 +3017,33 @@ func try_enter_mine() -> bool:
 	return _server_try_enter_mine(entrance_index, depth)
 
 
+## True when `player` is this peer's own copy. Without a network peer (single
+## player) every node is local, so these checks never touch the network API.
+func _is_local_player(player: Node) -> bool:
+	if not NetworkManager.is_network_active():
+		return true
+	return player.get_multiplayer_authority() == multiplayer.get_unique_id()
+
+
+## This peer's multiplayer id. Returns 1 (the default authority) when no
+## network peer is assigned, so single-player never errors on the peer API.
+func _self_id() -> int:
+	if not NetworkManager.is_network_active():
+		return 1
+	return multiplayer.get_unique_id()
+
+
+## The peer id of the caller of the current RPC. When called directly (host
+## pressing E) or in single-player, this resolves to the local peer.
+func _sender_id() -> int:
+	if not NetworkManager.is_network_active():
+		return 1
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	return sender
+
+
 ## Host: decide the shared mine room for the requesting peer and tell only
 ## that peer to enter it. Each peer renders its own deterministic copy, so
 ## the host's own player is NOT moved when a client enters.
@@ -3024,9 +3051,7 @@ func try_enter_mine() -> bool:
 ## Returns true if the caller's own player was moved into the mine.
 @rpc("any_peer", "reliable")
 func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
-	var sender: int = multiplayer.get_remote_sender_id()
-	if sender == 0:
-		sender = multiplayer.get_unique_id()
+	var sender: int = _sender_id()
 	
 	var target_e: int = entrance_index
 	var target_d: int = depth
@@ -3041,7 +3066,7 @@ func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
 		_mine_session_depth = depth
 	_mine_session_members[sender] = true
 	
-	if sender == multiplayer.get_unique_id():
+	if sender == _self_id():
 		return _do_enter_mine(target_e, target_d)
 	rpc_id(sender, "_receive_enter_mine", target_e, target_d)
 	return true
@@ -3102,7 +3127,7 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 	# pattern). Remote copies on this peer stay put — their own peers move them.
 	var local_player: Node = null
 	for player in get_tree().get_nodes_in_group("player"):
-		if is_instance_valid(player) and player.get_multiplayer_authority() == multiplayer.get_unique_id():
+		if is_instance_valid(player) and _is_local_player(player):
 			local_player = player
 			break
 	if local_player:
@@ -3147,10 +3172,10 @@ func _set_mine_camera_limits(grid_w: int, grid_h: int) -> void:
 	var cam := player.get_node_or_null("Camera2D") as Camera2D
 	if not cam:
 		return
-	if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+	if not _is_local_player(player):
 		# Only clamp the local player's camera (remote copies have disabled cameras).
 		for p in get_tree().get_nodes_in_group("player"):
-			if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+			if is_instance_valid(p) and _is_local_player(p):
 				player = p
 				cam = (player.get_node_or_null("Camera2D") as Camera2D)
 				break
@@ -3173,9 +3198,9 @@ func _clear_mine_camera_limits() -> void:
 	var cam := player.get_node_or_null("Camera2D") as Camera2D
 	if not cam:
 		return
-	if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+	if not _is_local_player(player):
 		for p in get_tree().get_nodes_in_group("player"):
-			if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+			if is_instance_valid(p) and _is_local_player(p):
 				player = p
 				cam = (player.get_node_or_null("Camera2D") as Camera2D)
 				break
@@ -3214,14 +3239,14 @@ func _deferred_setup_mine_room(mine: MineRoom) -> void:
 func _notify_mine_room_ready() -> void:
 	if not multiplayer.is_server():
 		return
-	_mine_session_room_ready[multiplayer.get_remote_sender_id()] = true
+	_mine_session_room_ready[_sender_id()] = true
 
 
 ## Peers whose local mine room is built and ready to receive node-path RPCs.
 ## Excludes the host's own id (the host is authoritative and drives locally).
 func get_mine_ready_peer_ids() -> Array[int]:
 	var ids: Array[int] = []
-	var self_id: int = multiplayer.get_unique_id()
+	var self_id: int = _self_id()
 	for pid in _mine_session_room_ready:
 		if pid != self_id:
 			ids.append(pid)
@@ -3247,7 +3272,7 @@ func emergency_exit_mine() -> void:
 	
 	var local_player: Node = null
 	for p in get_tree().get_nodes_in_group("player"):
-		if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+		if is_instance_valid(p) and _is_local_player(p):
 			local_player = p
 			break
 	if local_player:
@@ -3288,9 +3313,7 @@ func _on_exit_mine() -> void:
 ## defaults to the host. Single-player runs this locally too.
 @rpc("any_peer", "reliable")
 func _server_exit_mine() -> void:
-	var sender: int = multiplayer.get_remote_sender_id()
-	if sender == 0:
-		sender = multiplayer.get_unique_id()
+	var sender: int = _sender_id()
 	
 	_mine_session_members.erase(sender)
 	_mine_session_room_ready.erase(sender)
@@ -3299,7 +3322,7 @@ func _server_exit_mine() -> void:
 		_mine_session_entrance = 1
 		_mine_session_depth = 1
 	
-	if sender == multiplayer.get_unique_id():
+	if sender == _self_id():
 		_do_exit_mine()
 	else:
 		rpc_id(sender, "_receive_exit_mine")
@@ -3343,7 +3366,7 @@ func _do_exit_mine() -> void:
 	for player in get_tree().get_nodes_in_group("player"):
 		if not is_instance_valid(player):
 			continue
-		if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+		if not _is_local_player(player):
 			continue
 		if _mine_outside_pos != Vector2.ZERO:
 			player.global_position = _mine_outside_pos
@@ -3400,10 +3423,10 @@ func _do_mine_descended(new_depth: int) -> void:
 	var player := get_tree().get_first_node_in_group("player")
 	var relative_pos := Vector2.ZERO
 	if player:
-		if player.get_multiplayer_authority() != multiplayer.get_unique_id():
+		if not _is_local_player(player):
 			# Prefer the local player so per-peer descent teleports the right copy.
 			for p in get_tree().get_nodes_in_group("player"):
-				if is_instance_valid(p) and p.get_multiplayer_authority() == multiplayer.get_unique_id():
+				if is_instance_valid(p) and _is_local_player(p):
 					player = p
 					break
 		relative_pos = player.global_position - current_mine_room.global_position
