@@ -3057,6 +3057,8 @@ func _sender_id() -> int:
 ## Returns true if the caller's own player was moved into the mine.
 @rpc("any_peer", "reliable")
 func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
+	if not multiplayer.is_server():
+		return false
 	var sender: int = _sender_id()
 	
 	var target_e: int = entrance_index
@@ -3319,6 +3321,8 @@ func _on_exit_mine() -> void:
 ## defaults to the host. Single-player runs this locally too.
 @rpc("any_peer", "reliable")
 func _server_exit_mine() -> void:
+	if not multiplayer.is_server():
+		return
 	var sender: int = _sender_id()
 	
 	_mine_session_members.erase(sender)
@@ -3549,6 +3553,8 @@ func travel_to_island_with_type(island_type: int) -> void:
 ## Returns true if the caller's own player was moved onto the island.
 @rpc("any_peer", "reliable")
 func _server_try_enter_island(type_hint: int) -> bool:
+	if not multiplayer.is_server():
+		return false
 	var sender: int = _sender_id()
 
 	var target_type: int = type_hint
@@ -3676,6 +3682,8 @@ func return_from_island() -> void:
 ## the host. Single-player runs this locally too.
 @rpc("any_peer", "reliable")
 func _server_exit_island() -> void:
+	if not multiplayer.is_server():
+		return
 	var sender: int = _sender_id()
 
 	var isl_type: int = _island_peer_type.get(sender, -1)
