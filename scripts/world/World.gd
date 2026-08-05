@@ -2972,19 +2972,22 @@ func _on_exit_interior() -> void:
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
 	
-	# Move ONLY the local player back outside
-	for player in get_tree().get_nodes_in_group("player"):
-		if not is_instance_valid(player) or not _is_local_player(player):
-			continue
-		if _outside_player_pos != Vector2.ZERO:
-			player.global_position = _outside_player_pos
-		if player is CharacterBody2D:
-			player.velocity = Vector2.ZERO
-		player.z_index = _previous_player_z
-		player.visible = true
-		player.set_process(true)
-		player.set_physics_process(true)
-		break
+# Move ONLY the local player back outside
+ 	for player in get_tree().get_nodes_in_group("player"):
+ 		if not is_instance_valid(player) or not _is_local_player(player):
+ 			continue
+ 		if _outside_player_pos != Vector2.ZERO:
+ 			player.global_position = _outside_player_pos
+ 		if player is CharacterBody2D:
+ 			player.velocity = Vector2.ZERO
+ 		player.z_index = _previous_player_z
+ 		player.visible = true
+ 		player.set_process(true)
+ 		player.set_physics_process(true)
+ 		break
+ 	
+ 	# Broadcast updated stats so remote peers see inside_interior=false immediately
+ 	GameManager._try_broadcast_player_stats()
 
 
 # ── Mine System ──

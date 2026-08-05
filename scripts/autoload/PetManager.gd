@@ -93,6 +93,8 @@ var active_pet_id: String = "":
 			return
 		active_pet_id = id
 		active_pet_changed.emit(id)
+		# Broadcast stats so remote peers see pet change immediately
+		GameManager._try_broadcast_player_stats()
 
 func _init() -> void:
 	_init_pet_db()
