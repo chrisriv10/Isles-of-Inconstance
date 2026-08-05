@@ -67,6 +67,9 @@ func is_inside_building() -> bool:
 
 var _world: Node2D = null
 
+## Seeded RNG for deterministic multiplayer sync (wander targets, etc.)
+var _rng: RandomNumberGenerator = null
+
 ## Idle bob animation state
 var _bob_offset: float = 0.0
 var _bob_direction: int = 1
@@ -75,6 +78,14 @@ var _idle_at_post: bool = false
 func _ready() -> void:
 	add_to_group("town_residents")
 	_world = get_tree().get_first_node_in_group("world")
+	
+	# Initialize seeded RNG for deterministic multiplayer sync
+	_rng = RandomNumberGenerator.new()
+	if _world and _world.has_method("world_to_cell") and not npc_id.is_empty():
+		var cell := _world.world_to_cell(global_position)
+		_rng.seed = hash(str(_world.world_seed) + ":resident:" + str(npc_id.hash()) + ":" + str(cell.x) + "," + str(cell.y))
+	else:
+		_rng.randomize()
 	
 	_sprite = $Sprite2D if has_node("Sprite2D") else null
 	_label = $Label if has_node("Label") else null
@@ -94,6 +105,9 @@ func _ready() -> void:
 	# _label was null when npc_name was assigned there)
 	if _label:
 		_label.text = npc_name
+	
+	# Initialize chatter timer with seeded RNG
+	_chatter_timer = 15.0 + _rng.randf() * 20.0
 	
 	# Start schedule — begin invisible inside the building (if it has one),
 	# otherwise start visible and wandering.
@@ -381,13 +395,13 @@ func _wander_update(delta: float) -> void:
 func _pick_wander_target() -> void:
 	if not _world or not _world.has_method("is_cell_walkable"):
 		# Fallback: wander in a mid ring so they keep moving around the town
-		_target_pos = home_position + Vector2.from_angle(randf() * TAU) * randf_range(80.0, 160.0)
-		_wander_timer = 2.0 + randf() * 2.0
+		_target_pos = home_position + Vector2.from_angle(_rng.randf() * TAU) * _rng.randf_range(80.0, 160.0)
+		_wander_timer = 2.0 + _rng.randf() * 2.0
 		return
 	
 	# Wander throughout the town district (wide range)
 	for _attempt in 60:
-		var offset := Vector2(randf_range(-420, 420), randf_range(-300, 300))
+		var offset := Vector2(_rng.randf_range(-420, 420), _rng.randf_range(-300, 300))
 		var candidate := home_position + offset
 		var cell := Vector2i(int(candidate.x / 16), int(candidate.y / 16))
 		if _world.has_method("_is_in_bounds") and _world._is_in_bounds(cell):
@@ -398,12 +412,12 @@ func _pick_wander_target() -> void:
 				if _is_wandering and candidate.distance_squared_to(global_position) < 400.0:
 					continue
 				_target_pos = candidate
-				_wander_timer = 2.0 + randf() * 2.0
+				_wander_timer = 2.0 + _rng.randf() * 2.0
 				return
 	
 	# No walkable cell found — wander in a mid ring so they still move around
-	_target_pos = home_position + Vector2.from_angle(randf() * TAU) * randf_range(80.0, 160.0)
-	_wander_timer = 2.0 + randf() * 2.0
+	_target_pos = home_position + Vector2.from_angle(_rng.randf() * TAU) * _rng.randf_range(80.0, 160.0)
+	_wander_timer = 2.0 + _rng.randf() * 2.0
 
 # Interaction — _on_body_entered / _on_body_exited are defined below (after open_quest_dialogue)
 

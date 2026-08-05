@@ -6,12 +6,22 @@ class_name LogStump
 
 @export var stump_variant: int = 0  # 0=small stump, 1=large stump, 2=fallen log
 @export var wood_amount: int = 2
-
 func _ready() -> void:
 	interaction_prompt = "Chop"
-	stump_variant = randi() % 3
-	wood_amount = randi_range(1, 4)
+	
+	# Initialize seeded RNG for deterministic multiplayer visuals
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell := world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":stump:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
+	stump_variant = rng.randi() % 3
+	wood_amount = rng.randi_range(1, 4)
 	_generate_sprite()
+
 
 func _generate_sprite() -> void:
 	var sprite_node: Sprite2D = $Sprite2D if has_node("Sprite2D") else null

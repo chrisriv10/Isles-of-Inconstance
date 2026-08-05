@@ -15,10 +15,21 @@ class_name MushroomPatch
 
 func _ready() -> void:
 	interaction_prompt = "Gather Mushrooms"
-	mushroom_variant = randi() % 4
-	cap_color = _random_cap_color()
-	mushroom_count = randi_range(2, 4)
+	
+	# Initialize seeded RNG for deterministic multiplayer visuals
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell := world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":mushroom:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
+	mushroom_variant = rng.randi() % 4
+	cap_color = _random_cap_color_seeded(rng)
+	mushroom_count = rng.randi_range(2, 4)
 	_generate_sprite()
+
 
 func _random_cap_color() -> Color:
 	var colors := [
@@ -33,14 +44,38 @@ func _random_cap_color() -> Color:
 	]
 	return colors[randi() % colors.size()]
 
+
+func _random_cap_color_seeded(rng: RandomNumberGenerator) -> Color:
+	var colors := [
+		Color(0.8, 0.2, 0.15),  # red
+		Color(0.9, 0.5, 0.1),   # orange
+		Color(0.6, 0.4, 0.7),   # purple
+		Color(0.2, 0.6, 0.8),   # blue
+		Color(0.2, 0.7, 0.2),   # green
+		Color(0.9, 0.7, 0.3),   # yellow
+		Color(0.1, 0.1, 0.1),   # dark
+		Color(0.9, 0.9, 0.9),   # white
+	]
+	return colors[rng.randi() % colors.size()]
+
+
 func _generate_sprite() -> void:
 	var sprite_node: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 	if not sprite_node:
 		return
 	
+	# Initialize seeded RNG for deterministic multiplayer visuals
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell := world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":mushroom:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
 	# Use texture override pool if provided — picks random + applies cap_color tint
 	if not texture_override_pool.is_empty():
-		var path: String = texture_override_pool[randi() % texture_override_pool.size()]
+		var path: String = texture_override_pool[rng.randi() % texture_override_pool.size()]
 		if ResourceLoader.exists(path):
 			sprite_node.texture = load(path)
 			# Tint the sprite with the random cap color (subtle overlay)

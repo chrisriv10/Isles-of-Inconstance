@@ -36,9 +36,19 @@ const HARVEST_RANGE_SQ: float = 600.0  # ~24px
 
 func _ready() -> void:
 	interaction_prompt = "Harvest"
-	bush_variant = randi() % 3
-	berry_color = _random_berry_color()
-	berry_count = randi_range(1, 4)
+	
+	# Initialize seeded RNG for deterministic multiplayer visuals
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell := world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":bush:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
+	bush_variant = rng.randi() % 3
+	berry_color = _random_berry_color_seeded(rng)
+	berry_count = rng.randi_range(1, 4)
 	_generate_sprite()
 	_setup_progress_bar()
 	# Connect to day tracking so bushes can regrow after harvest
@@ -102,7 +112,6 @@ func _cancel_harvesting() -> void:
 	_progress_fill.visible = false
 	_progress_fill.size.x = 0.0
 
-
 func _random_berry_color() -> Color:
 	var colors := [
 		Color(0.8, 0.2, 0.2),  # red
@@ -114,14 +123,36 @@ func _random_berry_color() -> Color:
 	]
 	return colors[randi() % colors.size()]
 
+
+func _random_berry_color_seeded(rng: RandomNumberGenerator) -> Color:
+	var colors := [
+		Color(0.8, 0.2, 0.2),  # red
+		Color(0.2, 0.4, 0.8),  # blue
+		Color(0.8, 0.2, 0.8),  # purple
+		Color(0.2, 0.6, 0.2),  # green
+		Color(1.0, 0.7, 0.1),  # orange
+		Color(0.1, 0.1, 0.1),  # black
+	]
+	return colors[rng.randi() % colors.size()]
+
+
 func _generate_sprite() -> void:
 	var sprite_node: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 	if not sprite_node:
 		return
 	
+	# Initialize seeded RNG for deterministic multiplayer visuals
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell := world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":bush:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
 	# Use texture override pool if provided — picks random + applies tint
 	if not texture_override_pool.is_empty():
-		var path: String = texture_override_pool[randi() % texture_override_pool.size()]
+		var path: String = texture_override_pool[rng.randi() % texture_override_pool.size()]
 		if ResourceLoader.exists(path):
 			sprite_node.texture = load(path)
 			# Apply a random color tint to the foliage part
@@ -133,7 +164,7 @@ func _generate_sprite() -> void:
 				Color(1.0, 0.85, 0.95),          # pink-tinted
 				Color(0.95, 0.9, 0.8),           # warm tone
 			]
-			sprite_node.modulate = tint_variants[randi() % tint_variants.size()]
+			sprite_node.modulate = tint_variants[rng.randi() % tint_variants.size()]
 		return
 	
 	# Use texture override if provided

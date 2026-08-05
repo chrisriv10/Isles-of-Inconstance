@@ -82,6 +82,9 @@ var _npc_texture_variant: int = 0
 ## Roster index within the visitor ship — used to match NPC copies across peers.
 var _synced_index: int = -1
 
+## Seeded RNG for deterministic multiplayer sync (position, hotel chance, etc.)
+var _rng: RandomNumberGenerator = null
+
 ## Chance (0.0 - 1.0) per wander timeout to head to the hotel during the day.
 const DAYTIME_HOTEL_CHANCE: float = 0.15
 
@@ -194,13 +197,22 @@ func _ready() -> void:
 	add_to_group("visitor_npcs")
 	_world = get_tree().get_first_node_in_group("world")
 	
-	# Pick random name and texture variant for variety
-	var rng := RandomNumberGenerator.new()
+	# Initialize seeded RNG for deterministic multiplayer sync
+	_rng = RandomNumberGenerator.new()
+	if _world and _world.has_method("world_to_cell") and _synced_index >= 0:
+		var cell := _world.world_to_cell(global_position)
+		_rng.seed = hash(str(_world.world_seed) + ":visitor:" + str(_synced_index) + ":" + str(cell.x) + "," + str(cell.y))
+	else:
+		_rng.randomize()
+	
+	# Pick random name and texture variant for variety (cosmetic, per-peer OK)
+	var name_rng := RandomNumberGenerator.new()
+	name_rng.randomize()
 	var name_pool: Array[String] = get_npc_names(npc_type)
-	_npc_display_name = name_pool[rng.randi() % name_pool.size()]
+	_npc_display_name = name_pool[name_rng.randi() % name_pool.size()]
 	
 	var tex_pool: Array[String] = get_npc_texture_paths(npc_type)
-	_npc_texture_variant = rng.randi() % tex_pool.size()
+	_npc_texture_variant = name_rng.randi() % tex_pool.size()
 	var tex_path := tex_pool[_npc_texture_variant]
 	var tex := load(tex_path) if ResourceLoader.exists(tex_path) else load("res://assets/sprites/player.png")
 	if tex:
@@ -304,12 +316,12 @@ func _pick_new_target() -> void:
 		
 		# Start wander timer
 		if wander_timer:
-			wander_timer.wait_time = 4.0 + randf() * 4.0
+			wander_timer.wait_time = 4.0 + _rng.randf() * 4.0
 			wander_timer.start()
 		return
 	
 	# Fallback: stay near the dock
-	_target_pos = dock_position + Vector2(randf_range(-48.0, 48.0), randf_range(-48.0, 48.0))
+	_target_pos = dock_position + Vector2(_rng.randf_range(-48.0, 48.0), _rng.randf_range(-48.0, 48.0))
 
 ## Pick a position biased by NPC type's interests.
 func _pick_biased_position() -> Vector2:
@@ -320,27 +332,27 @@ func _pick_biased_position() -> Vector2:
 	match npc_type:
 		VisitorType.EXPLORER:
 			# Roam the ENTIRE island — wide range to reach town, farm, dock, everything
-			return world_center + Vector2(randf_range(-700.0, 700.0), randf_range(-700.0, 700.0))
+			return world_center + Vector2(_rng.randf_range(-700.0, 700.0), _rng.randf_range(-700.0, 700.0))
 		VisitorType.FISHER:
 			# Head toward shoreline and water edges — prefer south/west coasts
-			return world_center + Vector2(randf_range(-600.0, 400.0), randf_range(200.0, 700.0))
+			return world_center + Vector2(_rng.randf_range(-600.0, 400.0), _rng.randf_range(200.0, 700.0))
 		VisitorType.SHOPPER:
 			# Roam the central/west area — town shops, general store, stalls
-			return world_center + Vector2(randf_range(-600.0, 200.0), randf_range(-400.0, 300.0))
+			return world_center + Vector2(_rng.randf_range(-600.0, 200.0), _rng.randf_range(-400.0, 300.0))
 		VisitorType.SIGHTSEER:
 			# Explore the whole island — trees, decorations, scenic spots everywhere
-			return world_center + Vector2(randf_range(-750.0, 750.0), randf_range(-750.0, 750.0))
+			return world_center + Vector2(_rng.randf_range(-750.0, 750.0), _rng.randf_range(-750.0, 750.0))
 		VisitorType.VENDOR:
 			# Stays near the dock but also wanders into the island a bit
-			return world_center + Vector2(randf_range(-200.0, 400.0), randf_range(200.0, 600.0))
+			return world_center + Vector2(_rng.randf_range(-200.0, 400.0), _rng.randf_range(200.0, 600.0))
 		VisitorType.ARTIST:
 			# Drawn toward scenic areas — flowers, water, nice views
-			return world_center + Vector2(randf_range(-700.0, 500.0), randf_range(-600.0, 600.0))
+			return world_center + Vector2(_rng.randf_range(-700.0, 500.0), _rng.randf_range(-600.0, 600.0))
 		VisitorType.FORAGER:
 			# Heads toward forests, farm fields, and wild areas
-			return world_center + Vector2(randf_range(-600.0, 300.0), randf_range(-300.0, 600.0))
+			return world_center + Vector2(_rng.randf_range(-600.0, 300.0), _rng.randf_range(-300.0, 600.0))
 		_:
-			return world_center + Vector2(randf_range(-600.0, 600.0), randf_range(-600.0, 600.0))
+			return world_center + Vector2(_rng.randf_range(-600.0, 600.0), _rng.randf_range(-600.0, 600.0))
 
 func _process(delta: float) -> void:
 	# Already checked in — do nothing (invisible, waiting for departure)
@@ -376,7 +388,7 @@ func _process(delta: float) -> void:
 			_move_toward(_target_pos, delta)
 		elif _idle_timer <= 0.0:
 			# Reached target, idle a moment then find new target
-			_idle_timer = 4.0 + randf() * 3.0
+			_idle_timer = 4.0 + _rng.randf() * 3.0
 			_set_idle_sprite()
 		else:
 			_idle_timer -= delta
@@ -431,7 +443,7 @@ func _set_idle_sprite() -> void:
 func _on_wander_timeout() -> void:
 	if _is_wandering and not _is_returning and not _checked_in:
 		# Random chance during the day to head to the hotel
-		if _hotel_position != Vector2.ZERO and randf() < DAYTIME_HOTEL_CHANCE:
+		if _hotel_position != Vector2.ZERO and _rng.randf() < DAYTIME_HOTEL_CHANCE:
 			go_to_hotel(_hotel_position)
 		else:
 			_pick_new_target()
@@ -458,7 +470,7 @@ func return_to_ship(return_pos: Vector2) -> void:
 	_is_wandering = false
 	_is_returning = true
 	# Small jitter that keeps the target on the dock walkway.
-	_return_target = return_pos + Vector2(randf_range(-12.0, 12.0), randf_range(-4.0, 8.0))
+	_return_target = return_pos + Vector2(_rng.randf_range(-12.0, 12.0), _rng.randf_range(-4.0, 8.0))
 	speed = 36.0  # Walk faster when returning
 
 ## Called when the NPC reaches the dock walkway at departure time.
