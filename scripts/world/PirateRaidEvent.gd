@@ -607,9 +607,22 @@ func deserialize(data: Dictionary) -> void:
 		enemies_per_wave = data["enemies_per_wave"] as int
 
 
-## Public method to force-trigger a raid (used by Creative Panel)
+## Public method to force-trigger a raid (used by Creative Panel).
+## Clients forward the trigger to the host; the host starts it and broadcasts.
 func trigger_raid() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_request_raid")
+		return
 	if _is_remote:
+		return
+	if state == RaidState.INACTIVE or state == RaidState.COOLDOWN:
+		_start_raid()
+
+
+## Creative-panel trigger forwarded from a client.
+@rpc("any_peer", "reliable")
+func _server_request_raid() -> void:
+	if _is_remote or not multiplayer.is_server():
 		return
 	if state == RaidState.INACTIVE or state == RaidState.COOLDOWN:
 		_start_raid()
