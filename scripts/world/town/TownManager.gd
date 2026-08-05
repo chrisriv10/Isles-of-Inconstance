@@ -269,6 +269,9 @@ func contribute_materials(ruin_id: String, item_id: String, count: int) -> int:
 	var pct: float = _get_restoration_pct(ruin_id)
 	restoration_progress_changed.emit(ruin_id, pct)
 	
+	# Host: sync the resulting town state to all clients.
+	_broadcast_state()
+	
 	return actual
 
 func _is_fully_supplied(ruin_id: String) -> bool:
@@ -323,6 +326,8 @@ func set_ruin_occupied(ruin_id: String) -> void:
 	if state and state.status == RuinStatus.RESTORED:
 		state.status = RuinStatus.OCCUPIED
 		ruin_status_changed.emit(ruin_id, state.status)
+		# Host: sync the resulting town state to all clients.
+		_broadcast_state()
 
 # ---------------------------------------------------------------------------
 # Town Level
@@ -412,6 +417,8 @@ func add_resident(npc_id: String, npc_name: String, role: String, home_ruin_id: 
 	residents[npc_id] = resident
 	set_ruin_occupied(home_ruin_id)
 	resident_moved_in.emit(npc_id, npc_name)
+	# Host: sync the resulting town state to all clients.
+	_broadcast_state()
 
 func get_resident_count() -> int:
 	return residents.size()
@@ -479,18 +486,100 @@ func creative_restore_all(is_host_called: bool = false) -> void:
 	# Add reputation for all newly restored buildings
 	add_reputation(get_restored_count() * 25)
 	
+	# Mark the town fully restored when every ruin reached RESTORED (the
+	# daily-tribute gate reads this flag; the material path sets it too).
+	if _are_all_restored():
+		town_fully_restored = true
+	
 	# Signal that every ruin is now restored
 	all_ruins_restored.emit()
 	
 	# Also directly swap the plaza sprite — find TownPlaza under the World node
 	_swap_plaza_to_restored()
+	
+	# Host: sync the resulting town state to all clients.
+	_broadcast_state()
 
-## Host authority: creative restore request from a client
-## In multiplayer, only the host can execute this
-@rpc("authority", "reliable")
+## Creative restore request forwarded from a client.
+## any_peer so the client's request reaches the host (the host is the only
+## peer that may actually restore the town).
+@rpc("any_peer", "reliable")
 func _server_request_creative_restore_all() -> void:
-	# Only the host executes creative restore
+	if not multiplayer.is_server():
+		return
 	creative_restore_all(true)
+
+# ---------------------------------------------------------------------------
+# Multiplayer sync
+# ---------------------------------------------------------------------------
+
+## Host: broadcast the full town state (ruins + residents + meta) to all
+## clients. The town state is small and changes are rare, so a full-state
+## sync is simpler and more robust than per-ruin deltas. Single-player and
+## client instances no-op here.
+func _broadcast_state() -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if not multiplayer.is_server():
+		return
+	rpc("_sync_town_state", serialize())
+
+
+## Client: apply the host's town state and refresh anything that listens to
+## the local town signals (ruin visuals, plaza sprite, town badge, etc.).
+@rpc("authority", "reliable")
+func _sync_town_state(data: Dictionary) -> void:
+	if multiplayer.is_server():
+		return  # host already has the real state
+	_apply_remote_town_state(data)
+
+
+## Host: answer a client's join-time request for the current town state.
+@rpc("any_peer", "reliable")
+func _server_request_town_snapshot() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	rpc_id(sender, "_receive_town_snapshot", serialize())
+
+
+## Client: receive the town state after world generation (late joiner).
+@rpc("authority", "reliable")
+func _receive_town_snapshot(data: Dictionary) -> void:
+	if multiplayer.is_server():
+		return
+	_apply_remote_town_state(data)
+
+
+## Shared apply path for _sync_town_state and _receive_town_snapshot.
+## Re-emits the local signals so RuinStructure visuals, the plaza sprite,
+## the town badge, and any residents refresh from the synced state.
+func _apply_remote_town_state(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	var known_resident_ids: Dictionary = {}
+	for rid: String in residents:
+		known_resident_ids[rid] = true
+	deserialize(data)
+	# Refresh visuals that listen to local signals. Re-emitting
+	# ruin_status_changed is idempotent (sprites switch per status).
+	for rid: String in ruins:
+		var st: RuinState = ruins[rid]
+		ruin_status_changed.emit(rid, st.status)
+	# Only announce residents that are new to this peer — the resident_moved_in
+	# signal drives "X has moved into town!" toasts, so re-announcing every
+	# known resident on each sync would spam them.
+	for rid: String in residents:
+		if not known_resident_ids.has(rid):
+			var r: ResidentData = residents[rid]
+			resident_moved_in.emit(rid, r.npc_name)
+	town_level_changed.emit(town_level)
+	reputation_changed.emit(reputation)
+	if town_fully_restored:
+		all_ruins_restored.emit()
+		_swap_plaza_to_restored()
 
 func _swap_plaza_to_restored() -> void:
 	# Walk up from self to find the World node (more reliable than _world

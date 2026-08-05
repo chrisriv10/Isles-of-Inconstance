@@ -233,10 +233,14 @@ func _clear_rubble() -> void:
 		_update_visual()
 		
 		ToastNotification.show_toast("Rubble cleared! Now bring materials to rebuild.", ToastNotification.ToastType.INFO, 3.0)
+		# Host: sync the cleared state to all clients.
+		_town_manager._broadcast_state()
 
 
-## Host authority: clear rubble on behalf of a client.
-@rpc("authority", "reliable")
+## Host: clear rubble on behalf of a client.
+## any_peer so the client's E-press reaches the host (the node's authority
+## is the host, so the old "authority" mode silently rejected client calls).
+@rpc("any_peer", "reliable")
 func _server_request_clear_rubble(requested_ruin_id: String) -> void:
 	if not multiplayer.is_server():
 		return

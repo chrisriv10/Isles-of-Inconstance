@@ -534,13 +534,25 @@ func _broadcast_raid_state() -> void:
 func _sync_raid_state(active: bool, wave: int, total_waves: int) -> void:
 	if multiplayer.is_server():
 		return
+	var was_active: bool = state == RaidState.ACTIVE or state == RaidState.WARNING
 	if not active:
 		state = RaidState.COOLDOWN
 		_remove_pirate_ship()
+		if was_active:
+			# Client-side banner: the raid is over (client never sees the
+			# host's victory/defeat flag; the ship removal is the signal).
+			raid_ended.emit(false)
 		return
+	var was_wave: int = current_wave
 	state = RaidState.ACTIVE if wave > 0 else RaidState.WARNING
 	current_wave = wave
 	max_waves = total_waves
+	# The host only emits these signals locally; re-emit on the client so the
+	# HUD alerts ("RAID IN PROGRESS", "Wave N/M") show for everyone.
+	if not was_active:
+		raid_started.emit(total_waves)
+	elif wave > was_wave:
+		raid_wave_spawned.emit(wave, total_waves)
 	if not _world_ref:
 		_world_ref = get_tree().get_first_node_in_group("world")
 	if not _player_ref:
@@ -550,6 +562,20 @@ func _sync_raid_state(active: bool, wave: int, total_waves: int) -> void:
 	_dock_position = _world_ref.get_dock_position()
 	if not _pirate_ship_sprite or not _pirate_ship_sprite.is_inside_tree():
 		_spawn_pirate_ship()
+
+
+## Join-time pull: a freshly connected client asks the host for the current
+## raid state (a broadcast may have happened before it was ready).
+@rpc("any_peer", "reliable")
+func _server_request_raid_state() -> void:
+	if _is_remote or not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	rpc_id(sender, "_sync_raid_state",
+		state != RaidState.INACTIVE and state != RaidState.COOLDOWN,
+		current_wave, max_waves)
 
 
 func serialize() -> Dictionary:

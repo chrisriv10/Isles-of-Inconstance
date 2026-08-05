@@ -143,13 +143,38 @@ func _on_deposit_pressed(item_id: String, count: int) -> void:
 		ToastNotification.show_toast("You don't have that item!", ToastNotification.ToastType.WARNING, 2.0)
 
 
-## Host authority: process a contribution requested by a client.
-@rpc("authority", "reliable")
+## Host: process a contribution requested by a client. Applies the materials
+## to the town state WITHOUT touching the host's inventory — each player's
+## inventory is local, so the REQUESTING client spends its own items when it
+## receives the confirmation reply. any_peer so the client's deposit request
+## reaches the host (the old "authority" mode silently rejected client calls).
+@rpc("any_peer", "reliable")
 func _server_request_contribute(requested_ruin_id: String, item_id: String, count: int) -> void:
 	if not multiplayer.is_server():
 		return
-	_ruin_id = requested_ruin_id
-	_on_deposit_pressed(item_id, count)
+	var tm := _get_town_manager()
+	if not tm:
+		return
+	var accepted: int = tm.contribute_materials(requested_ruin_id, item_id, count)
+	# Town state broadcast happens inside contribute_materials().
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender != 0:
+		rpc_id(sender, "_receive_contribute_confirmed", requested_ruin_id, item_id, accepted)
+
+
+## Client: the host accepted a contribution — the depositor spends exactly the
+## accepted amount from their OWN inventory, then refreshes the panel.
+@rpc("authority", "reliable")
+func _receive_contribute_confirmed(requested_ruin_id: String, item_id: String, accepted: int) -> void:
+	if accepted > 0:
+		InventoryManager.remove_item(item_id, accepted)
+	if _ruin_id != requested_ruin_id:
+		return
+	_refresh()
+	var tm := _get_town_manager()
+	if tm and tm.get_ruin_status(requested_ruin_id) >= TownManager.RuinStatus.RESTORED:
+		# Restored — close the panel shortly so the player can interact
+		get_tree().create_timer(1.0).timeout.connect(close)
 
 func _on_close() -> void:
 	close()

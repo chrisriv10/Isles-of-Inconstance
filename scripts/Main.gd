@@ -516,6 +516,18 @@ func _receive_world_seed(seed: int) -> void:
 		var bootstrap := get_tree().root.get_node_or_null("Bootstrap")
 		if bootstrap and bootstrap.has_method("grant_starter_inventory"):
 			bootstrap.grant_starter_inventory()
+		# Pull the host's current town + world-event state so a late joiner
+		# sees town progress, an active blood moon, and an active raid that
+		# broadcast before this client was ready to receive them.
+		var tm := get_tree().get_first_node_in_group("town_manager")
+		if tm and tm.has_method("_server_request_town_snapshot"):
+			tm.rpc_id(1, "_server_request_town_snapshot")
+		var bm: BloodMoonEvent = world.get("blood_moon_event") as BloodMoonEvent
+		if bm and bm.has_method("_server_request_blood_moon_state"):
+			bm.rpc_id(1, "_server_request_blood_moon_state")
+		var raid: PirateRaidEvent = world.get("pirate_raid") as PirateRaidEvent
+		if raid and raid.has_method("_server_request_raid_state"):
+			raid.rpc_id(1, "_server_request_raid_state")
 	# The client world is now ready — hide the scenic background layer that
 	# Bootstrap shows while waiting for the world sync.
 	var bootstrap := get_tree().root.get_node_or_null("Bootstrap")

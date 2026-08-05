@@ -15,6 +15,10 @@ const TRIGGER_HOUR_MAX: int = 2   # Latest hour it can trigger (2 AM, wraps past
 var is_active: bool = false
 var _rng: RandomNumberGenerator
 
+## Whether this is a remote copy (client) — blood moon rolls run on the host
+## only, and remote copies just apply the host's broadcast state.
+var _is_remote: bool = false
+
 
 func _init() -> void:
 	_rng = RandomNumberGenerator.new()
@@ -22,10 +26,14 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		_is_remote = true
 	GameManager.phase_changed.connect(_on_phase_changed)
 
 
 func _on_phase_changed(phase: int) -> void:
+	if _is_remote:
+		return  # host drives blood moon rolls and broadcasts the result
 	match phase:
 		DayNightCycle.Phase.NIGHT:
 			_try_trigger()
@@ -35,7 +43,7 @@ func _on_phase_changed(phase: int) -> void:
 
 ## Roll the dice and start a blood moon if the RNG gods decree it.
 func _try_trigger() -> void:
-	if is_active:
+	if is_active or _is_remote:
 		return
 	
 	if _rng.randf() < BLOOD_MOON_CHANCE:
@@ -57,6 +65,7 @@ func _start_blood_moon() -> void:
 	)
 	
 	blood_moon_started.emit()
+	_broadcast_state()
 
 
 func _end_blood_moon() -> void:
@@ -76,12 +85,77 @@ func _end_blood_moon() -> void:
 	)
 	
 	blood_moon_ended.emit()
+	_broadcast_state()
 
 
 ## Public method to force-trigger a blood moon (used by Creative Panel).
+## Clients forward the trigger to the host; the host starts it and broadcasts.
 func trigger_blood_moon() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_request_blood_moon")
+		return
 	if not is_active:
 		_start_blood_moon()
+
+
+# ── Multiplayer sync ──
+
+## Host: broadcast the blood moon state to all clients.
+func _broadcast_state() -> void:
+	if _is_remote or not NetworkManager.is_network_active():
+		return
+	if not multiplayer.is_server():
+		return
+	rpc("_sync_blood_moon", is_active)
+
+
+## Client: apply the host's blood moon state — tint, alerts, and signals.
+@rpc("authority", "reliable")
+func _sync_blood_moon(active: bool) -> void:
+	if multiplayer.is_server():
+		return
+	if active == is_active:
+		# Already in the correct state — nothing to do (also covers idempotent
+		# re-broadcasts for late joiners).
+		return
+	is_active = active
+	if GameManager.day_night:
+		GameManager.day_night.blood_moon_active = active
+	if active:
+		ToastNotification.show_toast(
+			"🌕 BLOOD MOON RISING! Seek shelter!",
+			ToastNotification.ToastType.WARNING,
+			6.0
+		)
+		blood_moon_started.emit()
+	else:
+		ToastNotification.show_toast(
+			"🌅 The blood moon fades...",
+			ToastNotification.ToastType.INFO,
+			4.0
+		)
+		blood_moon_ended.emit()
+
+
+## Creative-panel trigger forwarded from a client.
+@rpc("any_peer", "reliable")
+func _server_request_blood_moon() -> void:
+	if not multiplayer.is_server():
+		return
+	if not is_active:
+		_start_blood_moon()
+
+
+## Join-time pull: a freshly connected client asks the host for the current
+## blood moon state (a broadcast may have happened before it was ready).
+@rpc("any_peer", "reliable")
+func _server_request_blood_moon_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	rpc_id(sender, "_sync_blood_moon", is_active)
 
 
 # ── Save / Load ──

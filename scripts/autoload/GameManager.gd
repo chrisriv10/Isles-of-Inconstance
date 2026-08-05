@@ -745,7 +745,13 @@ func _receive_time_state(day: int, min_of_day: int, phase: int, season: int, wea
 	if season_system:
 		season_system.current_season = season
 	if weather_system:
+		var prev_weather: int = weather_system.current_weather
 		weather_system.current_weather = weather
+		# Emit weather_changed so clients' WeatherFXManager and HUD react to
+		# the host's weather (they connect to the signal). Without this, a
+		# client keeps its own stale visuals until a local day rollover.
+		if weather != prev_weather:
+			weather_system.weather_changed.emit(weather as WeatherSystem.WeatherType)
 	
 	var hour := get_hour()
 	var minute := get_minute()
@@ -1181,6 +1187,8 @@ func _on_network_peer_disconnected(peer_id: int) -> void:
 		var world: Node = get_tree().get_first_node_in_group("world")
 		if world and world.has_method("mine_peer_disconnected"):
 			world.mine_peer_disconnected(peer_id)
+		if world and world.has_method("island_peer_disconnected"):
+			world.island_peer_disconnected(peer_id)
 		broadcast_toast("%s left the farm." % name, ToastNotification.ToastType.INFO, 3.0)
 
 
