@@ -929,11 +929,16 @@ func _try_broadcast_player_stats() -> void:
 		var lm: Node = Engine.get_singleton("LevelManager")
 		if lm.has_method("get_current_level"):
 			lvl = lm.get_current_level()
-	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl)
+	# Get the local player's active held item (tool/weapon/seed from hotbar)
+	var held_item_id: String = ""
+	var local_player := get_tree().get_first_node_in_group("player")
+	if local_player and local_player.has_method("get_active_hotbar_item_id"):
+		held_item_id = local_player.get_active_hotbar_item_id()
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id)
 
 
 @rpc("unreliable", "any_peer")
-func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1) -> void:
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "") -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == multiplayer.get_unique_id():
 		return  # ignore our own broadcast
@@ -948,6 +953,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"inside_mine": in_mine != 0,
 		"armor_set": armor_set,
 		"level": level,
+		"held_item_id": held_item_id,
 	}
 	player_list_changed.emit()
 

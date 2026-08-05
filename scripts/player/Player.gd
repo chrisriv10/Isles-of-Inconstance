@@ -421,6 +421,9 @@ func _update_remote_health_bar() -> void:
 	# Apply armor set visual on remote copy
 	var armor_set: String = stats.get("armor_set", "")
 	_apply_remote_armor(armor_set)
+	# Apply held item visual on remote copy
+	var held_item_id: String = stats.get("held_item_id", "")
+	_apply_remote_held_item(held_item_id)
 	var ratio := float(hp) / float(max_hp)
 	var bar_w := 24.0
 	_remote_hp_bar_fill.size.x = ratio * bar_w
@@ -530,6 +533,49 @@ func _apply_remote_armor(set_type: String) -> void:
 	frames.set_animation_loop("walk", true)
 	sprite.sprite_frames = frames
 	sprite.play("idle")
+
+
+func _apply_remote_held_item(item_id: String) -> void:
+	if not is_instance_valid(held_item):
+		return
+	if item_id.is_empty():
+		held_item.visible = false
+		return
+	# Texture map matching _update_held_item for hotbar items
+	var tex_map := {
+		"axe_tool": TEX_AXE, "copper_axe": TEX_AXE, "iron_axe": TEX_AXE,
+		"gold_axe": TEX_AXE, "diamond_axe": TEX_AXE, "mythril_axe": TEX_AXE, "magma_axe": TEX_AXE,
+		"pickaxe_tool": TEX_PICKAXE,
+		"copper_pickaxe": TEX_PICKAXE, "iron_pickaxe": TEX_PICKAXE,
+		"gold_pickaxe": TEX_PICKAXE, "diamond_pickaxe": TEX_PICKAXE,
+		"mythril_pickaxe": TEX_PICKAXE,
+		"scythe_tool": TEX_SCYTHE, "sword_tool": TEX_SWORD,
+		"copper_sword": TEX_SWORD, "iron_sword": TEX_SWORD,
+		"gold_sword": TEX_SWORD, "diamond_sword": TEX_SWORD,
+		"mythril_sword": TEX_SWORD,
+		"cutlass": TEX_CUTLASS,
+		"sprinkler": TEX_SPRINKLER, "quality_sprinkler": TEX_SPRINKLER, "iridium_sprinkler": TEX_SPRINKLER,
+		"lantern": TEX_LANTERN, "torch": TEX_LANTERN, "ember_lantern": TEX_LANTERN,
+		"fishing_rod": TEX_FISHING_ROD,
+		"bow": TEX_BOW,
+		"antler_bow": TEX_BOW,
+		"magma_pickaxe": TEX_PICKAXE,
+	}
+	var item: ItemData = DataManager.get_item(item_id) if not item_id.is_empty() else null
+	if tex_map.has(item_id):
+		held_item.texture = tex_map[item_id]
+		if item_id == "bow" or item_id == "antler_bow":
+			held_item.scale = Vector2(0.8, 0.8)
+		else:
+			held_item.scale = Vector2(1.3, 1.3)
+		held_item.visible = true
+	elif item and item.category == "seed":
+		held_item.texture = TEX_SEED
+		held_item.scale = Vector2(0.9, 0.9)
+		held_item.visible = true
+	else:
+		held_item.visible = false
+	_update_held_item_position()
 
 
 func _process(_delta: float) -> void:
