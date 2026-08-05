@@ -131,7 +131,12 @@ func play_music(sound_type: Sound, fade_seconds: float = 1.0) -> void:
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
 
-	stream.loop = true
+	# Enable looping. WAV streams use loop_mode (enum), OGG/MP3 use loop (bool).
+	if stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	else:
+		stream.set("loop", true)
 	_current_music = sound_type
 
 	if not _music_player.playing:
@@ -166,6 +171,7 @@ func stop_music(fade_seconds: float = 0.5) -> void:
 		return
 
 	var tween := create_tween()
+	_crossfade_tween = tween
 	tween.tween_property(_music_player, "volume_db", -80.0, fade_seconds)
 	tween.tween_callback(func():
 		_music_player.stop()
