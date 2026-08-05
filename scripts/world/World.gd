@@ -2941,6 +2941,12 @@ var _island_outside_pos: Vector2 = Vector2.ZERO
 var _island_prev_z: int = 0
 var _island_exit_cooldown: bool = false  # brief cooldown after returning
 
+# Host-side shared-island sessions. Keyed by island type so that multiple
+# players can be on DIFFERENT island types at the same time; every player
+# traveling to the same type joins the same generated island (same seed).
+var _island_sessions: Dictionary = {}  # island_type -> { "seed": int, "members": {peer_id: true} }
+var _island_peer_type: Dictionary = {}  # peer_id -> island_type the peer is currently on
+
 ## Called when the player walks into proximity of a mine entrance area.
 ## Marks the entrance as nearby for E-press interaction.
 func _on_mine_entrance_near(body: Node, entrance_node: Node2D) -> void:
@@ -3505,62 +3511,12 @@ func travel_to_island() -> void:
 	if current_interior:
 		return  # can't sail from inside a building
 
-	AudioManager.play(AudioManager.Sound.BOAT_TRAVEL)
-
-	# Despawn non-boss enemies so they don't break
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if enemy and is_instance_valid(enemy) and not enemy.is_in_group("bosses"):
-			enemy.queue_free()
-
-	# Generate the island
-	var island: ExpeditionIsland = EXPEDITION_ISLAND_SCENE.instantiate()
-	# Add to tree FIRST so child nodes (animals) get @onready vars initialized
-	add_child(island)
-	island.position = INTERIOR_VOID
-	_current_island = island
-	island.generate_fresh()
-
-	# Store player state
-	var player := get_tree().get_first_node_in_group("player")
-	if player:
-		_island_outside_pos = player.global_position
-		if player is CharacterBody2D:
-			player.velocity = Vector2.ZERO
-		_island_prev_z = player.z_index
-		player.z_index = 2
-		GameManager.inside_interior = true
-		GameManager.near_campfire = false
-
-	# Move player to island center (island is 50x50 tiles)
-	if player:
-		var spawn_cell := Vector2i(25, 25)
-		var spawn_pos := Vector2(spawn_cell.x * TILE_SIZE + TILE_SIZE / 2.0, spawn_cell.y * TILE_SIZE + TILE_SIZE / 2.0)
-		player.global_position = INTERIOR_VOID + spawn_pos
-		player.visible = true
-		player.set_process(true)
-		player.set_physics_process(true)
-
-	# Fade transition
-	var hud := get_tree().get_first_node_in_group("hud")
-	if hud and hud.has_method("fade_to_black"):
-		hud.fade_to_black(0.3)
-
-	var island_name: String = island.get_island_name() if island.has_method("get_island_name") else "a new island"
-	ToastNotification.show_toast("Set sail for " + island_name + "!", ToastNotification.ToastType.SUCCESS, 3.0)
-	
-	# First-time expedition dialogue — unique line per island type
-	var island_type: int = island.get_island_type() if island.has_method("get_island_type") else ExpeditionIsland.IslandType.PLAIN
-	var line: String = EXPEDITION_FIRST_LINES.get(island_type, "Whoa... a whole new island to explore! I wonder what treasures await...")
-	GameManager.try_show_dialogue(
-		GameManager.DIALOGUE_FIRST_EXPEDITION,
-		line,
-		4.0
-	)
-
-	# Track expedition visited objective
-	var om := get_tree().get_first_node_in_group("objective_manager")
-	if om and om.has_method("on_expedition_visited"):
-		om.on_expedition_visited(island_type)
+	# In multiplayer the host decides the shared island; clients forward
+	# their request so everyone ends up on a consistent island.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_try_enter_island", -1)
+		return
+	_server_try_enter_island(-1)
 
 
 ## Travel to an expedition island of a specific type. Called by ExpeditionUI
@@ -3575,6 +3531,66 @@ func travel_to_island_with_type(island_type: int) -> void:
 	if current_interior:
 		return  # can't sail from inside a building
 
+	# In multiplayer the host decides the shared island; clients forward
+	# their request so everyone ends up on a consistent island.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_try_enter_island", island_type)
+		return
+	_server_try_enter_island(island_type)
+
+
+## Host: decide the shared island for the requesting peer and tell only that
+## peer to enter it. Players traveling to the SAME island type share one island
+## (same seed); players traveling to a DIFFERENT type get a separate island.
+## type_hint of -1 means "random" — the host rolls a type and applies the same
+## rule (joining an existing island of that type if one is active).
+## Each peer renders its own deterministic copy, so the host's own player is
+## NOT moved when a client enters. Single-player runs this locally too.
+## Returns true if the caller's own player was moved onto the island.
+@rpc("any_peer", "reliable")
+func _server_try_enter_island(type_hint: int) -> bool:
+	var sender: int = _sender_id()
+
+	var target_type: int = type_hint
+	if target_type < 0:
+		target_type = randi() % ExpeditionIsland.IslandType.size()
+
+	var seed: int
+	if _island_sessions.has(target_type):
+		# Someone is already on this island type — join the same island.
+		seed = _island_sessions[target_type]["seed"]
+		_island_sessions[target_type]["members"][sender] = true
+	else:
+		seed = randi()
+		_island_sessions[target_type] = { "seed": seed, "members": { sender: true } }
+	_island_peer_type[sender] = target_type
+
+	if sender == _self_id():
+		return _do_enter_island(seed, target_type)
+	rpc_id(sender, "_receive_enter_island", seed, target_type)
+	return true
+
+
+## Client-side receiver: run the same local island entry so this client's own
+## player is transported into its local copy of the shared island.
+@rpc("authority", "reliable")
+func _receive_enter_island(seed: int, island_type: int) -> void:
+	_do_enter_island(seed, island_type)
+
+
+## Internal: actually create the island (deterministic from seed + type) so
+## THIS peer's player enters. Only the local player is moved (remote players
+## enter on their own peers). Returns true if the island was created.
+func _do_enter_island(seed: int, island_type: int) -> bool:
+	if _current_island:
+		return false
+	if _island_exit_cooldown:
+		return false
+	if current_mine_room:
+		return false
+	if current_interior:
+		return false
+
 	AudioManager.play(AudioManager.Sound.BOAT_TRAVEL)
 
 	# Despawn non-boss enemies so they don't break
@@ -3582,15 +3598,21 @@ func travel_to_island_with_type(island_type: int) -> void:
 		if enemy and is_instance_valid(enemy) and not enemy.is_in_group("bosses"):
 			enemy.queue_free()
 
-	# Generate the island with the chosen type
+	# Generate the island from the shared seed (identical on every peer)
 	var island: ExpeditionIsland = EXPEDITION_ISLAND_SCENE.instantiate()
+	# Add to tree FIRST so child nodes (animals) get @onready vars initialized
 	add_child(island)
 	island.position = INTERIOR_VOID
 	_current_island = island
-	island.generate_with_type(island_type)
+	island.generate_with_seed(seed, island_type)
 
-	# Store player state
-	var player := get_tree().get_first_node_in_group("player")
+	# Move ONLY the local player (remote copies on this peer stay put — their
+	# own peers move them).
+	var player: Node = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and _is_local_player(p):
+			player = p
+			break
 	if player:
 		_island_outside_pos = player.global_position
 		if player is CharacterBody2D:
@@ -3630,6 +3652,8 @@ func travel_to_island_with_type(island_type: int) -> void:
 	if om and om.has_method("on_expedition_visited"):
 		om.on_expedition_visited(island_type)
 
+	return true
+
 
 ## Return from the expedition island back to the main world.
 ## Called by ReturnBoat when the player interacts with it.
@@ -3639,6 +3663,43 @@ func return_from_island() -> void:
 	if _island_exit_cooldown:
 		return
 
+	# In multiplayer the host coordinates the shared session; clients request
+	# their own exit (only the requesting peer leaves).
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_exit_island")
+		return
+	_server_exit_island()
+
+
+## Host: remove the requesting peer from its island session and tell ONLY that
+## peer to exit. When called directly (host's own exit), sender defaults to
+## the host. Single-player runs this locally too.
+@rpc("any_peer", "reliable")
+func _server_exit_island() -> void:
+	var sender: int = _sender_id()
+
+	var isl_type: int = _island_peer_type.get(sender, -1)
+	_island_peer_type.erase(sender)
+	if isl_type >= 0 and _island_sessions.has(isl_type):
+		_island_sessions[isl_type]["members"].erase(sender)
+		if _island_sessions[isl_type]["members"].is_empty():
+			_island_sessions.erase(isl_type)
+
+	if sender == _self_id():
+		_do_exit_island()
+	else:
+		rpc_id(sender, "_receive_exit_island")
+
+
+## Client-side receiver: run the same local exit so this client's own player
+## leaves its local copy of the island.
+@rpc("authority", "reliable")
+func _receive_exit_island() -> void:
+	_do_exit_island()
+
+
+## Internal: tear down this peer's local island and restore the player.
+func _do_exit_island() -> void:
 	_island_exit_cooldown = true
 	get_tree().create_timer(0.5).timeout.connect(func(): _island_exit_cooldown = false)
 
@@ -3649,8 +3710,12 @@ func return_from_island() -> void:
 	_current_island = null
 	GameManager.inside_interior = false
 
-	# Move player back to overworld
-	var player := get_tree().get_first_node_in_group("player")
+	# Move the local player back to the overworld
+	var player: Node = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and _is_local_player(p):
+			player = p
+			break
 	if player:
 		if _island_outside_pos != Vector2.ZERO:
 			player.global_position = _island_outside_pos
@@ -3667,6 +3732,17 @@ func return_from_island() -> void:
 		hud.fade_to_black(0.3)
 
 	ToastNotification.show_toast("Back at the main island!", ToastNotification.ToastType.SUCCESS, 2.0)
+
+
+## Host: remove a peer from any shared-island session when they disconnect.
+## The disconnected peer's own copy is cleaned up on their side.
+func island_peer_disconnected(peer_id: int) -> void:
+	var isl_type: int = _island_peer_type.get(peer_id, -1)
+	_island_peer_type.erase(peer_id)
+	if isl_type >= 0 and _island_sessions.has(isl_type):
+		_island_sessions[isl_type]["members"].erase(peer_id)
+		if _island_sessions[isl_type]["members"].is_empty():
+			_island_sessions.erase(isl_type)
 
 
 # ── Ruined town ──
