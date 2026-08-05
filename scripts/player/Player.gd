@@ -1527,9 +1527,12 @@ func _process_revive(delta: float) -> void:
 		target_fill.size.x = 80.0 * (_revive_progress / 3.0)
 	
 	if _revive_progress >= 3.0:
-		# Revive complete!
+		# Revive complete! Route through the TARGET node so the RPC lands on
+		# the downed player's own node path (rpc_id executes on the remote
+		# node with the CALLER's path; calling on the reviver's node would
+		# hit the reviver's remote copy, which is not downed).
 		var reviver_name := name_label.text
-		rpc_id(_revive_target.get_multiplayer_authority(), "_request_revive_rpc", reviver_name)
+		_revive_target.rpc_id(_revive_target.get_multiplayer_authority(), "_request_revive_rpc", reviver_name)
 		_cancel_revive()
 
 func _cancel_revive() -> void:

@@ -60,9 +60,14 @@ func open_for(container: ContainerInventory, title: String = "Storage Chest",
 	# Show or hide the "Deposit All" button
 	_update_deposit_all_button()
 
-	# Multiplayer: request latest chest data from host
-	if NetworkManager.is_network_active() and not multiplayer.is_server() and chest_key != "":
-		GameManager.request_chest_data(chest_key)
+	# Multiplayer: host loads the shared registry copy, clients request it.
+	if NetworkManager.is_network_active() and chest_key != "":
+		if multiplayer.is_server():
+			var stored: Array = GameManager.chest_inventories.get(chest_key, [])
+			if not stored.is_empty():
+				_container.slots = stored.duplicate(true)
+		else:
+			GameManager.request_chest_data(chest_key)
 
 	UITweenHelper.animate_open(panel, 0.25, 20.0)
 	refresh()

@@ -3076,6 +3076,11 @@ func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
 	
 	if sender == _self_id():
 		return _do_enter_mine(target_e, target_d)
+	# A client is entering while the host stays on the surface: build the
+	# host's deterministic copy of the shared room so the host's enemy AI
+	# exists and can drive combat for everyone inside the mine.
+	if current_mine_room == null and not GameManager.inside_mine:
+		_server_build_mine_room(target_e, target_d)
 	rpc_id(sender, "_receive_enter_mine", target_e, target_d)
 	return true
 
@@ -3169,6 +3174,25 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 	_set_mine_camera_limits(mine_generator.grid_width, mine_generator.grid_height)
 	
 	return true
+
+
+## Host: create the deterministic shared mine room WITHOUT moving the host's
+## player (the host stays on the surface). The room's enemy subtree exists so
+## the host can run enemy AI and the damage/health/death/loot broadcasts for
+## clients who are inside the mine. Torn down when the session empties.
+func _server_build_mine_room(entrance_index: int, depth: int) -> void:
+	if current_mine_room:
+		return
+	var world_seed_val: int = world_seed if world_seed > 0 else 0
+	var mine_generator := MineGenerator.create(world_seed_val + depth * 7777, 64, 48)
+	var mine := MineRoom.new()
+	mine.name = "MineRoom"
+	mine.depth_level = depth
+	mine.entrance_index = entrance_index
+	mine.generator = mine_generator
+	current_mine_room = mine
+	_mine_current_depth = depth
+	call_deferred("_deferred_setup_mine_room", mine)
 
 
 func _set_mine_camera_limits(grid_w: int, grid_h: int) -> void:
@@ -3301,6 +3325,10 @@ func mine_peer_disconnected(peer_id: int) -> void:
 		_mine_session_active = false
 		_mine_session_entrance = 1
 		_mine_session_depth = 1
+		if current_mine_room and not GameManager.inside_mine:
+			current_mine_room.queue_free()
+			current_mine_room = null
+			_mine_current_depth = 0
 
 
 func _on_exit_mine() -> void:
@@ -3331,6 +3359,12 @@ func _server_exit_mine() -> void:
 		_mine_session_active = false
 		_mine_session_entrance = 1
 		_mine_session_depth = 1
+		# The host may hold a session-only room (built when a client entered
+		# without the host). Tear it down now that nobody is inside.
+		if current_mine_room and not GameManager.inside_mine:
+			current_mine_room.queue_free()
+			current_mine_room = null
+			_mine_current_depth = 0
 	
 	if sender == _self_id():
 		_do_exit_mine()
@@ -3463,8 +3497,11 @@ func _do_mine_descended(new_depth: int) -> void:
 	if om_mine and om_mine.has_method("on_reach_mine_depth"):
 		om_mine.on_reach_mine_depth(new_depth)
 	
-	# Move player to spawn position in new room
-	if player:
+	# Move the local player to the new room's spawn — but only when this
+	# peer's own player is actually inside the mine. The host keeps a
+	# session-only room copy when a client is inside while the host stays on
+	# the surface, and its player must not be teleported.
+	if player and GameManager.inside_mine:
 		var spawn_pos := mine_generator.get_spawn_position(0)
 		player.global_position = MINE_VOID + spawn_pos
 		player.visible = true

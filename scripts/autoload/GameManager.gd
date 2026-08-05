@@ -1027,10 +1027,25 @@ func _receive_chest_data(key: String, slots: Array) -> void:
 	if multiplayer.is_server():
 		return
 	chest_inventories[key] = slots
+	_apply_chest_data(key, slots)
+
+
+## Apply received chest slots to the open chest UI when its key matches.
+## CRITICAL: an empty slots array (host has no data for this chest yet) must
+## NOT replace the local container with a 0-length array — add_item() would
+## have zero slots to fill and every deposit would fail with "Chest is full!".
+func _apply_chest_data(key: String, slots: Array) -> void:
 	var chest_ui := get_tree().get_first_node_in_group("chest_storage_ui")
-	if chest_ui and chest_ui.is_open and chest_ui._container:
-		chest_ui._container.slots = slots.duplicate(true)
-		chest_ui._container.changed.emit()
+	if not chest_ui or not chest_ui.is_open or not chest_ui._container:
+		return
+	if chest_ui._chest_key != key:
+		return
+	if slots.is_empty():
+		if chest_ui._container.slots.is_empty():
+			chest_ui._container.slots.resize(chest_ui._container.capacity)
+		return
+	chest_ui._container.slots = slots.duplicate(true)
+	chest_ui._container.changed.emit()
 
 
 ## Called when a chest UI closes. Sends the final slots to the host.
@@ -1052,13 +1067,8 @@ func _server_sync_chest_on_close(key: String, slots: Array) -> void:
 
 @rpc("authority", "reliable")
 func _broadcast_chest_update(key: String, slots: Array) -> void:
-	if multiplayer.is_server():
-		return
 	chest_inventories[key] = slots
-	var chest_ui := get_tree().get_first_node_in_group("chest_storage_ui")
-	if chest_ui and chest_ui.is_open and chest_ui._container:
-		chest_ui._container.slots = slots.duplicate(true)
-		chest_ui._container.changed.emit()
+	_apply_chest_data(key, slots)
 
 
 # ── Multiplayer roster & toast broadcast ─────────────────────────────────

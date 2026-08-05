@@ -12,7 +12,7 @@ var _chest_key: String = ""
 
 func _init() -> void:
 	_container = ContainerInventory.new(18)
-	_chest_key = "placed_%d" % [get_instance_id()]
+	_chest_key = ""  # set deterministically in _ready (cell-based key for MP sync)
 	
 	# Add starter items — a modest boost so the world doesn't feel empty,
 	# but not so much that gathering becomes pointless. The 8 stone here
@@ -31,6 +31,12 @@ func _init() -> void:
 func _ready() -> void:
 	# Generate a simple chest sprite
 	_generate_chest_sprite()
+	
+	# Deterministic network key from the chest's world cell. Instance ids
+	# differ per peer, so a per-instance key would never match across peers
+	# and chest contents could not sync. Cell keys match World.cell_to_world.
+	var cell := Vector2i(floori(global_position.x / 16.0), floori(global_position.y / 16.0))
+	_chest_key = "%d,%d" % [cell.x, cell.y]
 	
 	# Set on collision layer 3 (bit 2 = value 4) so PlayerInteractor (mask=4)
 	# detects it. Without this, the chest defaults to layer 1 and is never
