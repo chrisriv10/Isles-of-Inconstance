@@ -583,6 +583,13 @@ func _on_enter_interior(interactor: Node, b_type: int, b_cell: Vector2i, world_r
 	if "is_sitting" in interactor and interactor.is_sitting:
 		ToastNotification.show_toast("Stand up from the bench first.", ToastNotification.ToastType.WARNING, 1.5)
 		return
+	
+	# Multiplayer: route through World so all peers enter their local copy
+	if NetworkManager.is_network_active() and world_ref.has_method("_server_try_enter_building"):
+		world_ref.rpc_id(1, "_server_try_enter_building", b_type, b_cell.x, b_cell.y)
+		return
+	
+	# Single player
 	var interior := BuildingInterior.new()
 	if interior and world_ref.has_method("enter_building"):
 		interior.setup(b_type, b_cell)

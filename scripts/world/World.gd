@@ -216,6 +216,8 @@ func generate_world() -> void:
 	_next_animal_index = 0
 	_generator = WorldGenerator.create(world_width, world_height, world_seed)
 	_tile_grid = _generator.generate_tile_grid()
+	# Generate procedural crops from world seed so host + clients match
+	DataManager.generate_procedural_crops(world_seed)
 	# Initialize biome generator BEFORE painting ground, scattering, etc.
 	biome_generator = BiomeGenerator.new(world_seed)
 	_paint_ground()
@@ -1127,7 +1129,7 @@ func harvest_crop(world_pos: Vector2) -> bool:
 		crop.harvest()
 		_soil_data[cell].days_grown = crop_data.regrow_days
 		_sync_harvest_if_active(cell, 1)
-	else:
+else:
 		# Sprout chance: 30% base. Higher with quality soil/fertilizer.
 		var sprout_chance := 0.3
 		if soil and soil.soil_quality:
@@ -1140,14 +1142,19 @@ func harvest_crop(world_pos: Vector2) -> bool:
 		if soil and soil.is_composted:
 			sprout_chance += 0.05
 		
-		if randf() < sprout_chance:
+		# Deterministic sprout chance (seeded by world_seed + cell + day)
+		var rng_sprout := RandomNumberGenerator.new()
+		rng_sprout.seed = hash(str(world_seed) + ":sprout_chance:" + str(cell.x) + "," + str(cell.y) + ":" + str(GameManager.current_day))
+		if rng_sprout.randi() % 100 < sprout_chance * 100:
 			# Sprout remains — regrows in 2-3 days
 			crop.reset_to_sprout()
 			_soil_data[cell].days_grown = 0
 			_soil_data[cell].crop_id = crop_data.id
 			# RNG mutation chance on sprout regrow (10% if composted/fertilized)
 			if soil and (soil.fertilizer or soil.is_composted):
-				if randf() < 0.10:
+				var rng_mut := RandomNumberGenerator.new()
+				rng_mut.seed = hash(str(world_seed) + ":sprout_mut:" + str(cell.x) + "," + str(cell.y) + ":" + str(GameManager.current_day))
+				if rng_mut.randi() % 100 < 10:
 					_trigger_sprout_mutation(cell, crop_data)
 			_sync_harvest_if_active(cell, 2)
 		else:
@@ -2876,8 +2883,11 @@ func enter_building(interior: BuildingInterior) -> void:
 	call_deferred("_deferred_setup_interior", interior)
 
 	# Player setup (non-deferred — position/velocity changes are safe)
-	var player := get_tree().get_first_node_in_group("player")
-	if player:
+	# Only move THIS peer's local player; remote copies on this peer stay put
+	# and will be updated via position RPCs from their owning peers.
+	for player in get_tree().get_nodes_in_group("player"):
+		if not is_instance_valid(player) or not _is_local_player(player):
+			continue
 		_outside_player_pos = player.global_position
 		if player is CharacterBody2D:
 			player.velocity = Vector2.ZERO
@@ -2889,7 +2899,8 @@ func enter_building(interior: BuildingInterior) -> void:
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)
-	
+		break
+
 	# Fade transition (safe to call anytime)
 	var hud := get_tree().get_first_node_in_group("hud")
 	if hud and hud.has_method("fade_to_black"):
@@ -2916,9 +2927,10 @@ func _on_exit_interior() -> void:
 	if hud and hud.has_method("fade_to_black"):
 		hud.fade_to_black(0.3)
 	
-	# Move player back outside
-	var player := get_tree().get_first_node_in_group("player")
-	if player:
+	# Move ONLY the local player back outside
+	for player in get_tree().get_nodes_in_group("player"):
+		if not is_instance_valid(player) or not _is_local_player(player):
+			continue
 		if _outside_player_pos != Vector2.ZERO:
 			player.global_position = _outside_player_pos
 		if player is CharacterBody2D:
@@ -2927,6 +2939,7 @@ func _on_exit_interior() -> void:
 		player.visible = true
 		player.set_process(true)
 		player.set_physics_process(true)
+		break
 
 
 # ── Mine System ──
@@ -3779,15 +3792,64 @@ func _do_exit_island() -> void:
 	ToastNotification.show_toast("Back at the main island!", ToastNotification.ToastType.SUCCESS, 2.0)
 
 
-## Host: remove a peer from any shared-island session when they disconnect.
-## The disconnected peer's own copy is cleaned up on their side.
-func island_peer_disconnected(peer_id: int) -> void:
-	var isl_type: int = _island_peer_type.get(peer_id, -1)
-	_island_peer_type.erase(peer_id)
-	if isl_type >= 0 and _island_sessions.has(isl_type):
-		_island_sessions[isl_type]["members"].erase(peer_id)
-		if _island_sessions[isl_type]["members"].is_empty():
-			_island_sessions.erase(isl_type)
+## ── Building Interior Sync ──
+## In multiplayer each peer runs its own local interior (deterministic from
+## building type + cell). The host coordinates entry/exit so peers enter/exit
+## together and remote player copies are moved into the interior on each peer.
+
+## Host: a peer wants to enter a building. The host creates the interior
+## locally and tells the requesting peer to enter. Other peers are NOT told
+## (they enter on their own when they interact with the door).
+## Returns true if the caller's own player was moved into the interior.
+@rpc("any_peer", "reliable")
+func _server_try_enter_building(building_type: int, building_cell_x: int, building_cell_y: int) -> bool:
+	if not multiplayer.is_server():
+		return false
+	var sender: int = _sender_id()
+	if sender == _self_id():
+		# Host's own entry — run the local logic directly
+		var interior := BuildingInterior.new()
+		interior.setup(building_type, Vector2i(building_cell_x, building_cell_y))
+		enter_building(interior)
+		return true
+	# Client requested entry — tell that client to run local entry
+	rpc_id(sender, "_receive_enter_building", building_type, building_cell_x, building_cell_y)
+	return true
+
+
+## Client-side receiver: run the local building entry so this peer's player
+## is transported into its local copy of the interior.
+@rpc("authority", "reliable")
+func _receive_enter_building(building_type: int, building_cell_x: int, building_cell_y: int) -> void:
+	var interior := BuildingInterior.new()
+	interior.setup(building_type, Vector2i(building_cell_x, building_cell_y))
+	enter_building(interior)
+
+
+## Host: a peer wants to exit the building. Only that peer leaves.
+@rpc("any_peer", "reliable")
+func _server_exit_building() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = _sender_id()
+	if sender == _self_id():
+		_on_exit_interior()
+	else:
+		rpc_id(sender, "_receive_exit_building")
+
+
+## Client-side receiver: run the local exit so this peer's player returns
+## to the overworld.
+@rpc("authority", "reliable")
+func _receive_exit_building() -> void:
+	_on_exit_interior()
+
+
+## Host: remove a peer from interior when they disconnect.
+func building_peer_disconnected(peer_id: int) -> void:
+	# No persistent session state for buildings (unlike mines/islands),
+	# but if the host was holding an interior for a client that disconnected,
+	# the interior will be cleaned up when the host exits or on next entry.
 
 
 # ── Ruined town ──

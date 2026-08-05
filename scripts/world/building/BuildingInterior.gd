@@ -384,6 +384,14 @@ func _on_exit_entered(body: Node) -> void:
 func _exit_interior() -> void:
 	_save_chest_contents()
 	exited_interior.emit()
+	
+	# Multiplayer: route exit through World so the host can coordinate
+	if NetworkManager.is_network_active() and get_tree().root.find_child("World", true, false).has_method("_server_exit_building"):
+		get_tree().root.find_child("World", true, false).rpc_id(1, "_server_exit_building")
+		queue_free()
+		return
+	
+	# Single player
 	queue_free()
 
 ## Persist chest inventory to GameManager so it survives interior destruction.

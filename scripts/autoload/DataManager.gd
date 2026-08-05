@@ -28,7 +28,8 @@ signal item_discovered(item_id: String)
 func _ready() -> void:
 	_register_default_tile_types()
 	_register_default_items()
-	_register_default_crops()
+	# Procedural crops are generated when world seed is known (generate_world)
+	# _register_default_crops() removed from here
 
 # ---------------------------------------------------------------------------
 # Registration
@@ -4216,11 +4217,10 @@ func _add_pet_egg(id: String, display_name: String, desc: String) -> void:
 	register_item(egg)
 
 
-func _register_default_crops() -> void:
-	## Uses ProceduralCropGenerator to generate more unique crops each session.
-	## The RNG is seeded from OS time so every launch is different.
+func generate_procedural_crops(seed: int) -> void:
+	## Uses ProceduralCropGenerator to generate crops deterministically from world seed.
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	rng.seed = seed + 99999  # unique offset for crop generation
 	
 	# Generate more initial crops (increased from 3)
 	var generator := ProceduralCropGenerator.new()

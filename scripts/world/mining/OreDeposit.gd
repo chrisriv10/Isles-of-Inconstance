@@ -15,6 +15,10 @@ class_name OreDeposit
 ##      If the player walks away, mining cancels (no ore lost).
 ##   5. When the bar fills, one hit worth of ore is dropped. If the
 ##      deposit still has remaining hits, the bar resets for another hit.
+##
+## Multiplayer: Host-authoritative. Mining peer forwards hit to host (RPC),
+## host validates, decrements remaining_hits, rolls ore, broadcasts state
+## to all peers, and awards ore/XP only to the mining peer via targeted RPC.
 
 ## What ore type this deposit yields. Must match a DataManager item_id.
 @export var ore_type: String = "copper_ore"
@@ -52,6 +56,10 @@ const PICKAXE_SPEED_MULTIPLIERS: Dictionary = {
 }
 
 var remaining_hits: int = 5
+
+# Multiplayer sync
+var deposit_id: int = 0
+var _is_remote: bool = false
 
 # Mining-progress state (progress-bar style, one miner at a time)
 var _is_mining: bool = false
@@ -218,22 +226,42 @@ func _complete_hit() -> void:
 	if remaining_hits <= 0:
 		return
 
+	# In multiplayer, forward the hit to the host for authoritative processing
+	if NetworkManager.is_network_active() and not _is_remote:
+		var miner_peer: int = 0
+		if _miner_ref and _miner_ref.has_method("get_multiplayer_authority"):
+			miner_peer = _miner_ref.get_multiplayer_authority()
+		rpc_id(1, "_server_mine_ore_hit", deposit_id, miner_peer)
+		_mining_progress = 0.0
+		_miner_ref = null
+		return
+
+	# Single-player or host-authoritative processing (host calls this via RPC)
+	_process_hit_locally()
+
+
+## Host-authoritative hit processing: decrement hits, roll ore, broadcast state.
+@rpc("any_peer", "reliable")
+func _server_mine_ore_hit(did: int, miner_peer: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if did != deposit_id:
+		return
+	if _is_regenerating or remaining_hits <= 0:
+		return
+
+	_process_hit_locally(miner_peer)
+
+
+## Internal hit logic — shared by single-player and host RPC.
+func _process_hit_locally(miner_peer: int = 0) -> void:
+	if remaining_hits <= 0:
+		return
+
 	remaining_hits -= 1
 
 	var amount := randi_range(min_per_hit, max_per_hit)
-	InventoryManager.add_item(ore_type, amount)
-
-	# Floating text for ore collected
 	var ore_name := get_ore_display_name()
-	EffectSpawner.spawn_floating_text("+%d %s" % [amount, ore_name], global_position, Color(0.7, 0.7, 0.7))
-
-	# Award mining XP
-	LevelManager.add_xp_source("mine_ore")
-
-	# Notify ObjectiveManager about ore collection
-	var om_ore := get_tree().get_first_node_in_group("objective_manager")
-	if om_ore and om_ore.has_method("on_ore_collected"):
-		om_ore.on_ore_collected(amount)
 
 	# Visual feedback — flash and update depletion
 	if sprite:
@@ -243,51 +271,86 @@ func _complete_hit() -> void:
 		tween.tween_property(sprite, "modulate", Color(1.5, 1.5, 1.5), 0.04)
 		tween.tween_property(sprite, "modulate", Color.WHITE, 0.03)
 
-	# Tick mining combo on the player
-	if _miner_ref and is_instance_valid(_miner_ref) and _miner_ref.has_method(&"_on_ore_deposit_mined"):
-		_miner_ref._on_ore_deposit_mined(ore_type, amount, ore_name)
-
-	# Sound and particles
+	# Sound and particles (run on all peers)
 	AudioManager.play(AudioManager.Sound.PICKAXE_HIT)
 	EffectSpawner.spawn_dirt_puff(global_position)
 
+	# Broadcast state to all peers (including host)
+	_sync_state_to_peers(amount, ore_name, miner_peer)
+
 	# Bonus drop on last hit
 	if remaining_hits <= 0:
+		# Bonus item roll (host only)
 		if bonus_chance > 0.0 and bonus_item != "":
 			if randf() < bonus_chance:
-				InventoryManager.add_item(bonus_item, 1)
-				# Show floating text for bonus (use the item's display name)
-				var bonus_data: ItemData = DataManager.get_item(bonus_item)
-				var bonus_display: String = bonus_data.display_name if bonus_data else bonus_item.replace("_", " ").capitalize()
-				EffectSpawner.spawn_floating_text("+1 " + bonus_display, global_position, Color.GOLD)
+				# Broadcast bonus to miner peer
+				if NetworkManager.is_network_active() and multiplayer.is_server() and miner_peer != 0:
+					rpc_id(miner_peer, "_receive_bonus_drop", bonus_item)
+				else:
+					_give_bonus_locally(bonus_item)
 
-		# Bonus XP for fully depleting a deposit
-		LevelManager.add_xp_source("mine_ore_final")
+		# Bonus XP for fully depleting a deposit (host only)
+		if NetworkManager.is_network_active() and multiplayer.is_server() and miner_peer != 0:
+			rpc_id(miner_peer, "_receive_xp", "mine_ore_final")
+		else:
+			LevelManager.add_xp_source("mine_ore_final")
 
-		# Start regeneration (disappear, then come back later)
-		_start_regeneration()
+		# Start regeneration (host manages timer)
+		if not _is_regenerating:
+			_start_regeneration_host()
 
 	# Reset for next hit if deposit still has ore
 	_mining_progress = 0.0
 	_miner_ref = null
 
 
-## Adjust the sprite's appearance based on how depleted the deposit is.
-## The sprite gets progressively darker and slightly smaller, giving a
-## visual cue that the ore is running out.
-func _update_depletion_visual() -> void:
-	var ratio: float = get_depletion_ratio()
-	# Scale down slightly as it depletes (1.0 → 0.85)
-	var scale_val := 1.0 - ratio * 0.15
-	sprite.scale = Vector2(scale_val, scale_val)
-	# Darken sprite slightly as it depletes
-	var brightness: float = 1.0 - ratio * 0.25
-	sprite.self_modulate = Color(brightness, brightness, brightness)
+## Broadcast deposit state to all peers.
+func _sync_state_to_peers(amount: int, ore_name: String, miner_peer: int) -> void:
+	if NetworkManager.is_network_active():
+		if multiplayer.is_server():
+			# Host: broadcast to all ready peers (including self via call_local)
+			rpc("_sync_ore_deposit_state", deposit_id, remaining_hits, remaining_hits <= 0, amount, ore_name, miner_peer)
+		else:
+			# Client: state will come from host
+			pass
 
 
-## Enter regeneration state: hide the deposit, disable collision, and
-## start a timer. When the timer fires, the deposit reappears with fresh ore.
-func _start_regeneration() -> void:
+## Received by all peers: update deposit state.
+@rpc("authority", "call_local")
+func _sync_ore_deposit_state(did: int, new_remaining_hits: int, depleted: bool, amount: int, ore_name: String, miner_peer: int) -> void:
+	if did != deposit_id:
+		return
+
+	remaining_hits = new_remaining_hits
+
+	# Visual feedback for all peers
+	if sprite:
+		_update_depletion_visual()
+
+	# Floating text for ore collected (all peers see it)
+	EffectSpawner.spawn_floating_text("+%d %s" % [amount, ore_name], global_position, Color(0.7, 0.7, 0.7))
+
+	# Notify ObjectiveManager about ore collection (all peers)
+	var om_ore := get_tree().get_first_node_in_group("objective_manager")
+	if om_ore and om_ore.has_method("on_ore_collected"):
+		om_ore.on_ore_collected(amount)
+
+	# Award mining XP to the mining peer only
+	if miner_peer != 0:
+		if NetworkManager.is_network_active() and multiplayer.is_server():
+			rpc_id(miner_peer, "_receive_xp", "mine_ore")
+		elif miner_peer == multiplayer.get_unique_id():
+			LevelManager.add_xp_source("mine_ore")
+
+	# Tick mining combo on the mining player
+	if miner_peer == multiplayer.get_unique_id():
+		var player := get_tree().get_first_node_in_group("player")
+		if player and player.has_method("_on_ore_deposit_mined"):
+			player._on_ore_deposit_mined(ore_type, amount, ore_name)
+
+
+## Host starts regeneration timer and will broadcast when done.
+func _start_regeneration_host() -> void:
 	_is_regenerating = true
 
 	# Hide the sprite
@@ -305,17 +368,38 @@ func _start_regeneration() -> void:
 	# Start the regeneration timer
 	if regeneration_time > 0.0:
 		_regen_timer = get_tree().create_timer(regeneration_time)
-		_regen_timer.timeout.connect(_on_regenerated)
+		_regen_timer.timeout.connect(_on_regenerated_host)
 	else:
-		# regeneration_time == 0 means permanent depletion (original behavior)
+		# regeneration_time == 0 means permanent depletion
 		queue_free()
 
 
-## Called when the regeneration timer expires — restore the deposit to full.
-func _on_regenerated() -> void:
+## Host: regeneration complete — broadcast to all peers.
+func _on_regenerated_host() -> void:
 	if not _is_regenerating:
 		return
 
+	# Reset ore count
+	remaining_hits = max_hits
+
+	# Broadcast regeneration to all peers
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_ore_deposit_regen", deposit_id)
+
+	# Local regeneration visuals
+	_on_regenerated_local()
+
+
+## Received by all peers: deposit has regenerated.
+@rpc("authority", "call_local")
+func _sync_ore_deposit_regen(did: int) -> void:
+	if did != deposit_id:
+		return
+	_on_regenerated_local()
+
+
+## Local regeneration visuals (shared by host and clients).
+func _on_regenerated_local() -> void:
 	# Reset ore count
 	remaining_hits = max_hits
 
@@ -333,6 +417,32 @@ func _on_regenerated() -> void:
 	# Clear regeneration state
 	_is_regenerating = false
 	_regen_timer = null
+
+
+## Receive ore drop (targeted RPC to mining peer).
+@rpc("authority", "reliable")
+func _receive_ore_drop(item_id: String, amount: int, display_name: String) -> void:
+	InventoryManager.add_item(item_id, amount)
+	EffectSpawner.spawn_floating_text("+%d %s" % [amount, display_name], global_position, Color(0.7, 0.7, 0.7))
+
+
+## Receive bonus drop (targeted RPC to mining peer).
+@rpc("authority", "reliable")
+func _receive_bonus_drop(item_id: String) -> void:
+	_give_bonus_locally(item_id)
+
+
+func _give_bonus_locally(item_id: String) -> void:
+	InventoryManager.add_item(item_id, 1)
+	var bonus_data: ItemData = DataManager.get_item(item_id)
+	var bonus_display: String = bonus_data.display_name if bonus_data else item_id.replace("_", " ").capitalize()
+	EffectSpawner.spawn_floating_text("+1 " + bonus_display, global_position, Color.GOLD)
+
+
+## Receive XP (targeted RPC to mining peer).
+@rpc("authority", "reliable")
+func _receive_xp(source: String) -> void:
+	LevelManager.add_xp_source(source)
 
 
 ## Returns the ore_type's display name for UI purposes.

@@ -423,19 +423,26 @@ func _place_ores() -> void:
 			var cell: Vector2i = floor_cells[cell_idx % floor_cells.size()]
 			cell_idx += 1
 			
-			var ore := ORE_DEPOSIT_SCENE.instantiate()
-			ore.ore_type = cfg["type"]
-			ore.max_hits = cfg["max_hits"]
-			ore.min_per_hit = cfg["min"]
-			ore.max_per_hit = cfg["max"]
-			ore.bonus_chance = cfg["bonus_chance"]
-			ore.bonus_item = cfg["bonus"]
-			
-			# Slight random offset so deposits aren't perfectly grid-aligned
-			var ox := 3.0 + _rng.randf() * 10.0
-			var oy := 3.0 + _rng.randf() * 10.0
-			ore.position = Vector2(cell.x * TILE_PX + ox, cell.y * TILE_PX + oy)
-			add_child(ore)
+var ore := ORE_DEPOSIT_SCENE.instantiate()
+		ore.ore_type = cfg["type"]
+		ore.max_hits = cfg["max_hits"]
+		ore.min_per_hit = cfg["min"]
+		ore.max_per_hit = cfg["max"]
+		ore.bonus_chance = cfg["bonus_chance"]
+		ore.bonus_item = cfg["bonus"]
+		
+		# Assign deterministic deposit_id for multiplayer sync (matching enemy pattern)
+		ore.deposit_id = _next_enemy_id
+		ore.name = "OreDeposit_%d" % _next_enemy_id
+		_next_enemy_id += 1
+		if NetworkManager.is_network_active() and not multiplayer.is_server():
+			ore._is_remote = true
+		
+		# Slight random offset so deposits aren't perfectly grid-aligned
+		var ox := 3.0 + _rng.randf() * 10.0
+		var oy := 3.0 + _rng.randf() * 10.0
+		ore.position = Vector2(cell.x * TILE_PX + ox, cell.y * TILE_PX + oy)
+		add_child(ore)
 
 
 ## Assign deterministic ids and per-peer remote flag, then attach the enemy.
