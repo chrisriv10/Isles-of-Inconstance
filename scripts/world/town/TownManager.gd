@@ -513,25 +513,47 @@ func _server_request_creative_restore_all() -> void:
 # Multiplayer sync
 # ---------------------------------------------------------------------------
 
+## EOS P2P reliable packets cap at 1170 bytes total. Chunk the serialized
+## town state into ~800-byte pieces so each RPC fits well under the limit.
+const SYNC_CHUNK_BYTES: int = 800
+
+var _pending_chunks: Array[PackedByteArray] = []
+var _pending_chunks_total: int = 0
+
 ## Host: broadcast the full town state (ruins + residents + meta) to all
-## clients. The town state is small and changes are rare, so a full-state
-## sync is simpler and more robust than per-ruin deltas. Single-player and
-## client instances no-op here.
+## clients. The town state changes are rare, so a full-state sync is simpler
+## and more robust than per-ruin deltas. Single-player and client instances
+## no-op here.
 func _broadcast_state() -> void:
 	if not NetworkManager.is_network_active():
 		return
 	if not multiplayer.is_server():
 		return
-	rpc("_sync_town_state", serialize())
+	_send_state_chunks(serialize())
 
 
-## Client: apply the host's town state and refresh anything that listens to
-## the local town signals (ruin visuals, plaza sprite, town badge, etc.).
+## Host: send a serialized town state to one peer (0 = broadcast to all),
+## split into sub-1170-byte chunks. Reliable RPCs preserve order, so the
+## client can reassemble in arrival order.
+func _send_state_chunks(data: Dictionary, target: int = 0) -> void:
+	var payload := var_to_bytes(data)
+	var total: int = ceili(float(payload.size()) / float(SYNC_CHUNK_BYTES))
+	for i in range(total):
+		var start: int = i * SYNC_CHUNK_BYTES
+		var end: int = mini(start + SYNC_CHUNK_BYTES, payload.size())
+		var chunk := payload.slice(start, end)
+		if target == 0:
+			rpc("_sync_town_state_chunk", i, total, chunk)
+		else:
+			rpc_id(target, "_receive_town_snapshot_chunk", i, total, chunk)
+
+
+## Client: collect one chunk of the host's town state broadcast.
 @rpc("authority", "reliable")
-func _sync_town_state(data: Dictionary) -> void:
+func _sync_town_state_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
 	if multiplayer.is_server():
-		return  # host already has the real state
-	_apply_remote_town_state(data)
+		return
+	_collect_chunk(chunk_index, total_chunks, chunk)
 
 
 ## Host: answer a client's join-time request for the current town state.
@@ -542,18 +564,39 @@ func _server_request_town_snapshot() -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == 0:
 		sender = multiplayer.get_unique_id()
-	rpc_id(sender, "_receive_town_snapshot", serialize())
+	_send_state_chunks(serialize(), sender)
 
 
-## Client: receive the town state after world generation (late joiner).
+## Client: collect one chunk of the town state sent after world generation
+## (late joiner).
 @rpc("authority", "reliable")
-func _receive_town_snapshot(data: Dictionary) -> void:
+func _receive_town_snapshot_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
 	if multiplayer.is_server():
 		return
-	_apply_remote_town_state(data)
+	_collect_chunk(chunk_index, total_chunks, chunk)
 
 
-## Shared apply path for _sync_town_state and _receive_town_snapshot.
+## Reassemble chunked state and apply it once all pieces have arrived.
+func _collect_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
+	if chunk_index == 0:
+		_pending_chunks = []
+		_pending_chunks_total = total_chunks
+	if _pending_chunks.size() != chunk_index or total_chunks != _pending_chunks_total:
+		_pending_chunks = []
+		return  # out-of-order/interleaved transfer — discard
+	_pending_chunks.append(chunk)
+	if _pending_chunks.size() < _pending_chunks_total:
+		return
+	var payload := PackedByteArray()
+	for c in _pending_chunks:
+		payload.append_array(c)
+	_pending_chunks = []
+	var data: Variant = bytes_to_var(payload)
+	if data is Dictionary:
+		_apply_remote_town_state(data)
+
+
+## Shared apply path for the chunked town-state sync.
 ## Re-emits the local signals so RuinStructure visuals, the plaza sprite,
 ## the town badge, and any residents refresh from the synced state.
 func _apply_remote_town_state(data: Dictionary) -> void:
