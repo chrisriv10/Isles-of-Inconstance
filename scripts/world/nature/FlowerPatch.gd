@@ -18,15 +18,15 @@ func _ready() -> void:
 	interaction_prompt = "Pick Flowers"
 	
 # Initialize seeded RNG for deterministic multiplayer visuals
- 	var world := get_tree().get_first_node_in_group("world")
- 	var rng := RandomNumberGenerator.new()
- 	if world and world.has_method("world_to_cell"):
- 		var cell: Vector2i = world.world_to_cell(global_position)
- 		rng.seed = hash(str(world.world_seed) + ":flower:" + str(cell.x) + "," + str(cell.y))
- 	else:
- 		rng.randomize()
- 	
- 	flower_variant = rng.randi() % 4
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell: Vector2i = world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":flower:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
+	flower_variant = rng.randi() % 4
 	flower_color = _random_flower_color_seeded(rng)
 	flower_count = rng.randi_range(2, 5)
 	_generate_sprite()
@@ -66,15 +66,15 @@ func _generate_sprite() -> void:
 		return
 	
 # Initialize seeded RNG for deterministic multiplayer visuals
- 	var world := get_tree().get_first_node_in_group("world")
- 	var rng := RandomNumberGenerator.new()
- 	if world and world.has_method("world_to_cell"):
- 		var cell: Vector2i = world.world_to_cell(global_position)
- 		rng.seed = hash(str(world.world_seed) + ":flower:" + str(cell.x) + "," + str(cell.y))
- 	else:
- 		rng.randomize()
- 	
- 	# Use texture override pool if provided — picks random + applies flower_color tint
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell: Vector2i = world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":flower:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
+	
+	# Use texture override pool if provided — picks random + applies flower_color tint
 	if not texture_override_pool.is_empty():
 		var path: String = texture_override_pool[rng.randi() % texture_override_pool.size()]
 		if ResourceLoader.exists(path):

@@ -197,14 +197,14 @@ func _ready() -> void:
 	add_to_group("visitor_npcs")
 	_world = get_tree().get_first_node_in_group("world")
 	
-# Initialize seeded RNG for deterministic multiplayer sync
- 	_rng = RandomNumberGenerator.new()
- 	if _world and _world.has_method("world_to_cell") and _synced_index >= 0:
- 		var cell: Vector2i = _world.world_to_cell(global_position)
- 		_rng.seed = hash(str(_world.world_seed) + ":visitor:" + str(_synced_index) + ":" + str(cell.x) + "," + str(cell.y))
- 	else:
- 		_rng.randomize()
-	
+	# Initialize seeded RNG for deterministic multiplayer sync
+	_rng = RandomNumberGenerator.new()
+	if _world and _world.has_method("world_to_cell") and _synced_index >= 0:
+		var cell: Vector2i = _world.world_to_cell(global_position)
+		_rng.seed = hash(str(_world.world_seed) + ":visitor:" + str(_synced_index) + ":" + str(cell.x) + "," + str(cell.y))
+	else:
+		_rng.randomize()
+
 	# Pick random name and texture variant for variety (cosmetic, per-peer OK)
 	var name_rng := RandomNumberGenerator.new()
 	name_rng.randomize()

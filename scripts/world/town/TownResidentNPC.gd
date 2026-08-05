@@ -82,7 +82,7 @@ func _ready() -> void:
 	# Initialize seeded RNG for deterministic multiplayer sync
 	_rng = RandomNumberGenerator.new()
 	if _world and _world.has_method("world_to_cell") and not npc_id.is_empty():
-		var cell := _world.world_to_cell(global_position)
+		var cell: Vector2i = _world.world_to_cell(global_position)
 		_rng.seed = hash(str(_world.world_seed) + ":resident:" + str(npc_id.hash()) + ":" + str(cell.x) + "," + str(cell.y))
 	else:
 		_rng.randomize()

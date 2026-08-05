@@ -10,13 +10,13 @@ func _ready() -> void:
 	interaction_prompt = "Chop"
 	
 # Initialize seeded RNG for deterministic multiplayer visuals
- 	var world := get_tree().get_first_node_in_group("world")
- 	var rng := RandomNumberGenerator.new()
- 	if world and world.has_method("world_to_cell"):
- 		var cell: Vector2i = world.world_to_cell(global_position)
- 		rng.seed = hash(str(world.world_seed) + ":stump:" + str(cell.x) + "," + str(cell.y))
- 	else:
- 		rng.randomize()
+	var world := get_tree().get_first_node_in_group("world")
+	var rng := RandomNumberGenerator.new()
+	if world and world.has_method("world_to_cell"):
+		var cell: Vector2i = world.world_to_cell(global_position)
+		rng.seed = hash(str(world.world_seed) + ":stump:" + str(cell.x) + "," + str(cell.y))
+	else:
+		rng.randomize()
 	
 	stump_variant = rng.randi() % 3
 	wood_amount = rng.randi_range(1, 4)
