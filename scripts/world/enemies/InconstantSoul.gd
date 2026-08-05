@@ -512,9 +512,9 @@ func _die() -> void:
 	await get_tree().create_timer(1.0).timeout
 	ToastNotification.show_toast("✨ You have conquered the Isles of Inconstance!", ToastNotification.ToastType.SUCCESS, 6.0)
 	
-	# --- Final boss defeat cutscene (longest!) ---
-	var cutscene := BossDefeatCutscene.play(3)
-	await cutscene.finished
+	# --- Final boss defeat cutscene (synced across peers) ---
+	GameManager.trigger_boss_defeat_cutscene(3)
+	await GameManager.get_tree().create_timer(0.1).timeout
 	# Final defeat dialogue
 	var player := get_tree().get_first_node_in_group("player")
 	if player and player.has_method("show_dialogue"):

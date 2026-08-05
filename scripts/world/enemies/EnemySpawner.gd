@@ -393,6 +393,30 @@ func broadcast_pirate_spawn(enemy: Enemy) -> void:
 			enemy.enemy_id, enemy.current_health, enemy.max_health)
 
 
+## Host: broadcast a sporeling minion spawn so clients create a matching remote copy.
+func broadcast_sporeling_spawn(pos_x: float, pos_y: float) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var eid: int = _next_enemy_id
+		_next_enemy_id += 1
+		rpc("_receive_spawn_sporeling", pos_x, pos_y, eid, 25, 25)  # Sporeling base HP = 25
+
+
+## Client: create a remote sporeling minion copy.
+@rpc("authority", "reliable")
+func _receive_spawn_sporeling(pos_x: float, pos_y: float, eid: int, hp: int, max_hp: int) -> void:
+	if multiplayer.is_server():
+		return
+	var enemy := SporelingEnemy.new()
+	enemy.global_position = Vector2(pos_x, pos_y)
+	enemy.enemy_id = eid
+	enemy.name = "Enemy_%d" % eid
+	enemy._is_remote = true
+	add_child(enemy)
+	enemy.max_health = max_hp
+	enemy.current_health = hp
+	enemy._update_health_bar()
+
+
 ## Client: create a remote pirate raider copy (pirate visuals + stats).
 @rpc("authority", "reliable")
 func _receive_spawn_pirate(pos_x: float, pos_y: float, eid: int, hp: int, max_hp: int) -> void:

@@ -263,9 +263,9 @@ func _die() -> void:
 	ToastNotification.show_toast("The Blooming Wyrm wilts away!", ToastNotification.ToastType.SUCCESS, 3.0)
 	ToastNotification.show_toast("💀 " + display_name + " defeated! +500 XP", ToastNotification.ToastType.SUCCESS, 4.0)
 	
-	# --- Boss defeat cutscene ---
-	var cutscene := BossDefeatCutscene.play(2)
-	await cutscene.finished
+	# --- Boss defeat cutscene (synced across peers) ---
+	GameManager.trigger_boss_defeat_cutscene(2)
+	await GameManager.get_tree().create_timer(0.1).timeout
 	# Defeat dialogue
 	var player := get_tree().get_first_node_in_group("player")
 	if player and player.has_method("show_dialogue"):

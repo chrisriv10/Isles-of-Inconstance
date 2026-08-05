@@ -167,11 +167,14 @@ func _summon_minions() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.3, 0.15, 0.05), 12, 20.0)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
 	ToastNotification.show_toast("🌱 The Root Warden summons Sporelings!", ToastNotification.ToastType.WARNING, 2.5)
-	for i in range(2):
-		var sporeling = load("res://scripts/world/enemies/SporelingEnemy.gd").new()
-		var offset: Vector2 = Vector2(randf_range(-30.0, 30.0), randf_range(-30.0, 30.0))
-		sporeling.global_position = global_position + offset
-		get_parent().add_child(sporeling)
+	
+	# Broadcast minion spawns via EnemySpawner so all peers get them
+	var spawner := get_tree().get_first_node_in_group("enemy_spawner")
+	if spawner and spawner.has_method("broadcast_sporeling_spawn"):
+		for i in range(2):
+			var offset: Vector2 = Vector2(randf_range(-30.0, 30.0), randf_range(-30.0, 30.0))
+			var spawn_pos := global_position + offset
+			spawner.broadcast_sporeling_spawn(spawn_pos.x, spawn_pos.y)
 
 
 func _die() -> void:
@@ -191,9 +194,9 @@ func _die() -> void:
 	ToastNotification.show_toast("The Root Warden crumbles into dust!", ToastNotification.ToastType.SUCCESS, 3.0)
 	ToastNotification.show_toast("💀 " + display_name + " defeated! +500 XP", ToastNotification.ToastType.SUCCESS, 4.0)
 	
-	# --- Boss defeat cutscene ---
-	var cutscene := BossDefeatCutscene.play(0)
-	await cutscene.finished
+	# --- Boss defeat cutscene (synced across peers) ---
+	GameManager.trigger_boss_defeat_cutscene(0)
+	await GameManager.get_tree().create_timer(0.1).timeout  # yield one frame for RPC
 	# Defeat dialogue
 	var player := get_tree().get_first_node_in_group("player")
 	if player and player.has_method("show_dialogue"):
