@@ -3473,7 +3473,7 @@ func _on_gingerbread_sparkle_tick() -> void:
 ## Only the authority sends this; all others apply the interpolated state.
 ## z_index is synced so remote copies render above interior floors/walls the
 ## same way the local player does when inside a building or mine.
-@rpc("unreliable", "any_peer")
+@rpc("unreliable", "authority")
 func _sync_remote_state(pos: Vector2, facing_x: float, facing_y: float, facing_left: bool, is_moving: bool, p_z_index: int) -> void:
 	if is_multiplayer_authority():
 		return

@@ -4309,7 +4309,7 @@ func notify_cell_object_removed(world_pos: Vector2) -> void:
 
 
 ## Received by all peers to remove a world object at the given cell.
-@rpc("any_peer", "call_local")
+@rpc("authority", "call_local")
 func _sync_remove_cell_object(cell: Vector2i) -> void:
 	# Find and remove any node at this cell position on the objects layer
 	for child in objects_root.get_children():
@@ -4332,7 +4332,7 @@ func notify_bush_harvested(world_pos: Vector2) -> void:
 
 
 ## Received by all peers to mark a bush as harvested at the given cell.
-@rpc("any_peer", "call_local")
+@rpc("authority", "call_local")
 func _sync_bush_harvested(cell: Vector2i) -> void:
 	for child in objects_root.get_children():
 		if child is Bush and is_instance_valid(child):
@@ -4428,14 +4428,14 @@ func _unregister_special_building(b_type: int, cell: Vector2i) -> void:
 
 
 ## Received by clients to place a building at the given cell.
-@rpc("any_peer", "call_local")
+@rpc("authority", "call_local")
 func _sync_place_building(b_type: int, cell: Vector2i) -> void:
 	building_system.place_building(b_type, cell, 0, self, false)
 	_register_special_building(b_type, cell)
 
 
 ## Received by clients to remove a building at the given cell.
-@rpc("any_peer", "call_local")
+@rpc("authority", "call_local")
 func _sync_remove_building(cell: Vector2i, b_type: int) -> void:
 	building_system.remove_building(cell, self)
 	_unregister_special_building(b_type, cell)
