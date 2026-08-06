@@ -3680,6 +3680,8 @@ func _receive_mine_descended(new_depth: int) -> void:
 ## Host-only: a client wants to descend; update the shared session and mirror.
 @rpc("any_peer", "reliable")
 func _server_try_descend(new_depth: int) -> void:
+	if not multiplayer.is_server():
+		return
 	if _mine_session_active:
 		_mine_session_depth = new_depth
 		_mine_session_entrance = 0

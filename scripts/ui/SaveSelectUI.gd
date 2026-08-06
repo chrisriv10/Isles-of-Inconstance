@@ -197,13 +197,13 @@ func _create_slot_widget(slot_idx: int) -> Dictionary:
 	# Info line (Day, Money)
 	var info_label := Label.new()
 	info_label.add_theme_font_size_override("font_size", 10)
-	info_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 0.55))
+	info_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.9))
 	vbox.add_child(info_label)
 	
 	# Timestamp line
 	var ts_label := Label.new()
 	ts_label.add_theme_font_size_override("font_size", 9)
-	ts_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.4))
+	ts_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.9))
 	vbox.add_child(ts_label)
 	
 	# Hint label for empty slots ("Click to start new game")
