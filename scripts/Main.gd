@@ -411,6 +411,14 @@ func _try_open_restoration_panel() -> void:
 
 func _setup_multiplayer() -> void:
 	if _mp_setup_done:
+		# Rejoin: the game scene persists across a leave→rejoin (it's only hidden,
+		# not freed), so Main._ready doesn't re-run and the client never
+		# re-registers with the host. That leaves the client stuck on its
+		# client-default SURVIVAL mode (see Bootstrap._load_mp_game_as_client)
+		# and without re-pulled host state (game mode, difficulty, blood moon,
+		# raid, town). Re-register so the host re-sends that state.
+		if NetworkManager.is_network_active() and not multiplayer.is_server():
+			rpc_id(1, "_register_me_to_remote", multiplayer.get_unique_id())
 		return
 	if not NetworkManager.is_network_active():
 		return
