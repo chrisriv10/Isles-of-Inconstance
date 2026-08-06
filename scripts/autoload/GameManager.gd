@@ -862,6 +862,43 @@ func set_time(hour: int, minute: int) -> void:
 			if new_phase == DayNightCycle.Phase.NIGHT:
 				AudioManager.play(AudioManager.Sound.NIGHT_START)
 
+## Sleep in a bed: wake at 06:00. Host-authoritative so ALL peers converge to
+## the same time. On a client this forwards the request to the host (peer 1),
+## which applies it via set_time (which broadcasts _receive_time_state back to
+## every peer). Previously the bed mutated the per-peer autoload directly with
+## no broadcast, so the sleeping peer jumped to 06:00 while other peers kept
+## their own time until the next periodic host sync.
+func request_sleep() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_request_sleep")
+		return
+	set_time(6, 0)
+
+
+## Host: apply a client's sleep request (wake at 06:00) and broadcast to all.
+@rpc("any_peer", "reliable")
+func _server_request_sleep() -> void:
+	if not multiplayer.is_server():
+		return
+	set_time(6, 0)
+
+
+## Advance the day(s) creatively. Host-authoritative so a client using the
+## creative panel can't fast-forward its own clock out of sync with the host.
+func request_advance_days(count: int = 1) -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_request_advance_days", count)
+		return
+	advance_days(count)
+
+
+## Host: apply a client's creative day-advance request and broadcast.
+@rpc("any_peer", "reliable")
+func _server_request_advance_days(count: int) -> void:
+	if not multiplayer.is_server():
+		return
+	advance_days(count)
+
 ## Marks the game as completed (final boss defeated). Shows a permanent
 ## celebration toast and sets a save flag that persists across sessions.
 func complete_game() -> void:

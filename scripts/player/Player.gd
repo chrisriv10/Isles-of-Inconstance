@@ -399,9 +399,9 @@ func _update_remote_health_bar() -> void:
 	var local_island_seed: int = int(GameManager.inside_island_seed)
 	if remote_island_seed != local_island_seed:
 		visible = false
-		if _remote_pet_node:
+		if is_instance_valid(_remote_pet_node):
 			_remote_pet_node.queue_free()
-			_remote_pet_node = null
+		_remote_pet_node = null
 		return
 	else:
 		visible = true
@@ -445,20 +445,28 @@ func _update_remote_health_bar() -> void:
 	# Remote pet visual
 	var active_pet_id: String = stats.get("pet_id", "")
 	if active_pet_id.is_empty():
-		if _remote_pet_node:
+		if is_instance_valid(_remote_pet_node):
 			_remote_pet_node.queue_free()
-			_remote_pet_node = null
+		_remote_pet_node = null
 	else:
-		if not _remote_pet_node or str(_remote_pet_node.get("pet_id") if _remote_pet_node else "") != active_pet_id:
-			if _remote_pet_node:
+		var pet_valid: bool = is_instance_valid(_remote_pet_node)
+		var pet_id_matches: bool = pet_valid and str((_remote_pet_node as Node2D).get("pet_id") if _remote_pet_node else "") == active_pet_id
+		if not pet_valid or not pet_id_matches:
+			if pet_valid:
 				_remote_pet_node.queue_free()
 			var pet_scene := preload("res://scenes/Pet.tscn")
 			var pet: Node2D = pet_scene.instantiate()
+			pet.name = "RemotePet"
 			pet._is_remote = true
-			if pet.has_method("setup"):
-				pet.setup(active_pet_id, self)
+			# add_child FIRST so Pet.setup() can resolve autoloads and @onready
+			# children (matches Main._spawn_active_pet's local-pet ordering).
 			add_child(pet)
-			_remote_pet_node = pet
+			if pet.has_method("setup") and pet.setup(active_pet_id, self):
+				_remote_pet_node = pet
+			else:
+				# setup failed → it already queue_free()d itself; don't store a
+				# doomed node or the next frame will recreate it and re-error.
+				_remote_pet_node = null
 
 
 func _apply_remote_armor(set_type: String) -> void:

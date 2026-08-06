@@ -58,11 +58,32 @@ var _is_remote: bool = false
 
 func _ready() -> void:
 	add_to_group("visitor_manager")
-	if NetworkManager.is_network_active() and not multiplayer.is_server():
-		_is_remote = true
+	# The world (and this manager) exists from Bootstrap load — before any
+	# multiplayer session starts — so being a client can't be frozen at _ready.
+	# Re-derive the role whenever a session starts and pull visitor state.
+	NetworkManager.connection_succeeded.connect(_on_network_session_started)
+	GameManager.day_changed.connect(_on_day_changed_remote)
+	_refresh_network_role()
+
+
+func _refresh_network_role() -> void:
+	_is_remote = NetworkManager.is_network_active() and not multiplayer.is_server()
+	if _is_remote:
 		# A joining peer may have missed the one-shot visitor-ship broadcast
 		# (connected after the ship arrived, or dock not ready at the time).
 		# Pull the current snapshot from the host once connected.
+		call_deferred("_request_visitor_state_deferred")
+
+
+func _on_network_session_started(_peer_id: int) -> void:
+	_refresh_network_role()
+
+
+## On clients, a host-authoritative ship can arrive any day (and the one-shot
+## broadcast may not be delivered if this peer connected after it). Re-pull the
+## host's current visitor state once per day as a self-healing backstop.
+func _on_day_changed_remote(_day: int) -> void:
+	if _is_remote:
 		call_deferred("_request_visitor_state_deferred")
 
 ## Called each day from World._on_day_changed.

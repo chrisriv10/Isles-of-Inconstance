@@ -655,7 +655,7 @@ func _on_hour_changed(value: float) -> void:
 
 func _on_advance_day() -> void:
 	if GameManager:
-		GameManager.advance_days(1)
+		GameManager.request_advance_days(1)
 
 
 func _on_instant_growth_toggled(pressed: bool) -> void:

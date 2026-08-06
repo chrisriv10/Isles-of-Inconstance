@@ -79,11 +79,13 @@ func setup(id: String, player: Node2D) -> bool:
 	pet_id = id
 	player_ref = player
 	_pet_data = {}
-	var pet_mgr: Node = get_node("/root/PetManager") if has_node("/root/PetManager") else null
-	if pet_mgr:
-		_pet_data = pet_mgr.get_pet_data(id)
-		# Listen for name changes so the label stays in sync
-		pet_mgr.pet_name_changed.connect(_on_pet_name_changed)
+	# PetManager is an autoload singleton — reference it directly rather than via
+	# get_node("/root/..."). The tree-relative path fails when a remote pet is
+	# configured before it has been added to the scene tree (an absolute
+	# get_node from outside the tree errors and returns null), which left
+	# _pet_data empty and logged a bogus "unknown pet id".
+	_pet_data = PetManager.get_pet_data(id)
+	PetManager.pet_name_changed.connect(_on_pet_name_changed)
 	if _pet_data.is_empty():
 		push_error("Pet: unknown pet id '%s'" % id)
 		queue_free()
@@ -101,9 +103,8 @@ func setup(id: String, player: Node2D) -> bool:
 
 
 func _update_name_label() -> void:
-	var pet_mgr: Node = get_node("/root/PetManager") if has_node("/root/PetManager") else null
-	if pet_mgr and pet_mgr.has_method("get_pet_display_name"):
-		label.text = pet_mgr.get_pet_display_name(pet_id)
+	if PetManager.has_method("get_pet_display_name"):
+		label.text = PetManager.get_pet_display_name(pet_id)
 	else:
 		label.text = _pet_data.get("name", pet_id)
 

@@ -486,8 +486,10 @@ func _add_bed(pos: Vector2) -> Interactable:
 	return bed_area
 
 func _on_bed_interacted(_interactor: Node) -> void:
-	GameManager.current_minute_of_day = 6 * 60  # Wake at 6 AM
-	GameManager.time_changed.emit(GameManager.get_hour(), GameManager.get_minute())
+	# Host-authoritative: on a client this forwards the sleep to the host, which
+	# sets 06:00 and broadcasts it to every peer. Directly mutating the
+	# per-peer autoload here desynced time for the sleeping player.
+	GameManager.request_sleep()
 	ToastNotification.show_toast("Good morning! Slept through the night.", ToastNotification.ToastType.SUCCESS, 3.0)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:

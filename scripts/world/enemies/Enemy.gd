@@ -616,7 +616,7 @@ func _drop_loot() -> void:
 func _drop_loot_instanced(loot: Array, loot_bonus: float) -> void:
 	# Host rolls for all connected peers + self
 	if multiplayer.is_server():
-		var peers: Array[int] = multiplayer.get_peers()
+		var peers: PackedInt32Array = multiplayer.get_peers()
 		peers.append(multiplayer.get_unique_id())  # Include self
 		for peer_id in peers:
 			_roll_loot_for_peer(peer_id, loot, loot_bonus)

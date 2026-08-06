@@ -40,7 +40,7 @@ const PREMADE_TEXTURES: Dictionary = {
 	BuildingType.SMALL_HOME: preload("res://assets/generated/building_small_home_frame_0.png"),
 	BuildingType.MEDIUM_HOME: preload("res://assets/generated/building_medium_home_frame_0.png"),
 	BuildingType.LARGE_HOME: preload("res://assets/generated/building_large_home_frame_0.png"),
-	BuildingType.BARN: preload("res://assets/generated/building_barn_frame_0.png"),
+	BuildingType.BARN: preload("res://assets/generated/newbarn.png"),
 	BuildingType.STORAGE_SHED: preload("res://assets/generated/building_storage_shed_frame_0.png"),
 	BuildingType.FENCE: preload("res://assets/generated/building_fence_frame_0.png"),
 	BuildingType.STONE_FENCE: preload("res://assets/generated/building_stone_fence_frame_0.png"),
@@ -422,6 +422,16 @@ func _create_building_node(building_data: Dictionary, world_ref: Node) -> void:
 				tex = load("res://assets/generated/building_compost_bin_frame_0.png")
 		if tex:
 			sprite.texture = tex
+			# Barn uses a hand-authored sprite whose canvas (newbarn.png) is
+			# larger than the 4x3-tile footprint — scale the visible art to fit
+			# the footprint. Footprint/collision/entry stay driven by tile dims
+			# and are unaffected.
+			if b_type == BuildingType.BARN:
+				var content := _get_texture_content_bounds(tex)
+				if content.size.x > 0 and content.size.y > 0:
+					var footprint := Vector2(b_width * cell_size, b_height * cell_size)
+					var fit := minf(footprint.x / content.size.x, footprint.y / content.size.y)
+					sprite.scale = Vector2(fit, fit)
 		else:
 			var img_size: int = b_width * cell_size
 			var img := Image.create(img_size, b_height * cell_size, false, Image.FORMAT_RGBA8)
