@@ -2276,8 +2276,13 @@ func _finish_building_entry() -> void:
 	var target := _enter_building_ref
 	_enter_building_ref = null
 	enter_building_completed.emit()
-	if target and is_instance_valid(target) and interactor and interactor.has_method("interact_with_nearest"):
-		interactor.interact_with_nearest()
+	# Interact with the captured building entry directly. Calling
+	# interactor.interact_with_nearest() here would re-resolve the GENERIC
+	# nearest interactable, which — in the exact scenario this feature targets
+	# (a tree/bush blocking the doorway) — is the blocking object, not the
+	# building. Acting on the captured entry preserves the entry path.
+	if target and is_instance_valid(target) and interactor and target.can_interact():
+		target.interact(interactor)
 
 ## Toggles build mode on/off via the World's building system.
 func _toggle_build_mode() -> void:
