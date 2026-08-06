@@ -6,6 +6,8 @@ extends Node
 
 const SAVE_VERSION: int = 3
 const SLOT_COUNT: int = 5
+## Default display name stored in a new save when no explicit name is set.
+const DEFAULT_SAVE_NAME: String = "My Island"
 
 signal save_completed(success: bool)
 signal load_completed(success: bool)
@@ -61,7 +63,11 @@ func save_game() -> void:
 	save_data["save_version"] = SAVE_VERSION
 	save_data["save_timestamp"] = Time.get_unix_time_from_system()
 	save_data["save_slot"] = current_slot
-	save_data["save_name"] = GameManager.save_name
+	# Always persist a non-empty display name. Some paths (notably a client's
+	# progression save) leave GameManager.save_name empty, which would make the
+	# Save Select fall back to the player name (e.g. "Farmer") instead of the
+	# intended default.
+	save_data["save_name"] = GameManager.save_name if not GameManager.save_name.is_empty() else DEFAULT_SAVE_NAME
 	
 	var json_string := JSON.stringify(save_data)
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -89,7 +95,8 @@ func _save_player_progression() -> void:
 	save_data["save_version"] = SAVE_VERSION
 	save_data["save_timestamp"] = Time.get_unix_time_from_system()
 	save_data["save_slot"] = current_slot
-	save_data["save_name"] = GameManager.save_name
+	# Same default-name guard as the full save path.
+	save_data["save_name"] = GameManager.save_name if not GameManager.save_name.is_empty() else DEFAULT_SAVE_NAME
 	var json_string := JSON.stringify(save_data)
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if not file:

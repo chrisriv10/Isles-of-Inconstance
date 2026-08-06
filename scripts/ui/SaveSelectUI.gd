@@ -248,10 +248,11 @@ func _refresh_slot(slot_idx: int) -> void:
 	
 	if has_save:
 		var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
-		# Show save_name if available, otherwise fall back to player_name
+		# Show save_name if available, otherwise fall back to the default
+		# "My Island" (never the player name).
 		var display_name: String = info.get("save_name", "")
 		if display_name.is_empty():
-			display_name = info.get("player_name", "Unknown Farmer")
+			display_name = SaveManager.DEFAULT_SAVE_NAME
 		name_label.text = display_name
 		var day: int = info.get("current_day", 1)
 		var money: int = info.get("money", 0)
@@ -370,7 +371,7 @@ func _on_rename_save(slot_idx: int) -> void:
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
 	var current_name: String = info.get("save_name", "")
 	if current_name.is_empty():
-		current_name = info.get("player_name", "Unknown Farmer")
+		current_name = SaveManager.DEFAULT_SAVE_NAME
 	
 	# Show a simple rename dialog
 	var dialog := AcceptDialog.new()
@@ -462,7 +463,7 @@ func _on_delete_slot(slot_idx: int) -> void:
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
 	var display_name: String = info.get("save_name", "")
 	if display_name.is_empty():
-		display_name = info.get("player_name", "")
+		display_name = SaveManager.DEFAULT_SAVE_NAME
 	if display_name.is_empty():
 		display_name = SAVE_SLOT_NAMES[slot_idx]
 
