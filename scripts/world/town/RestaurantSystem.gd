@@ -47,6 +47,44 @@ const RECIPE_UNLOCKS: Dictionary = {
 func _ready() -> void:
 	add_to_group("restaurant_system")
 	_roll_daily_special()
+	# Multiplayer: the daily special is host-authoritative shared town state.
+	# Defer so the network is ready; on a client this pulls the host's special
+	# and recipes (overriding the local roll); on the host it broadcasts its own.
+	call_deferred("_init_multiplayer_state")
+
+func _init_multiplayer_state() -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if multiplayer.is_server():
+		_broadcast_state()
+	else:
+		rpc_id(1, "_server_request_restaurant_state")
+
+## Host: broadcast the authoritative daily special + unlocked recipes so every
+## peer's restaurant node matches (the UI reads from the local node).
+func _broadcast_state() -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	rpc("_sync_restaurant_state", _daily_special_crop, _recipes_unlocked)
+
+## Client: apply the host's daily special + recipes to this peer's node.
+@rpc("authority", "reliable", "call_local")
+func _sync_restaurant_state(daily_special: String, recipes: Array) -> void:
+	if multiplayer.is_server():
+		return
+	if not daily_special.is_empty():
+		_daily_special_crop = daily_special
+	_recipes_unlocked = recipes.duplicate()
+
+## Client -> host: a client (or late joiner) asks for the current restaurant state.
+@rpc("any_peer", "reliable")
+func _server_request_restaurant_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	rpc_id(sender, "_sync_restaurant_state", _daily_special_crop, _recipes_unlocked)
 
 ## Roll a new daily special crop
 func _roll_daily_special() -> void:
@@ -131,6 +169,11 @@ func try_unlock_recipe(ingredient_id: String) -> Dictionary:
 	
 	var unlock: Dictionary = RECIPE_UNLOCKS[ingredient_id]
 	_recipes_unlocked.append(ingredient_id)
+	
+	# Multiplayer: broadcast the new recipe so every peer's restaurant node
+	# learns it (and their cooking system unlocks it via the normal path).
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_broadcast_state()
 	
 	# Add recipe to cooking system (if exists)
 	var cooking_sys := get_tree().get_first_node_in_group("cooking_system")

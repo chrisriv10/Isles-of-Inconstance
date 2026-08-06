@@ -350,6 +350,13 @@ func _receive_spawn_boss(scene_path: String, pos_x: float, pos_y: float, eid: in
 	enemy.max_health = max_hp
 	enemy.current_health = hp
 	enemy._update_health_bar()
+	# Mirror the host's summon flair on this remote copy (BOSS_ROAR, particle
+	# burst, screen flash/shake, toasts, first-encounter dialogue) so clients
+	# see/hear the same "a creature appears" moment. The boss theme itself is
+	# already handled by the boss's _ready(), so this only adds the SFX/visuals.
+	# All _summon_spawn_effect implementations use client-safe local effects.
+	if enemy.has_method("_summon_spawn_effect"):
+		enemy._summon_spawn_effect()
 
 
 ## Replace the ghost sprite on a pirate raider enemy with the pirate raider sprite

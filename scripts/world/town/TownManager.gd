@@ -394,6 +394,12 @@ func add_reputation(amount: int) -> void:
 	var obj_mgr := get_tree().get_first_node_in_group("objective_manager")
 	if obj_mgr and obj_mgr.has_method("on_town_reputation_changed"):
 		obj_mgr.on_town_reputation_changed(reputation)
+	
+	# Multiplayer: reputation is shared town state (town level progression).
+	# serialize() already carries it and _apply_remote_town_state re-emits
+	# reputation_changed, so broadcasting here keeps every peer's reputation in
+	# lockstep (restaurant sales, tribute, restore all). No-op on SP / clients.
+	_broadcast_state()
 
 func _check_rep_thresholds() -> void:
 	# Check thresholds in order, emit signal when a new one is crossed
