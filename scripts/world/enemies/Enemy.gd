@@ -486,6 +486,7 @@ func _die() -> void:
 	var is_boss := is_in_group("bosses")
 	if is_boss:
 		AudioManager.play(AudioManager.Sound.BOSS_DIE)
+		AudioManager.resume_ambient_music(1.0)
 		LevelManager.add_xp_source("kill_boss")
 		EffectSpawner.spawn_xp_notification(500, global_position + Vector2(0, -16))
 		ToastNotification.show_toast("💀 " + display_name + " defeated!", ToastNotification.ToastType.SUCCESS, 4.0)

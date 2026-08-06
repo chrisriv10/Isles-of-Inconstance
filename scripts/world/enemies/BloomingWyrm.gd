@@ -37,6 +37,7 @@ func _ready() -> void:
 	current_health = max_health
 	display_name = "Blooming Wyrm"
 	add_to_group("bosses")
+	AudioManager.play_music(AudioManager.Sound.BOSS_MUSIC, 1.0)
 	_load_sprite()
 
 
