@@ -744,7 +744,23 @@ func _sync_enemy_died(eid: int, loot: Array = []) -> void:
 		var count: int = drop.get("count", 1)
 		if not item_id.is_empty():
 			InventoryManager.add_item(item_id, count)
-	queue_free()
+	# Mirror the host's boss-death cleanup on this remote copy. The host's _die()
+	# only runs on its authority copy, so without this the client's boss never
+	# leaves the "bosses" group and the boss theme never restores to ambient —
+	# the boss music would keep looping for every non-killer player.
+	var is_boss := is_in_group("bosses")
+	if is_boss:
+		remove_from_group("bosses")
+		AudioManager.resume_ambient_music(1.0)
+		AudioManager.play(AudioManager.Sound.BOSS_DIE)
+	# Play the same fade-out death animation as the host's _die() so remote
+	# players see the boss crumple instead of it vanishing instantly.
+	var fade_time := 1.0 if is_boss else 0.5
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, fade_time)
+	tween.tween_callback(func():
+		queue_free()
+	)
 
 
 ## Client → host: forward a melee/ranged attack on a remote copy.
