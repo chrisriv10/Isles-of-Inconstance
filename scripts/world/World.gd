@@ -4344,7 +4344,10 @@ func _add_town_fence_border(origin_x: int, origin_y: int) -> void:
 	for y in range(origin_y + 2, origin_y + 20):
 		fence_cells.append(Vector2i(origin_x + 17, y))
 
-	# Place all fences via the building system (auto-connects neighbors)
+	# Place all fences via the synced RPC so every peer (not just the one that
+	# triggered the restore) sees the boundary. call_local applies it on the
+	# host too; _sync_place_building triggers no objective hook (decorative),
+	# and the same skip guard runs on the server before each is sent.
 	for cell in fence_cells:
 		if not _is_in_bounds(cell):
 			continue
@@ -4352,7 +4355,7 @@ func _add_town_fence_border(origin_x: int, origin_y: int) -> void:
 		var existing := building_system.get_building_at(cell)
 		if not existing.is_empty():
 			continue
-		building_system.place_building(FENCE, cell, 0, self)
+		rpc("_sync_place_building", FENCE, cell)
 
 	# Show a toast to let the player know
 	ToastNotification.show_toast("🏰 Town fully restored! Stone fence perimeter added.", ToastNotification.ToastType.SUCCESS, 4.0)
@@ -4814,6 +4817,16 @@ func _sync_remove_building(cell: Vector2i, b_type: int) -> void:
 ## send a snapshot of the world's mutable state: removed resources, harvested
 ## bushes, placed buildings, sprinklers and chest inventories. Without this a
 ## late joiner sees a pristine world that diverges from the host's.
+
+## EOS P2P reliable packets cap at ~1170 bytes total, and a fully-built
+## world-state snapshot (removed cells + buildings + soil + crops + animals +
+## chests) can far exceed that, so it must be streamed in byte-chunks (same
+## pattern as TownManager._broadcast_state). Reliable RPCs preserve order, so
+## the client reassembles the snapshot in arrival order.
+const WORLD_SYNC_CHUNK_BYTES: int = 800
+var _pending_world_chunks: Array = []
+var _pending_world_chunks_total: int = 0
+
 @rpc("any_peer", "reliable")
 func _server_request_world_state() -> void:
 	if not multiplayer.is_server():
@@ -4867,14 +4880,68 @@ func _server_request_world_state() -> void:
 	# GameManager.chest_inventories (keyed by cell), so it rides along in the
 	# chest snapshot. Send chest_versions too so the joiner's P1 write-version
 	# table matches the host from the start (no stale-write edge on first open).
-	rpc_id(sender, "_receive_world_state_snapshot", removed, harvested_bushes, build_snapshot, sprinkler_snapshot, GameManager.chest_inventories.duplicate(true), soil_snapshot, crop_snapshot, animal_snapshot, GameManager.chest_versions.duplicate(true))
+	var snapshot: Dictionary = {
+		"removed": removed,
+		"bushes": harvested_bushes,
+		"buildings": build_snapshot,
+		"sprinklers": sprinkler_snapshot,
+		"chests": GameManager.chest_inventories.duplicate(true),
+		"soil": soil_snapshot,
+		"crops": crop_snapshot,
+		"animals": animal_snapshot,
+		"chest_versions": GameManager.chest_versions.duplicate(true),
+	}
+	_send_world_state_chunks(sender, snapshot)
+
+
+## Host: stream a serialized world-state snapshot to one peer, split into
+## sub-1170-byte chunks (mirrors TownManager._send_state_chunks).
+func _send_world_state_chunks(sender: int, data: Dictionary) -> void:
+	var payload := var_to_bytes(data)
+	var total: int = ceili(float(payload.size()) / float(WORLD_SYNC_CHUNK_BYTES))
+	for i in range(total):
+		var start: int = i * WORLD_SYNC_CHUNK_BYTES
+		var end: int = mini(start + WORLD_SYNC_CHUNK_BYTES, payload.size())
+		rpc_id(sender, "_receive_world_state_snapshot_chunk", i, total, payload.slice(start, end))
+
+
+## Client: collect one chunk of the host's world-state snapshot, then apply the
+## whole snapshot once all pieces have arrived.
+@rpc("authority", "reliable")
+func _receive_world_state_snapshot_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
+	if multiplayer.is_server():
+		return
+	if chunk_index == 0:
+		_pending_world_chunks = []
+		_pending_world_chunks_total = total_chunks
+	if _pending_world_chunks.size() != chunk_index or total_chunks != _pending_world_chunks_total:
+		_pending_world_chunks = []  # out-of-order/interleaved transfer — discard
+		return
+	_pending_world_chunks.append(chunk)
+	if _pending_world_chunks.size() < _pending_world_chunks_total:
+		return
+	var payload := PackedByteArray()
+	for c in _pending_world_chunks:
+		payload.append_array(c)
+	_pending_world_chunks = []
+	var data: Variant = bytes_to_var(payload)
+	if data is Dictionary:
+		_apply_world_state_snapshot(data)
 
 
 ## Applies the host's world-state snapshot on a late-joining client.
 ## soil/crops/animals carry the full farm so the joiner matches the host's
 ## shared world rather than a pristine copy.
-@rpc("authority", "reliable")
-func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buildings: Array, sprinklers: Array, chests: Dictionary, soil: Array = [], crops: Array = [], animals: Array = [], chest_versions: Dictionary = {}) -> void:
+func _apply_world_state_snapshot(data: Dictionary) -> void:
+	var removed: Array = data.get("removed", [])
+	var harvested_bushes: Array = data.get("bushes", [])
+	var buildings: Array = data.get("buildings", [])
+	var sprinklers: Array = data.get("sprinklers", [])
+	var chests: Dictionary = data.get("chests", {})
+	var soil: Array = data.get("soil", [])
+	var crops: Array = data.get("crops", [])
+	var animals: Array = data.get("animals", [])
+	var chest_versions: Dictionary = data.get("chest_versions", {})
 	for entry in removed:
 		_remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
 	for entry in harvested_bushes:
