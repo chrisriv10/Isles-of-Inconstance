@@ -3035,6 +3035,13 @@ var _island_outside_pos: Vector2 = Vector2.ZERO
 var _island_prev_z: int = 0
 var _island_exit_cooldown: bool = false  # brief cooldown after returning
 
+## Removed island object ids, keyed by island seed -> { obj_id: true }. Tracked
+## on the always-present World node (not the transient island, which only exists
+## while a peer is on-island) so every peer accumulates removals regardless of
+## its current presence, enabling backfill to a late joiner on island entry.
+## Mirrors _removed_cell_objects for the main world.
+var _island_removed: Dictionary = {}
+
 # Host-side shared-island sessions. Keyed by island type so that multiple
 # players can be on DIFFERENT island types at the same time; every player
 # traveling to the same type joins the same generated island (same seed).
@@ -3795,6 +3802,12 @@ func _do_enter_island(seed: int, island_type: int) -> bool:
 	_current_island = island
 	island.generate_with_seed(seed, island_type)
 
+	# A client that just built its island copy wants the objects other members
+	# of this island session already removed, so it matches the host's gathered
+	# (depleted) state instead of a pristine island. Host skips (it's authority).
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_request_island_removals", seed)
+
 	# Move ONLY the local player (remote copies on this peer stay put — their
 	# own peers move them).
 	var player: Node = null
@@ -3844,6 +3857,70 @@ func _do_enter_island(seed: int, island_type: int) -> bool:
 	return true
 
 
+# ── Island removal backfill for late joiners ─────────────────────────────
+
+## Acting peer records an island-object removal on the World and broadcasts it
+## to all peers, so it is tracked even on peers not currently on the island.
+## Also removes the object from any local island already built with that seed.
+func notify_island_removal(seed: int, obj_id: int) -> void:
+	if not NetworkManager.is_network_active():
+		return
+	if not _island_removed.has(seed):
+		_island_removed[seed] = {}
+	_island_removed[seed][obj_id] = true
+	rpc("_sync_island_removal", seed, obj_id)
+
+
+## Every peer records the removal and removes the object from its local island
+## if that island is built with the same seed (so peers on-island free it too).
+## any_peer so the acting client can broadcast its own removal.
+@rpc("any_peer", "call_local", "reliable")
+func _sync_island_removal(seed: int, obj_id: int) -> void:
+	if not _island_removed.has(seed):
+		_island_removed[seed] = {}
+	_island_removed[seed][obj_id] = true
+	if _island_has_seed(seed):
+		_current_island._sync_island_object_removed(obj_id)
+
+
+## Client → host: this peer just built its island copy and wants any objects
+## already removed by other members of the same island session.
+@rpc("any_peer", "reliable")
+func _server_request_island_removals(seed: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = _sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	var ids: Array = []
+	for obj_id: Variant in _island_removed.get(seed, {}):
+		ids.append(int(obj_id))
+	rpc_id(sender, "_receive_island_removals", seed, ids)
+
+
+## Host → client: apply the session's already-removed objects to this peer so
+## it matches the host's gathered state (removals recorded regardless of island
+## presence are still applied when the seed matches).
+@rpc("authority", "reliable")
+func _receive_island_removals(seed: int, ids: Array) -> void:
+	if multiplayer.is_server():
+		return
+	if not _island_removed.has(seed):
+		_island_removed[seed] = {}
+	for obj_id: Variant in ids:
+		var oid: int = int(obj_id)
+		_island_removed[seed][oid] = true
+		if _island_has_seed(seed):
+			_current_island._sync_island_object_removed(oid)
+
+
+## True if this peer currently has a local island built with the given seed.
+func _island_has_seed(seed: int) -> bool:
+	if not is_instance_valid(_current_island):
+		return false
+	return int(_current_island.get("_island_seed")) == seed
+
+
 ## Return from the expedition island back to the main world.
 ## Called by ReturnBoat when the player interacts with it.
 func return_from_island() -> void:
@@ -3874,6 +3951,9 @@ func _server_exit_island() -> void:
 	if isl_type >= 0 and _island_sessions.has(isl_type):
 		_island_sessions[isl_type]["members"].erase(sender)
 		if _island_sessions[isl_type]["members"].is_empty():
+			# No one is on this island type anymore — its seed will rotate on
+			# the next entry, so drop its cached removal list to avoid growth.
+			_island_removed.erase(int(_island_sessions[isl_type].get("seed", -1)))
 			_island_sessions.erase(isl_type)
 
 	if sender == _self_id():

@@ -850,10 +850,15 @@ func _tag_island_obj(node: Node) -> void:
 
 ## Acting peer notifies peers when an island object is gathered/removed. Mirrors
 ## the main world's client-authoritative broadcast (_sync_remove_cell_object).
+## The removal is routed through the always-present World node (not this island,
+## which only exists while a peer is on-island) so it is tracked centrally and
+## can be backfilled to a late joiner on island entry.
 func notify_island_object_removed(obj_id: int) -> void:
 	if not NetworkManager.is_network_active():
 		return
-	rpc("_sync_island_object_removed", obj_id)
+	var world: Node = get_tree().get_first_node_in_group("world")
+	if is_instance_valid(world) and world.has_method("notify_island_removal"):
+		world.notify_island_removal(_island_seed, obj_id)
 
 
 ## Applies an island-object removal on every peer. any_peer + call_local so the
