@@ -2287,7 +2287,11 @@ func _scatter_animals() -> void:
 	rng.seed = world_seed + 10000
 	var animal_types: Array[String] = ["chicken", "cow", "rabbit", "deer", "goat", "pig", "sheep", "squirrel", "frog", "turtle"]
 	var animal_count: int = animal_types.size() * 2
-	var positions: Array = _generator.pick_object_positions(_tile_grid, animal_count, rng)
+	# Keep animals out of the town area — the backdrop sprite owns the plaza.
+	var town_rect: Rect2i = get_meta("town_rect", Rect2i())
+	var is_town_cell := func(cell: Vector2i) -> bool:
+		return town_rect.size.x > 0 and town_rect.has_point(cell)
+	var positions: Array = _generator.pick_object_positions(_tile_grid, animal_count, rng, is_town_cell)
 	
 	# Shuffle so type-to-position distribution varies per world seed
 	var shuffled_types: Array[String] = animal_types.duplicate()

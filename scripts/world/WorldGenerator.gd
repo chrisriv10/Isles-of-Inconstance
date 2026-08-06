@@ -103,15 +103,18 @@ func _pick_tile_type_id(noise_value: float, tile_types: Array) -> String:
 
 ## Returns a list of grid positions suitable for scattering interactable
 ## objects (e.g. rocks), avoiding non-walkable tiles.
-func pick_object_positions(grid: Array, count: int, rng: RandomNumberGenerator) -> Array:
+func pick_object_positions(grid: Array, count: int, rng: RandomNumberGenerator, is_excluded: Callable = Callable()) -> Array:
 	var positions: Array = []
 	var attempts: int = 0
 	while positions.size() < count and attempts < count * 20:
 		attempts += 1
 		var x := rng.randi_range(0, width - 1)
 		var y := rng.randi_range(0, height - 1)
+		var cell := Vector2i(x, y)
+		if is_excluded.is_valid() and is_excluded.call(cell):
+			continue
 		var tile_id: String = grid[y][x]
 		var tile_type: TileTypeData = DataManager.get_tile_type(tile_id)
 		if tile_type and tile_type.walkable and tile_type.id != "water":
-			positions.append(Vector2i(x, y))
+			positions.append(cell)
 	return positions
