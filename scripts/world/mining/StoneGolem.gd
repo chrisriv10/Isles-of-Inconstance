@@ -37,6 +37,9 @@ var experience_value: int = 15
 
 var _attack_timer: float = 0.0
 var _player_ref: Node2D = null
+# Where this enemy first spawned — the point it walks back to when there is
+# no standing player left to fight (mirrors overworld Enemy.gd).
+var _spawn_position: Vector2 = Vector2.ZERO
 var _hp_mult: float = 1.0
 
 # Multiplayer sync (host-authoritative, same pattern as overworld Enemy.gd —
@@ -57,6 +60,7 @@ var _name_label: Label = null
 
 func _ready() -> void:
 	add_to_group("enemies")
+	_spawn_position = global_position
 	current_health = max_health
 	_ensure_health_bar()
 	_update_health_bar()
@@ -170,10 +174,13 @@ func _physics_process(delta: float) -> void:
 	# Try to find player if we lost reference
 	if not _player_ref or not is_instance_valid(_player_ref):
 		_player_ref = _find_nearest_player()
-		return
+		if not _player_ref or not is_instance_valid(_player_ref):
+			_back_to_spawn(delta)
+			return
 
 	_refresh_target_player()
 	if not is_instance_valid(_player_ref):
+		_back_to_spawn(delta)
 		return
 	
 	var dist := global_position.distance_to(_player_ref.global_position)
@@ -240,6 +247,28 @@ func _ground_slam() -> void:
 	# Particles
 	EffectSpawner.spawn_dirt_puff(global_position)
 	AudioManager.play(AudioManager.Sound.HIT)
+
+
+## No standing (non-downed) player left to fight — walk back to the spawn
+## point and idle there instead of camping a downed teammate. Mirrors the
+## overworld Enemy behavior; does its own move_and_slide + position-sync so
+## remote copies keep following the walk-back.
+func _back_to_spawn(delta: float) -> void:
+	velocity = Vector2.ZERO
+	if global_position.distance_to(_spawn_position) > 8.0:
+		velocity = (_spawn_position - global_position).normalized() * speed
+	move_and_slide()
+	if velocity.x < -1.0:
+		sprite.flip_h = true
+	elif velocity.x > 1.0:
+		sprite.flip_h = false
+	# Host: broadcast position so remote copies mirror the walk-back.
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_sync_timer += delta
+		if _sync_timer >= SYNC_INTERVAL:
+			_sync_timer = 0.0
+			for pid in _mine_sync_peers():
+				rpc_id(pid, "_sync_mine_enemy_state", enemy_id, global_position, current_health)
 
 
 ## Applies damage to the current target player, routing it over the network
