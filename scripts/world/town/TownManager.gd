@@ -606,6 +606,13 @@ func _apply_remote_town_state(data: Dictionary) -> void:
 	for rid: String in residents:
 		known_resident_ids[rid] = true
 	deserialize(data)
+	# Sync the world-derived "restore N town buildings" objectives with the
+	# shared world's restored-ruin count. Personal-economy objectives stay
+	# per-player; only these town goals reflect shared world state so a joiner
+	# can't knock down and re-restore already-restored ruins for credit.
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("sync_restored_town_buildings"):
+		om.sync_restored_town_buildings(get_restored_count())
 	# Refresh visuals that listen to local signals. Re-emitting
 	# ruin_status_changed is idempotent (sprites switch per status).
 	for rid: String in ruins:

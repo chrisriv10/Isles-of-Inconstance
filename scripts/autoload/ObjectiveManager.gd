@@ -564,6 +564,32 @@ func on_building_restored() -> void:
 	track_progress(ObjectiveType.RESTORE_3_BUILDINGS)
 	track_progress(ObjectiveType.RESTORE_6_BUILDINGS)
 	track_progress(ObjectiveType.RESTORE_ALL_BUILDINGS)
+
+
+## World-derived objective sync. The town "restore N buildings" goals reflect
+## the SHARED world's restored-ruin count, so when a client applies the host's
+## town snapshot we set them to the real count rather than re-arming from 0.
+## This stops a joiner from knocking down and re-restoring already-restored
+## ruins to farm objective credit. Only these world-derived goals are synced —
+## per-player economy objectives are deliberately left untouched.
+func sync_restored_town_buildings(count: int) -> void:
+	var types: Array[int] = [
+		ObjectiveType.RESTORE_FIRST_BUILDING,
+		ObjectiveType.RESTORE_3_BUILDINGS,
+		ObjectiveType.RESTORE_6_BUILDINGS,
+		ObjectiveType.RESTORE_ALL_BUILDINGS,
+	]
+	for t in types:
+		var def: Dictionary = OBJECTIVE_DEFS.get(t, {})
+		var needed: int = 1
+		if t != ObjectiveType.RESTORE_FIRST_BUILDING:
+			needed = int(def.get("threshold", 1))
+		_progress[t] = count
+		if count >= needed:
+			_completed[t] = true
+		else:
+			_completed.erase(t)
+	objectives_updated.emit()
 	var tm := get_tree().get_first_node_in_group("town_manager")
 	if tm and "town_level" in tm:
 		var level: int = tm.get("town_level")
@@ -722,23 +748,3 @@ func deserialize(data: Dictionary) -> void:
 		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
 	if not _completed.has(ObjectiveType.CATCH_ALL_FISH):
 		_progress[ObjectiveType.CATCH_ALL_FISH] = _caught_fish.size()
-
-
-## Join-time pull: a freshly connected client asks the host for its current
-## objective progress so it doesn't re-arm incomplete objectives or display
-## stale milestone counts that the host already finished.
-@rpc("any_peer", "reliable")
-func _server_request_objective_state() -> void:
-	if not multiplayer.is_server():
-		return
-	var sender: int = multiplayer.get_remote_sender_id()
-	if sender == 0:
-		sender = multiplayer.get_unique_id()
-	rpc_id(sender, "_receive_objective_state", serialize())
-
-
-## Host → client: apply the host's objective progress on a late joiner.
-@rpc("authority", "reliable")
-func _receive_objective_state(data: Dictionary) -> void:
-	deserialize(data)
-	objectives_updated.emit()

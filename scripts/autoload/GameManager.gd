@@ -674,27 +674,35 @@ func _advance_minute() -> void:
 	if current_minute_of_day >= minutes_per_day:
 		current_minute_of_day = 0
 		current_day += 1
-		
-		# Advance season too
-		if season_system:
+
+		# Season/weather are HOST-AUTHORITATIVE in multiplayer: only the host
+		# rolls them and broadcasts the result (via _broadcast_time_state).
+		# Clients receive the true season/weather through _receive_time_state
+		# and must NOT re-roll locally — otherwise weather diverges between
+		# peers (rain on the wrong days) and rain double-waters the shared
+		# soil. Single-player is unaffected (authority = this peer).
+		var is_authority: bool = not NetworkManager.is_network_active() or multiplayer.is_server()
+
+		# Advance season too (host / single-player only)
+		if is_authority and season_system:
 			var old_season := season_system.current_season
 			season_system.advance_day()
 			if season_system.current_season != old_season:
 				season_changed.emit(season_system.current_season, season_system.get_season_name())
-		
-		# Advance weather before emitting day_changed
-		if weather_system:
+
+		# Advance weather before emitting day_changed (host / SP only), and
+		# apply rain auto-watering to the authoritative farm plots there.
+		if is_authority and weather_system:
 			weather_system.advance_day()
-			# Apply rain auto-watering to exposed farm plots
 			var world := get_tree().get_first_node_in_group("world")
 			if world and weather_system.is_raining():
 				weather_system.apply_rain_watering(world)
-		
-		# Apply daily bank interest
+
+		# Apply daily bank interest (per-player wallet — each peer owns its own)
 		_apply_bank_interest()
-		
+
 		day_changed.emit(current_day)
-		# Auto-save on day change
+		# Auto-save on day change (persisted only by host / single-player)
 		SaveManager.save_game()
 		# Host: broadcast day rollover to clients
 	if NetworkManager.is_network_active() and multiplayer.is_server():

@@ -4563,14 +4563,23 @@ func _sync_remove_cell_object(cell: Vector2i) -> void:
 	_remove_object_at_cell(cell)
 
 
-## Removes any world object node sitting at the given cell (trees, rocks,
-## flowers, stumps — plus any Node2D that landed there). Used by both the
-## live removal RPC and the late-joiner world-state snapshot.
+## Only harvestable/mineable nature objects may be removed through the live
+## removal RPC and the late-joiner snapshot. Buildings, animals, crops and
+## other persistent content are excluded so a malicious peer can't delete
+## arbitrary world state via _sync_remove_cell_object.
+func _is_removable_world_object(node: Node) -> bool:
+	return node is ResourceNode or node is TreeObject or node is FruitTree \
+		or node is OreDeposit or node is Bush or node is FlowerPatch \
+		or node is LogStump or node is MushroomPatch
+
+## Removes any harvestable/mineable nature-object node sitting at the given
+## cell (trees, rocks/flower stumps, flowers, bushes, mushroom patches, ore).
+## Used by both the live removal RPC and the late-joiner world-state snapshot.
 func _remove_object_at_cell(cell: Vector2i) -> void:
 	for child in objects_root.get_children():
 		if child is Node2D and is_instance_valid(child):
 			var child_cell := world_to_cell(child.global_position)
-			if child_cell == cell:
+			if child_cell == cell and _is_removable_world_object(child):
 				child.queue_free()
 				return
 
@@ -4721,15 +4730,42 @@ func _server_request_world_state() -> void:
 	for cell in _sprinklers.keys():
 		var s_data: Dictionary = _sprinklers[cell]
 		sprinkler_snapshot.append({"x": cell.x, "y": cell.y, "t": s_data.get("tier", 0), "d": s_data.get("placed_day", 0)})
+	# Full farm snapshot: every tilled/watered/planted soil cell (via
+	# SoilData.serialize) so a late joiner sees the real farm, not a pristine
+	# plot. Only tilled cells are sent (crops only grow there).
+	var soil_snapshot: Array = []
+	for cell in _soil_data:
+		var sd: SoilData = _soil_data[cell]
+		if sd is SoilData and sd.is_tilled:
+			soil_snapshot.append([cell.x, cell.y, sd.serialize()])
+	# Recreate the live Crop nodes (visuals + genetics) for planted cells so
+	# a late joiner can see and harvest crops that were already growing.
+	var crop_snapshot: Array = []
+	for cell in _crop_nodes:
+		var crop: Crop = _crop_nodes[cell]
+		if is_instance_valid(crop) and crop.crop_id != "":
+			crop_snapshot.append({
+				"x": cell.x, "y": cell.y, "id": crop.crop_id,
+				"days": crop.days_grown,
+				"g": crop.genetics.serialize() if crop.genetics else {},
+			})
+	# Live farm-animal roster already on the shared world (chickens, cows,
+	# respawned animals, etc.) so a late joiner matches the host's population.
+	var animal_snapshot: Array = []
+	for a in get_tree().get_nodes_in_group("animals"):
+		if is_instance_valid(a) and a is Animal:
+			animal_snapshot.append(a.get_network_data())
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == 0:
 		sender = multiplayer.get_unique_id()
-	rpc_id(sender, "_receive_world_state_snapshot", removed, harvested_bushes, build_snapshot, sprinkler_snapshot, GameManager.chest_inventories.duplicate(true))
+	rpc_id(sender, "_receive_world_state_snapshot", removed, harvested_bushes, build_snapshot, sprinkler_snapshot, GameManager.chest_inventories.duplicate(true), soil_snapshot, crop_snapshot, animal_snapshot)
 
 
 ## Applies the host's world-state snapshot on a late-joining client.
+## soil/crops/animals carry the full farm so the joiner matches the host's
+## shared world rather than a pristine copy.
 @rpc("authority", "reliable")
-func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buildings: Array, sprinklers: Array, chests: Dictionary) -> void:
+func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buildings: Array, sprinklers: Array, chests: Dictionary, soil: Array = [], crops: Array = [], animals: Array = []) -> void:
 	for entry in removed:
 		_remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
 	for entry in harvested_bushes:
@@ -4749,6 +4785,46 @@ func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buil
 		GameManager.chest_inventories.clear()
 		for key in chests.keys():
 			GameManager.chest_inventories[key] = chests.get(key)
+
+	# Recreate the farm's soil state (tilting, watering, planted crop ids).
+	for entry in soil:
+		var cell := Vector2i(int(entry[0]), int(entry[1]))
+		if _is_in_bounds(cell):
+			_soil_data[cell] = SoilData.deserialize(entry[2])
+
+	# Recreate the live Crop nodes (visuals + genetics) for planted cells so
+	# this joiner can see and harvest crops already growing on the host.
+	for entry in crops:
+		var crop_cell := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+		if not _soil_data.has(crop_cell) or _crop_nodes.has(crop_cell):
+			continue
+		var crop: Crop = CROP_SCENE.instantiate()
+		objects_root.add_child(crop)
+		crop.global_position = cell_to_world(crop_cell)
+		crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)))
+		var g: Variant = entry.get("g", {})
+		if g is Dictionary and not (g as Dictionary).is_empty() and crop.genetics:
+			crop.genetics = CropGenetics.deserialize(g)
+		crop.mutated.connect(_on_crop_mutated.bind(crop_cell))
+		_crop_nodes[crop_cell] = crop
+
+	# This client may have spawned its own starter animals during world gen
+	# before this snapshot arrived. The host is authoritative for the shared
+	# farm population, so drop any local ones, then recreate the host's roster.
+	if not animals.is_empty():
+		for existing in get_tree().get_nodes_in_group("animals"):
+			if is_instance_valid(existing):
+				existing.queue_free()
+		for entry in animals:
+			if not (entry is Dictionary):
+				continue
+			var animal_data: Dictionary = entry
+			var animal: Animal = ANIMAL_SCENE.instantiate()
+			var node_name: String = str(animal_data.get("node_name", ""))
+			if node_name != "":
+				animal.name = node_name
+			objects_root.add_child(animal)
+			animal.setup_from_network(animal_data)
 
 
 # ── Visitor ship sync ───────────────────────────────────────────────────
