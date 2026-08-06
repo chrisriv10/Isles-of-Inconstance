@@ -264,6 +264,11 @@ func reset_hunger() -> void:
 	_try_broadcast_player_stats()
 
 func take_damage(amount: int) -> void:
+	# Downed players (MP co-op) are invulnerable while waiting for a revive.
+	# Enemies should re-target a standing teammate; this guard makes any
+	# stray hit that lands while the downed state syncs do zero damage.
+	if _is_downed:
+		return
 	if is_creative() and creative_infinite_health:
 		return
 	var original_amount: int = amount
@@ -383,6 +388,8 @@ func _on_player_died() -> void:
 		_instant_respawn()
 
 func _enter_downed_state() -> void:
+	if _is_downed:
+		return  # Already downed — don't re-trigger (health is pinned at 1)
 	print("Player downed! Waiting for revive...")
 	_is_downed = true
 	_downed_timer = 0.0
@@ -392,10 +399,21 @@ func _enter_downed_state() -> void:
 	health_changed.emit(health, MAX_HEALTH)
 	_try_broadcast_player_stats()
 	
-	# Notify player node to apply downed effects
-	var player := get_tree().get_first_node_in_group("player")
-	if player and player.has_method("apply_downed_state"):
-		player.apply_downed_state()
+	# Notify the LOCAL player node to apply downed effects. The "player"
+	# group also holds remote copies of teammates, and get_first_node_in_group
+	# is order-undefined — applying downed state to a remote copy would leave
+	# the real player standing (still targeted by enemies) while the wrong
+	# node keels over.
+	var player_node: Node2D = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and p is Node2D \
+				and (not NetworkManager.is_network_active() or p.get_multiplayer_authority() == multiplayer.get_unique_id()):
+			player_node = p
+			break
+	if player_node == null:
+		player_node = get_tree().get_first_node_in_group("player")
+	if player_node and player_node.has_method("apply_downed_state"):
+		player_node.apply_downed_state()
 	
 	player_downed.emit(player_name)
 	print("Downed state entered, timer started")

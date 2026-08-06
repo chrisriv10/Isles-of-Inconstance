@@ -141,31 +141,25 @@ func _ready() -> void:
 	add_child(_stun_timer)
 
 
-## Picks the closest valid, standing (not-downed) player node from the
-## "player" group, or null. In multiplayer every peer has its own local
-## player plus remote copies, so enemies aggro the nearest living player.
-## Downed players are skipped (they're waiting for a revive, not fighting)
-## so enemies don't camp a downed teammate; if EVERY player is downed we
-## fall back to the nearest player anyway rather than standing idle.
+## Picks the closest standing (not-downed) player node from the "player"
+## group, or null. In multiplayer every peer has its own local player plus
+## remote copies, so enemies aggro the nearest LIVING player and skip downed
+## ones (they're waiting for a revive, not fighting). If every player is
+## downed this returns null and the enemy backs off to its spawn instead of
+## camping a downed teammate.
 func _find_nearest_player() -> CharacterBody2D:
 	var best: CharacterBody2D = null
 	var best_dist_sq: float = INF
-	var downed: CharacterBody2D = null
-	var downed_dist_sq: float = INF
 	for p in get_tree().get_nodes_in_group("player"):
 		if not is_instance_valid(p) or not (p is CharacterBody2D):
 			continue
+		if "_is_downed" in p and p._is_downed:
+			continue
 		var p_body := p as CharacterBody2D
 		var d_sq: float = global_position.distance_squared_to(p_body.global_position)
-		if "_is_downed" in p and p._is_downed:
-			if d_sq < downed_dist_sq:
-				downed_dist_sq = d_sq
-				downed = p_body
-		elif d_sq < best_dist_sq:
+		if d_sq < best_dist_sq:
 			best_dist_sq = d_sq
 			best = p_body
-	if best == null:
-		best = downed  # everyone is downed — go for the nearest anyway
 	return best
 
 
@@ -181,11 +175,15 @@ func _refresh_target_player() -> void:
 		player_ref = nearest
 		return
 	if nearest == null:
+		# Every player is downed (or gone) — drop the target so the enemy
+		# backs off to its spawn instead of camping a downed teammate.
+		if _is_downed(player_ref):
+			player_ref = null
 		return
 	# Current target went down (waiting for a revive) or died — immediately
 	# re-target the nearest standing player. The hysteresis below would
 	# otherwise keep the enemy locked onto the (closer) downed player.
-	if not is_instance_valid(player_ref) or _is_downed(player_ref):
+	if _is_downed(player_ref):
 		player_ref = nearest
 		return
 	var current_dist: float = global_position.distance_to(player_ref.global_position)
@@ -206,24 +204,37 @@ func _physics_process(delta: float) -> void:
 	
 	_refresh_target_player()
 	if not is_instance_valid(player_ref):
-		velocity = Vector2.ZERO
-		return
-	
-	# Always update state — even from ATTACK — so enemies resume chasing
-	# when the player moves out of attack range.
-	_update_state()
-	
-	match state:
-		State.IDLE:
+		# No standing (non-downed) player to fight — return to the spawn point
+		# and idle there instead of camping a downed teammate. Flows through
+		# the shared move_and_slide + position-sync below so remote copies
+		# keep following the walk back.
+		state = State.IDLE
+		var to_spawn := global_position.distance_to(_spawn_position)
+		if to_spawn > 8.0:
+			var dir := _safe_normalize(_spawn_position - global_position)
+			if _is_water_position(global_position + dir * speed * delta):
+				velocity = Vector2.ZERO
+			else:
+				velocity = dir * speed
+			if sprite:
+				sprite.flip_h = dir.x < 0
+		else:
 			velocity = Vector2.ZERO
-		State.CHASE:
-			_chase_player(delta)
-		State.ATTACK:
-			velocity = Vector2.ZERO
-			if _attack_timer <= 0.0:
-				_attack_player()
-		State.STUNNED:
-			velocity = Vector2.ZERO
+	else:
+		# Always update state — even from ATTACK — so enemies resume chasing
+		# when the player moves out of attack range.
+		_update_state()
+		match state:
+			State.IDLE:
+				velocity = Vector2.ZERO
+			State.CHASE:
+				_chase_player(delta)
+			State.ATTACK:
+				velocity = Vector2.ZERO
+				if _attack_timer <= 0.0:
+					_attack_player()
+			State.STUNNED:
+				velocity = Vector2.ZERO
 			# Timer handles state transition back to previous state
 	
 	# Sanitize velocity — NaN/INF values propagate through move_and_slide and

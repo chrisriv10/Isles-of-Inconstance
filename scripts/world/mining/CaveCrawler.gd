@@ -65,14 +65,17 @@ func set_hp_multiplier(mult: float) -> void:
 	current_health = max_health
 
 
-## Picks the closest valid player node from the "player" group, or null.
-## In multiplayer every peer has its own local player plus remote copies,
-## so the enemy targets the nearest player instead of the first in the group.
+## Picks the closest standing (not-downed) player node from the "player"
+## group, or null. In multiplayer every peer has its own local player plus
+## remote copies, so the enemy targets the nearest LIVING player and skips
+## downed ones (they're waiting for a revive, not fighting).
 func _find_nearest_player() -> Node2D:
 	var best: Node2D = null
 	var best_dist_sq: float = INF
 	for p in get_tree().get_nodes_in_group("player"):
 		if not is_instance_valid(p) or not (p is Node2D):
+			continue
+		if "_is_downed" in p and p._is_downed:
 			continue
 		var p_node: Node2D = p as Node2D
 		var d_sq: float = global_position.distance_squared_to(p_node.global_position)
@@ -90,6 +93,13 @@ func _refresh_target_player() -> void:
 		_player_ref = nearest
 		return
 	if nearest == null:
+		# Everyone is downed — drop the target so we don't camp a downed player.
+		if "_is_downed" in _player_ref and _player_ref._is_downed:
+			_player_ref = null
+		return
+	# Current target went down — immediately re-target a standing player.
+	if "_is_downed" in _player_ref and _player_ref._is_downed:
+		_player_ref = nearest
 		return
 	var current_dist: float = global_position.distance_to(_player_ref.global_position)
 	var nearest_dist: float = global_position.distance_to(nearest.global_position)
