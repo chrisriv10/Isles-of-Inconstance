@@ -16,6 +16,7 @@ var is_open: bool = false
 var _container: ContainerInventory = null
 var _chest_key: String = ""
 var _chest_dirty: bool = false
+var _chest_version: int = 0
 
 ## Optional callback for "Deposit All" button (e.g. silo deposit_all_crops).
 var _deposit_all_callback: Callable = Callable()
@@ -41,6 +42,7 @@ func open_for(container: ContainerInventory, title: String = "Storage Chest",
 	_container = container
 	_chest_key = chest_key
 	_chest_dirty = false
+	_chest_version = GameManager.chest_versions.get(chest_key, 0)
 
 	# Safely connect — avoid "already connected" errors
 	if not _container.changed.is_connected(_on_container_changed):
@@ -88,7 +90,7 @@ func close() -> void:
 
 	# Multiplayer: sync chest contents to host only if local changes were made
 	if NetworkManager.is_network_active() and _chest_key != "" and _container != null and _chest_dirty:
-		GameManager.sync_chest_on_close(_chest_key, _container.slots)
+		GameManager.sync_chest_on_close(_chest_key, _container.slots, _chest_version)
 		_chest_dirty = false
 
 	if _container and _container.changed.is_connected(_on_container_changed):

@@ -87,6 +87,10 @@ var seen_dialogues: Dictionary = {}
 # interior enter/exit cycles so stored items aren't lost.
 # Each value is an Array of null or {"item_id": String, "count": int} slots.
 static var chest_inventories: Dictionary = {}
+## Per-chest write version (host-authoritative). Increments on each accepted
+## commit so concurrent closes from two peers can't silently overwrite each
+## other (last-write-wins is prevented by rejecting stale versions).
+static var chest_versions: Dictionary = {}
 
 # Barn animal stall collection data keyed by barn cell "x,y".
 # Each entry maps stall_id -> last_collection_day.
@@ -1033,14 +1037,23 @@ func _server_send_chest_data(key: String) -> void:
 	if not multiplayer.is_server():
 		return
 	var slots: Array = chest_inventories.get(key, [])
-	rpc_id(multiplayer.get_remote_sender_id(), "_receive_chest_data", key, slots)
+	rpc_id(multiplayer.get_remote_sender_id(), "_receive_chest_data", key, slots, chest_versions.get(key, 0))
 
 
+## Received by a client when it opens a chest (fresh load) or when a stale
+## close was rejected (reloaded=true). version is the authoritative write
+## version this copy corresponds to.
 @rpc("authority", "reliable")
-func _receive_chest_data(key: String, slots: Array) -> void:
+func _receive_chest_data(key: String, slots: Array, version: int = 0, reloaded: bool = false) -> void:
 	if multiplayer.is_server():
 		return
 	chest_inventories[key] = slots
+	chest_versions[key] = version
+	var chest_ui := get_tree().get_first_node_in_group("chest_storage_ui")
+	if chest_ui and chest_ui.get("is_open") and chest_ui.get("_chest_key") == key:
+		chest_ui.set("_chest_version", version)
+	if reloaded and NetworkManager.is_network_active():
+		ToastNotification.show_toast("Chest changed by another player — contents reloaded", ToastNotification.ToastType.WARNING, 4.0)
 	_apply_chest_data(key, slots)
 
 
@@ -1064,26 +1077,58 @@ func _apply_chest_data(key: String, slots: Array) -> void:
 	chest_ui._container.changed.emit()
 
 
-## Called when a chest UI closes. Sends the final slots to the host.
-func sync_chest_on_close(key: String, slots: Array) -> void:
+## Host commits a chest write ONLY if the provided version still matches the
+## authoritative version (i.e. no other peer wrote meanwhile). Returns true if
+## accepted; false if stale (a newer write already landed) — caller must
+## reject/reload rather than overwrite.
+func _commit_chest_write(key: String, slots: Array, version: int) -> bool:
+	if version != chest_versions.get(key, 0):
+		return false
+	chest_versions[key] = version + 1
+	chest_inventories[key] = slots.duplicate(true)
+	rpc("_broadcast_chest_update", key, slots, chest_versions[key])
+	return true
+
+
+## Host hit a stale close on its own copy — discard the local edits and reload
+## the authoritative state into the open UI (if it's still open).
+func _stale_chest_reload(key: String, req_sender: int) -> void:
+	var chest_ui := get_tree().get_first_node_in_group("chest_storage_ui")
+	if chest_ui and chest_ui.get("is_open") and chest_ui.get("_chest_key") == key:
+		chest_ui.set("_chest_version", chest_versions.get(key, 0))
+		_apply_chest_data(key, chest_inventories.get(key, []))
+	if req_sender > 0:
+		rpc_id(req_sender, "_receive_chest_data", key, chest_inventories.get(key, []), chest_versions.get(key, 0), true)
+
+
+## Called when a chest UI closes. Sends the final slots (plus the version the
+## editor started from) to the host.
+func sync_chest_on_close(key: String, slots: Array, version: int = 0) -> void:
 	if multiplayer.is_server():
-		chest_inventories[key] = slots.duplicate(true)
-		rpc("_broadcast_chest_update", key, slots)
+		if not _commit_chest_write(key, slots, version):
+			_stale_chest_reload(key, 0)
 	else:
-		rpc_id(1, "_server_sync_chest_on_close", key, slots)
+		rpc_id(1, "_server_sync_chest_on_close", key, slots, version)
 
 
 @rpc("any_peer", "reliable")
-func _server_sync_chest_on_close(key: String, slots: Array) -> void:
+func _server_sync_chest_on_close(key: String, slots: Array, version: int = 0) -> void:
 	if not multiplayer.is_server():
 		return
-	chest_inventories[key] = slots.duplicate(true)
-	rpc("_broadcast_chest_update", key, slots)
+	if not _commit_chest_write(key, slots, version):
+		# Stale write rejected: push the authoritative current state + version
+		# back to the requesting client so its *next* edit starts from fresh
+		# data instead of clobbering the newer write.
+		var sender: int = multiplayer.get_remote_sender_id()
+		if sender == 0:
+			sender = multiplayer.get_unique_id()
+		_stale_chest_reload(key, sender)
 
 
 @rpc("authority", "call_local", "reliable")
-func _broadcast_chest_update(key: String, slots: Array) -> void:
+func _broadcast_chest_update(key: String, slots: Array, version: int = 0) -> void:
 	chest_inventories[key] = slots
+	chest_versions[key] = version
 	_apply_chest_data(key, slots)
 
 

@@ -56,6 +56,7 @@ var _ground_palette: Array = []
 
 ## Seeds: each trip gets a fresh random seed so the island is different every time.
 var _island_seed: int = 0
+var _island_obj_counter: int = 0
 var _tile_grid: Array = []
 var _sub_biome_grid: Array = []  # 0,1,2 per cell
 var _generator: WorldGenerator
@@ -838,6 +839,33 @@ func _cell_to_world(cell: Vector2i) -> Vector2:
 
 # ── Content Scattering ───────────────────────────────────────────────────
 
+## Assigns a deterministic, session-unique id to a scatterable island object so
+## gather/remove actions can be broadcast to other peers building the same island.
+## The id is seeded so distinct island sessions never collide (prevents a
+## broadcast on one island from removing a matching object on another island).
+func _tag_island_obj(node: Node) -> void:
+	_island_obj_counter += 1
+	node.set_meta("island_obj_id", _island_seed * 100000 + _island_obj_counter)
+
+
+## Acting peer notifies peers when an island object is gathered/removed. Mirrors
+## the main world's client-authoritative broadcast (_sync_remove_cell_object).
+func notify_island_object_removed(obj_id: int) -> void:
+	if not NetworkManager.is_network_active():
+		return
+	rpc("_sync_island_object_removed", obj_id)
+
+
+## Applies an island-object removal on every peer. any_peer + call_local so the
+## acting peer's own broadcast also removes its local copy.
+@rpc("any_peer", "call_local")
+func _sync_island_object_removed(obj_id: int) -> void:
+	for child in $Objects.get_children():
+		if is_instance_valid(child) and child.get_meta("island_obj_id", -1) == obj_id:
+			child.queue_free()
+			return
+
+
 func _scatter_trees() -> void:
 	var count_range: Array = _tree_config.get("count", [8, 16])
 	var tree_count: int = _rng.randi_range(count_range[0], count_range[1])
@@ -865,6 +893,7 @@ func _scatter_trees() -> void:
 		if not tree_sprites.is_empty():
 			tree.sprite_pool_override = tree_sprites
 
+		_tag_island_obj(tree)
 		objects_root.add_child(tree)
 		tree.position = _cell_to_world(cell)
 
@@ -890,6 +919,7 @@ func _scatter_resource_nodes() -> void:
 		for _i in range(count):
 			var cell := _pick_walkable_cell()
 			var node := RESOURCE_NODE_SCENE.instantiate()
+			_tag_island_obj(node)
 			node.item_id = rc.item_id
 			node.interaction_prompt = rc.prompt
 			if rc.tool >= 0:
@@ -933,6 +963,7 @@ func _scatter_nature_objects() -> void:
 			bush.texture_override_pool = bush_sprite_pool
 		elif not bush_sprite_path.is_empty():
 			bush.texture_override_path = bush_sprite_path
+		_tag_island_obj(bush)
 		objects_root.add_child(bush)
 		bush.position = _cell_to_world(cell)
 
@@ -943,6 +974,7 @@ func _scatter_nature_objects() -> void:
 			flower.texture_override_pool = flower_sprite_pool
 		elif not flower_sprite_path.is_empty():
 			flower.texture_override_path = flower_sprite_path
+		_tag_island_obj(flower)
 		objects_root.add_child(flower)
 		flower.position = _cell_to_world(cell)
 
@@ -953,6 +985,7 @@ func _scatter_nature_objects() -> void:
 			mushroom.texture_override_pool = mushroom_sprite_pool
 		elif not mushroom_sprite_path.is_empty():
 			mushroom.texture_override_path = mushroom_sprite_path
+		_tag_island_obj(mushroom)
 		objects_root.add_child(mushroom)
 		mushroom.position = _cell_to_world(cell)
 

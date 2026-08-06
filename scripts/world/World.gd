@@ -993,9 +993,13 @@ func _plant_seed_cell(cell: Vector2i, crop_id: String, simulate: bool = false) -
 	# Effects
 	AudioManager.play(AudioManager.Sound.PLANT)
 	
-	# Sync to remote peers
+	# Sync to remote peers, carrying the crop's genetics so every peer builds
+	# the SAME plant (no per-peer unseeded RNG roll → no farm divergence).
 	if NetworkManager.is_network_active():
-		rpc("_sync_plant_cell", cell, effective_crop_id)
+		var gen: Dictionary = {}
+		if _crop_nodes.has(cell) and _crop_nodes[cell] and _crop_nodes[cell].genetics:
+			gen = _crop_nodes[cell].genetics.serialize()
+		rpc("_sync_plant_cell", cell, effective_crop_id, gen)
 	
 	return true
 
@@ -2921,6 +2925,7 @@ func enter_building(interior: BuildingInterior) -> void:
 	
 	current_interior = interior
 	GameManager.inside_interior = true
+	AudioManager.play_music(AudioManager.Sound.INTERIOR_MUSIC)
 	AudioManager.play(AudioManager.Sound.DOOR_OPEN)
 	# Show interior tutorial hint once
 	if not _hint_interior_shown:
@@ -2976,6 +2981,7 @@ func _deferred_setup_interior(interior: BuildingInterior) -> void:
 func _on_exit_interior() -> void:
 	current_interior = null
 	GameManager.inside_interior = false
+	AudioManager.resume_ambient_music()
 	AudioManager.play(AudioManager.Sound.DOOR_CLOSE)
 	# Brief cooldown so the player doesn't immediately re-enter the building
 	_exit_cooldown = true
@@ -3179,6 +3185,7 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 	if GameManager.inside_interior:
 		return false
 	
+	AudioManager.play_music(AudioManager.Sound.CAVE_MUSIC)
 	AudioManager.play(AudioManager.Sound.CAVE_AMBIENCE)
 	
 	# Create mine room with generator
@@ -3424,6 +3431,7 @@ func emergency_exit_mine() -> void:
 	_mine_exit_cooldown = false
 	GameManager.inside_interior = false
 	GameManager.inside_mine = false
+	AudioManager.resume_ambient_music()
 	_clear_mine_camera_limits()
 	
 	var local_player: Node = null
@@ -3518,6 +3526,7 @@ func _do_exit_mine() -> void:
 	_mine_current_depth = 0
 	GameManager.inside_interior = false
 	GameManager.inside_mine = false
+	AudioManager.resume_ambient_music()
 
 	# Fresh stats so remote copies flip back to the overworld visibility.
 	GameManager._try_broadcast_player_stats()
@@ -4621,9 +4630,12 @@ func _sync_water_cell(cell: Vector2i) -> void:
 
 
 @rpc("any_peer", "call_local")
-func _sync_plant_cell(cell: Vector2i, crop_id: String) -> void:
+func _sync_plant_cell(cell: Vector2i, crop_id: String, genetics_dict: Dictionary = {}) -> void:
 	if _soil_data.has(cell) and _soil_data[cell].is_tilled and _soil_data[cell].crop_id == "":
 		_plant_seed_cell(cell, crop_id, true)
+		# Match the planting peer's genetics exactly (not an unseeded re-roll).
+		if not genetics_dict.is_empty() and _crop_nodes.has(cell) and _crop_nodes[cell].genetics:
+			_crop_nodes[cell].genetics = CropGenetics.deserialize(genetics_dict)
 
 
 ## action: 0 = removed, 1 = regrow, 2 = sprout
@@ -4758,14 +4770,18 @@ func _server_request_world_state() -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == 0:
 		sender = multiplayer.get_unique_id()
-	rpc_id(sender, "_receive_world_state_snapshot", removed, harvested_bushes, build_snapshot, sprinkler_snapshot, GameManager.chest_inventories.duplicate(true), soil_snapshot, crop_snapshot, animal_snapshot)
+	# Building-integrated storage (Silo/Windmill/Shed) lives in
+	# GameManager.chest_inventories (keyed by cell), so it rides along in the
+	# chest snapshot. Send chest_versions too so the joiner's P1 write-version
+	# table matches the host from the start (no stale-write edge on first open).
+	rpc_id(sender, "_receive_world_state_snapshot", removed, harvested_bushes, build_snapshot, sprinkler_snapshot, GameManager.chest_inventories.duplicate(true), soil_snapshot, crop_snapshot, animal_snapshot, GameManager.chest_versions.duplicate(true))
 
 
 ## Applies the host's world-state snapshot on a late-joining client.
 ## soil/crops/animals carry the full farm so the joiner matches the host's
 ## shared world rather than a pristine copy.
 @rpc("authority", "reliable")
-func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buildings: Array, sprinklers: Array, chests: Dictionary, soil: Array = [], crops: Array = [], animals: Array = []) -> void:
+func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buildings: Array, sprinklers: Array, chests: Dictionary, soil: Array = [], crops: Array = [], animals: Array = [], chest_versions: Dictionary = {}) -> void:
 	for entry in removed:
 		_remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
 	for entry in harvested_bushes:
@@ -4785,6 +4801,10 @@ func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buil
 		GameManager.chest_inventories.clear()
 		for key in chests.keys():
 			GameManager.chest_inventories[key] = chests.get(key)
+	if not chest_versions.is_empty():
+		GameManager.chest_versions.clear()
+		for key in chest_versions.keys():
+			GameManager.chest_versions[key] = chest_versions.get(key)
 
 	# Recreate the farm's soil state (tilting, watering, planted crop ids).
 	for entry in soil:
@@ -4801,10 +4821,11 @@ func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buil
 		var crop: Crop = CROP_SCENE.instantiate()
 		objects_root.add_child(crop)
 		crop.global_position = cell_to_world(crop_cell)
-		crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)))
 		var g: Variant = entry.get("g", {})
-		if g is Dictionary and not (g as Dictionary).is_empty() and crop.genetics:
-			crop.genetics = CropGenetics.deserialize(g)
+		if g is Dictionary and not (g as Dictionary).is_empty():
+			crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)), CropGenetics.deserialize(g))
+		else:
+			crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)))
 		crop.mutated.connect(_on_crop_mutated.bind(crop_cell))
 		_crop_nodes[crop_cell] = crop
 

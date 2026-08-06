@@ -177,6 +177,13 @@ func interact(interactor: Node) -> void:
 			om.on_gather_wild("mushroom", gathered)
 	
 	_used = true
+	# Route removal through the parent expedition island when present so shared
+	# islands replicate gather/remove to all peers; otherwise remove locally.
+	var _parent := get_parent()
+	if _parent != null and _parent.get_parent() != null and _parent.get_parent().has_method("notify_island_object_removed"):
+		_parent.get_parent().notify_island_object_removed(int(get_meta("island_obj_id", -1)))
+		queue_free()
+		return
 	# Notify remote peers so they remove their copy of this patch.
 	if NetworkManager.is_network_active():
 		var world = get_tree().get_first_node_in_group("world")

@@ -16,6 +16,10 @@ var _music_player: AudioStreamPlayer = null
 var _current_music: int = -1
 var _music_volume: float = 0.0
 var _crossfade_tween: Tween = null
+## Ambient track (AMBIENT_DAY / AMBIENT_NIGHT) to restore after a zone
+## override (cave/boss/interior music) ends. Phase changes keep this updated,
+## so the correct day/night theme plays when the player leaves the zone.
+var _base_music: int = -1
 
 enum Sound {
 	# Farming
@@ -46,6 +50,8 @@ enum Sound {
 	PICKAXE_HIT, PICKAXE_BREAK, MINE_ENTER, MINE_EXIT,
 	# New sounds
 	CAVE_AMBIENCE, MAIN_MENU,
+	# Zone music themes (loop over ambient while in caves / boss fights / interiors)
+	CAVE_MUSIC, BOSS_MUSIC, INTERIOR_MUSIC,
 }
 
 var _sound_streams: Dictionary = {}
@@ -94,6 +100,9 @@ func _load_streams() -> void:
 		Sound.AMBIENT_NIGHT: "res://assets/audio/night_ambience_theme.mp3",
 		Sound.CAVE_AMBIENCE: "res://assets/audio/cave_ambience_effect.mp3",
 		Sound.MAIN_MENU: "res://assets/audio/main_menu_theme.mp3",
+		Sound.CAVE_MUSIC: "res://assets/audio/cave_music_theme.mp3",
+		Sound.BOSS_MUSIC: "res://assets/audio/boss_theme.mp3",
+		Sound.INTERIOR_MUSIC: "res://assets/audio/interior_music.mp3",
 	}
 
 	for sound_type in sound_config:
@@ -130,6 +139,16 @@ func play_music(sound_type: Sound, fade_seconds: float = 1.0) -> void:
 	# Kill any in-progress crossfade
 	if _crossfade_tween and _crossfade_tween.is_valid():
 		_crossfade_tween.kill()
+
+	# Zone overrides (cave/boss/interior) remember the ambient track that was
+	# playing so resume_ambient_music() can restore it. Nested overrides keep
+	# the existing base — an override never chains into _base_music.
+	if _is_override_track(sound_type):
+		if _base_music < 0:
+			if _current_music == Sound.AMBIENT_DAY or _current_music == Sound.AMBIENT_NIGHT:
+				_base_music = _current_music
+			else:
+				_base_music = _derive_ambient_from_phase()
 
 	# Enable looping. WAV streams use loop_mode (enum), OGG/MP3 use loop (bool).
 	if stream is AudioStreamWAV:
@@ -179,13 +198,42 @@ func stop_music(fade_seconds: float = 0.5) -> void:
 
 ## Respond to day/night phase changes — switch ambient music.
 func _on_phase_changed(phase: int) -> void:
+	# Always track the ambient theme matching this phase, so leaving a
+	# cave/boss/interior after a phase change restores the correct track.
+	_base_music = _get_ambient_for_phase(phase)
 	if _current_music >= 0 and _current_music != Sound.AMBIENT_DAY and _current_music != Sound.AMBIENT_NIGHT:
-		return
+		return  # a zone override or the menu music is playing
 	match phase:
 		0, 1:  # DAWN, DAY
 			play_music(Sound.AMBIENT_DAY, 2.0)
 		2, 3:  # DUSK, NIGHT
 			play_music(Sound.AMBIENT_NIGHT, 2.0)
+
+## True when the track is a zone override (replaces ambient while inside a
+## cave, boss fight, or building interior).
+func _is_override_track(sound_type: Sound) -> bool:
+	return sound_type == Sound.CAVE_MUSIC or sound_type == Sound.BOSS_MUSIC or sound_type == Sound.INTERIOR_MUSIC
+
+## Ambient theme for a day/night phase (0-1 = day, 2-3 = night).
+func _get_ambient_for_phase(phase: int) -> int:
+	return Sound.AMBIENT_DAY if phase < 2 else Sound.AMBIENT_NIGHT
+
+## Resolve the ambient theme from the current day/night phase. Fallback used
+## when no phase change has been observed yet (e.g. world regen on join).
+func _derive_ambient_from_phase() -> int:
+	var phase: int = 0
+	var gm: Node = get_node_or_null("/root/GameManager")
+	var day_night: Node = gm.get("day_night") if gm else null
+	if day_night:
+		phase = int(day_night.get("current_phase"))
+	return _get_ambient_for_phase(phase)
+
+## Return to the ambient day/night theme after a zone override ends. Falls
+## back to the current phase if no base track was captured.
+func resume_ambient_music(fade_seconds: float = 1.0) -> void:
+	var target: int = _base_music if _base_music >= 0 else _derive_ambient_from_phase()
+	_base_music = -1
+	play_music(target, fade_seconds)
 
 ## Get an available audio player (round-robin).
 func _get_available_player() -> AudioStreamPlayer:

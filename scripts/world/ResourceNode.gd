@@ -179,6 +179,14 @@ func _complete_gathering() -> void:
 		om.on_gather_wild(item_id, gathered)
 
 	super.interact(_gatherer_ref)
+	# Route removal through the parent expedition island when present so shared
+	# islands replicate gather/remove to all peers; otherwise fall back to the
+	# main-world removal broadcast.
+	var parent := get_parent()
+	if parent != null and parent.get_parent() != null and parent.get_parent().has_method("notify_island_object_removed"):
+		parent.get_parent().notify_island_object_removed(int(get_meta("island_obj_id", -1)))
+		queue_free()
+		return
 	var world: Node = get_tree().get_first_node_in_group("world")
 	if world and world.has_method("notify_cell_object_removed"):
 		world.notify_cell_object_removed(global_position)
