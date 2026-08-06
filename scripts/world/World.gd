@@ -3210,6 +3210,15 @@ var _island_removed: Dictionary = {}
 var _island_sessions: Dictionary = {}  # island_type -> { "seed": int, "members": {peer_id: true} }
 var _island_peer_type: Dictionary = {}  # peer_id -> island_type the peer is currently on
 
+## Host's hidden authoritative island copy, built when a client enters an island
+## session while the host player stays home. Mirrors _server_build_mine_room so
+## the host's resident island animals exist and can drive combat/HP for the
+## client's remote mirrors (otherwise _find_animal_by_id finds nothing and
+## attack/tame/feed silently no-op). Only one proxy is kept at a time; it is
+## freed when the session empties or when the host player enters an island itself.
+var _host_island_proxy: ExpeditionIsland = null
+var _host_island_proxy_seed: int = 0
+
 ## Called when the player walks into proximity of a mine entrance area.
 ## Marks the entrance as nearby for E-press interaction.
 func _on_mine_entrance_near(body: Node, entrance_node: Node2D) -> void:
@@ -3945,6 +3954,12 @@ func _server_try_enter_island(type_hint: int) -> bool:
 
 	if sender == _self_id():
 		return _do_enter_island(seed, target_type)
+	# A client is entering while the host player stays off-island: build the
+	# host's deterministic copy so the host's authoritative island animals exist
+	# and can drive combat/HP for the client's remote mirrors. Skipped when the
+	# host is already on its own island (_current_island already holds animals).
+	if _current_island == null:
+		_server_build_island(seed, target_type)
 	rpc_id(sender, "_receive_enter_island", seed, target_type)
 	return true
 
@@ -3956,10 +3971,40 @@ func _receive_enter_island(seed: int, island_type: int) -> void:
 	_do_enter_island(seed, island_type)
 
 
+## Host: build a hidden deterministic copy of an island session so the host's
+## authoritative island animals exist even when the host player stays home. A
+## client on that island has remote-mirror animals that forward attack/tame/feed
+## to the host via World; without this proxy the host has no matching animal to
+## receive them (_find_animal_by_id finds nothing), so HP/status silently no-op.
+## Mirrors _server_build_mine_room. Placed at INTERIOR_VOID (so position
+## broadcasts line up with clients' copies) but the host player is never moved
+## into it, so it stays invisible to the host's own view.
+func _server_build_island(seed_val: int, island_type: int) -> void:
+	if _host_island_proxy and is_instance_valid(_host_island_proxy):
+		return
+	var proxy: ExpeditionIsland = EXPEDITION_ISLAND_SCENE.instantiate()
+	add_child(proxy)
+	proxy.position = INTERIOR_VOID
+	proxy.generate_with_seed(seed_val, island_type)
+	_host_island_proxy = proxy
+	_host_island_proxy_seed = seed_val
+
+
+func _free_host_island_proxy() -> void:
+	if _host_island_proxy and is_instance_valid(_host_island_proxy):
+		_host_island_proxy.queue_free()
+	_host_island_proxy = null
+	_host_island_proxy_seed = 0
+
+
 ## Internal: actually create the island (deterministic from seed + type) so
 ## THIS peer's player enters. Only the local player is moved (remote players
 ## enter on their own peers). Returns true if the island was created.
 func _do_enter_island(seed: int, island_type: int) -> bool:
+	# The host player entering an island must not overlap a hidden proxy built
+	# for a client's separate session (both would sit at INTERIOR_VOID). Drop the
+	# proxy first; the client's remote mirrors then degrade gracefully.
+	_free_host_island_proxy()
 	if _current_island:
 		return false
 	if _island_exit_cooldown:
@@ -4139,8 +4184,13 @@ func _server_exit_island() -> void:
 		if _island_sessions[isl_type]["members"].is_empty():
 			# No one is on this island type anymore — its seed will rotate on
 			# the next entry, so drop its cached removal list to avoid growth.
-			_island_removed.erase(int(_island_sessions[isl_type].get("seed", -1)))
+			var emptied_seed: int = int(_island_sessions[isl_type].get("seed", -1))
+			_island_removed.erase(emptied_seed)
 			_island_sessions.erase(isl_type)
+			# No one is left on the session the host proxy was authoritative for —
+			# free it so its animals stop broadcasting and the slot is reusable.
+			if _host_island_proxy_seed == emptied_seed:
+				_free_host_island_proxy()
 
 	if sender == _self_id():
 		_do_exit_island()
@@ -4321,8 +4371,12 @@ func island_peer_disconnected(peer_id: int) -> void:
 		if _island_sessions[isl_type]["members"].is_empty():
 			# No one is on this island type anymore — its seed will rotate on
 			# the next entry, so drop its cached removal list to avoid growth.
-			_island_removed.erase(int(_island_sessions[isl_type].get("seed", -1)))
+			var emptied_seed: int = int(_island_sessions[isl_type].get("seed", -1))
+			_island_removed.erase(emptied_seed)
 			_island_sessions.erase(isl_type)
+			# Free the host's authoritative proxy for this session if it held one.
+			if _host_island_proxy_seed == emptied_seed:
+				_free_host_island_proxy()
 
 
 # ── Ruined town ──

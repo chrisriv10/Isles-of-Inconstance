@@ -25,6 +25,9 @@ var _web_mp_dialog: AcceptDialog = null
 func _ready() -> void:
 	print("Bootstrap._ready() running")
 	_setup_emoji_font_fallback()
+	# DEBUG: confirm the web/detection flag on startup. "web=false" = desktop
+	# (multiplayer OK), "web=true" = browser build (multiplayer blocked).
+	print("Bootstrap: web build detection => OS.has_feature(\"web\") = ", OS.has_feature("web"))
 	_setup_web_mp_dialog()
 	# CRITICAL: CanvasLayer children render independently of parent Node2D
 	# visibility. Even with game.visible = false, HUD/Shop/Inventory/etc.
@@ -678,6 +681,17 @@ func _load_game() -> void:
 	
 	# Re-show all UI CanvasLayers (they were hidden on exit to menu)
 	_show_ui_canvas_layers()
+	
+	# Clean up any remote player nodes left over from a previous multiplayer
+	# session (e.g. exit a hosted game, then load that save solo). NEVER free
+	# the LOCAL player: in multiplayer it is renamed Player_<id> by
+	# Main._setup_multiplayer, so matching "Player_" would free our own node.
+	# Single-player keeps it named "Player" and my_peer is -1, so nothing is
+	# skipped. This mirrors the cleanup in _start_new_game.
+	var _load_my_peer: int = multiplayer.get_unique_id() if NetworkManager.is_network_active() else -1
+	for _load_child in game.get_children():
+		if _load_child.name.begins_with("Player_") and _load_child.name != "Player_%d" % _load_my_peer:
+			_load_child.queue_free()
 	
 	# Reset pet state before loading (prevents stale active_pet_id flicker)
 	var pm_node: Node = get_node("/root/PetManager") if has_node("/root/PetManager") else null
