@@ -584,9 +584,15 @@ func _on_enter_interior(interactor: Node, b_type: int, b_cell: Vector2i, world_r
 		ToastNotification.show_toast("Stand up from the bench first.", ToastNotification.ToastType.WARNING, 1.5)
 		return
 	
-	# Multiplayer: route through World so all peers enter their local copy
+	# Multiplayer: route through World so all peers enter their local copy.
+	# _server_try_enter_building is 'any_peer' (no call_local), so peer 1 calling
+	# rpc_id(1, ...) on itself would error and spam. As the host, call the
+	# handler directly; as a client, forward it to the host (peer 1).
 	if NetworkManager.is_network_active() and world_ref.has_method("_server_try_enter_building"):
-		world_ref.rpc_id(1, "_server_try_enter_building", b_type, b_cell.x, b_cell.y)
+		if world_ref.get_multiplayer().is_server():
+			world_ref.call("_server_try_enter_building", b_type, b_cell.x, b_cell.y)
+		else:
+			world_ref.rpc_id(1, "_server_try_enter_building", b_type, b_cell.x, b_cell.y)
 		return
 	
 	# Single player

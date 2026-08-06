@@ -405,7 +405,13 @@ func _exit_interior() -> void:
 	if NetworkManager.is_network_active():
 		var world := get_tree().root.find_child("World", true, false)
 		if world and world.has_method("_server_exit_building"):
-			world.rpc_id(1, "_server_exit_building")
+			# _server_exit_building is 'any_peer' (no call_local): as the host,
+			# call it directly (rpc_id(1,...) on self would error); as a client,
+			# forward to the host (peer 1).
+			if world.get_multiplayer().is_server():
+				world.call("_server_exit_building")
+			else:
+				world.rpc_id(1, "_server_exit_building")
 			queue_free()
 			return
 	
