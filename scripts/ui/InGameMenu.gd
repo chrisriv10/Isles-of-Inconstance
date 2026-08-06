@@ -209,7 +209,7 @@ You've arrived on a mysterious, ever-changing island. Your goal is to [b]survive
 • Press [b]V[/b] to enter build mode
 • Select a building kit from your hotbar
 • Aim at a tile and press [b]E[/b] to place
-• Enter buildings through their doorways
+• Enter buildings through their doorways (or hold [b]Left-click[/b] on a building)
 
 [b][color=#7fc97f]Animals & Breeding:[/color][/b]
 • Find animals in the wild — approach and press [b][color=#e8c84a]E[/color][/b] to interact
@@ -265,6 +265,7 @@ func _get_controls_text() -> String:
 
 [b][color=#7fc97f]Mouse:[/color][/b]
 • [b]Left-click[/b] — Use tool / Attack at cursor position
+• [b]Hold Left-click[/b] on a building — Enter it (progress bar), handy when trees/bushes block the doorway
 • [b]Right-click[/b] — Interact / Harvest / View item details"""
 
 func _create_settings_content(pw: float) -> VBoxContainer:

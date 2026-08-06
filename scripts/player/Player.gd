@@ -34,6 +34,15 @@ signal rubble_clear_completed()
 ## Emitted when rubble clearing is cancelled.
 signal rubble_clear_cancelled()
 
+## Emitted when hold-left-click building entry starts (near an enterable building).
+signal enter_building_started(prompt_text: String)
+## Emitted each frame while holding left-click near an enterable building (0.0 to 1.0).
+signal enter_building_progress(progress: float)
+## Emitted when building entry completes.
+signal enter_building_completed()
+## Emitted when building entry is cancelled.
+signal enter_building_cancelled()
+
 ## Tools: 0=None, 1=Hoe, 2=WateringCan.
 ## 3-10 (HOTBAR_0..HOTBAR_7) are freely assignable slots that show whatever
 ## item is in the corresponding InventoryManager slot. Keys 3-0 select them.
@@ -157,6 +166,14 @@ var _rubble_clear_progress: float = 0.0
 var _rubble_clear_duration: float = 1.5  # seconds to hold
 var _rubble_clear_prompt: String = ""
 var _rubble_ruin_ref: RuinStructure = null
+
+## Hold-left-click building entry state (alternative to walking into / pressing E,
+## useful when trees, bushes, etc. make the doorway hard to reach).
+var _is_entering_building: bool = false
+var _enter_building_progress: float = 0.0
+var _enter_building_duration: float = 0.8  # seconds to hold left-click
+var _enter_building_prompt: String = ""
+var _enter_building_ref: Interactable = null
 
 # Edge-detection for E (interact) when a LineEdit has focus — Godot's GUI
 # consumes the event so _input() and _unhandled_input() never fire for it.
@@ -668,13 +685,15 @@ func _physics_process(delta: float) -> void:
 		_move_hunger_accumulator = 0.0
 
 	# Cancel eating or mine hold if player moves
-	if (_is_eating or _is_mine_interacting or _is_clearing_rubble) and input_direction != Vector2.ZERO:
+	if (_is_eating or _is_mine_interacting or _is_clearing_rubble or _is_entering_building) and input_direction != Vector2.ZERO:
 		if _is_eating:
 			_cancel_eating()
 		if _is_mine_interacting:
 			_cancel_mine_interaction()
 		if _is_clearing_rubble:
 			_cancel_rubble_clear()
+		if _is_entering_building:
+			_cancel_building_entry()
 	
 	# Cancel revive if player moves
 	if _revive_target and input_direction != Vector2.ZERO:
@@ -753,6 +772,17 @@ func _physics_process(delta: float) -> void:
 		rubble_clear_progress.emit(_rubble_clear_progress)
 		if _rubble_clear_progress >= 1.0:
 			_finish_rubble_clear()
+
+	# ── Building entry hold progress ──
+	if _is_entering_building:
+		# Cancel if no enterable building is in range anymore (moved away, freed).
+		if not _can_enter_building_now():
+			_cancel_building_entry()
+			return
+		_enter_building_progress += delta / _enter_building_duration
+		enter_building_progress.emit(_enter_building_progress)
+		if _enter_building_progress >= 1.0:
+			_finish_building_entry()
 
 	# ── E key fallback when LineEdit has focus ──
 	# When a LineEdit (e.g. creative panel's SearchInput) has focus, the GUI
@@ -915,6 +945,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				if event.pressed:
 					if _is_build_mode_active():
 						_try_build_placement_at_pos(get_global_mouse_position())
+					elif _try_start_building_enter():
+						# Holding left-click on an enterable building fills a
+						# progress bar and enters it (alt to pressing E).
+						pass
 					else:
 						_attack_held = true
 						if _is_active_bow():
@@ -925,6 +959,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					_attack_held = false
 					if _bow_charging:
 						_finish_bow_charge(get_global_mouse_position())
+					if _is_entering_building:
+						_cancel_building_entry()
 				get_viewport().set_input_as_handled()
 				return
 			MOUSE_BUTTON_RIGHT:
@@ -2183,6 +2219,65 @@ func _get_nearby_ruin() -> RuinStructure:
 			nearest_dist = sqrt(dist)
 			nearest = ruin
 	return nearest
+
+# ── Hold-left-click building entry ─────────────────────────────────
+# Alternative to pressing E / walking into a building: holding left-click on an
+# enterable building fills a progress bar and enters it. Useful when trees,
+# bushes, etc. make the doorway hard to reach or click.
+
+## True while an enterable building is in range (used during the hold to cancel
+## if the player steps away or the interactable is freed).
+func _can_enter_building_now() -> bool:
+	if not interactor or not interactor.has_method("get_building_entry_in_range"):
+		return false
+	var entry: Interactable = interactor.get_building_entry_in_range()
+	return entry != null and is_instance_valid(entry)
+
+## Try to start a hold-to-enter when the player is near an enterable building.
+## Looks for a building-entry interactable in range (not just the nearest generic
+## interactable) so a tree/bush cluttering the doorway doesn't block the entry.
+## Returns true if the hold interaction started.
+func _try_start_building_enter() -> bool:
+	if _is_entering_building or _is_eating or _is_mine_interacting or _is_clearing_rubble:
+		return false
+	if not interactor or not interactor.has_method("get_building_entry_in_range"):
+		return false
+	var entry: Interactable = interactor.get_building_entry_in_range()
+	if not entry or not is_instance_valid(entry):
+		return false
+	# Don't start if we're already inside a building.
+	if GameManager.inside_interior or GameManager.inside_building:
+		return false
+	_start_building_entry(entry)
+	return true
+
+func _start_building_entry(target: Interactable) -> void:
+	_is_entering_building = true
+	_enter_building_progress = 0.0
+	_enter_building_prompt = "Entering..."
+	_enter_building_ref = target
+	enter_building_started.emit(_enter_building_prompt)
+
+func _cancel_building_entry() -> void:
+	if not _is_entering_building:
+		return
+	_is_entering_building = false
+	_enter_building_progress = 0.0
+	_enter_building_prompt = ""
+	_enter_building_ref = null
+	enter_building_cancelled.emit()
+
+func _finish_building_entry() -> void:
+	if not _is_entering_building:
+		return
+	_is_entering_building = false
+	_enter_building_progress = 0.0
+	_enter_building_prompt = ""
+	var target := _enter_building_ref
+	_enter_building_ref = null
+	enter_building_completed.emit()
+	if target and is_instance_valid(target) and interactor and interactor.has_method("interact_with_nearest"):
+		interactor.interact_with_nearest()
 
 ## Toggles build mode on/off via the World's building system.
 func _toggle_build_mode() -> void:

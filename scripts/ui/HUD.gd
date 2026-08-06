@@ -57,6 +57,10 @@ var _showing_mine_prompt: bool = false  # whether we're showing a mine prompt at
 var _rubble_bar: ProgressBar = null
 var _rubble_label: Label = null
 
+# Building entry progress bar (hold-left-click to enter; created at runtime)
+var _enter_bar: ProgressBar = null
+var _enter_label: Label = null
+
 # Revive teammate [E] prompt at the bottom
 var _showing_revive_prompt: bool = false
 
@@ -309,6 +313,9 @@ func _ready() -> void:
 	# Setup rubble clearing progress bar
 	_setup_rubble_bar()
 
+	# Setup building entry progress bar (hold-left-click to enter)
+	_setup_building_enter_bar()
+
 	# Setup fishing reel progress bar
 	_setup_fishing_bar()
 
@@ -367,6 +374,13 @@ func _ready() -> void:
 			player.rubble_clear_progress.connect(_on_rubble_clear_progress)
 			player.rubble_clear_completed.connect(_on_rubble_clear_completed)
 			player.rubble_clear_cancelled.connect(_on_rubble_clear_cancelled)
+
+		# Connect building entry signals (hold-left-click to enter)
+		if player.has_signal("enter_building_started"):
+			player.enter_building_started.connect(_on_enter_building_started)
+			player.enter_building_progress.connect(_on_enter_building_progress)
+			player.enter_building_completed.connect(_on_enter_building_completed)
+			player.enter_building_cancelled.connect(_on_enter_building_cancelled)
 
 # Biome info label removed (debug display no longer needed)
 
@@ -659,6 +673,76 @@ func _on_rubble_clear_cancelled() -> void:
 	_rubble_bar.visible = false
 	_rubble_label.visible = false
 	_rubble_bar.value = 0.0
+
+
+# Building entry progress bar (hold-left-click to enter)
+func _setup_building_enter_bar() -> void:
+	_enter_bar = ProgressBar.new()
+	_enter_bar.name = "BuildingEntryProgressBar"
+	_enter_bar.size = Vector2(160, 14)
+	_enter_bar.visible = false
+	_enter_bar.max_value = 1.0
+	_enter_bar.value = 0.0
+	_enter_bar.show_percentage = false
+
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.1, 0.1, 0.1, 0.85)
+	bg_style.set_corner_radius_all(4)
+	_enter_bar.add_theme_stylebox_override("background", bg_style)
+
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = Color(0.35, 0.7, 0.9, 0.9)  # soft blue for entering
+	fill_style.set_corner_radius_all(4)
+	_enter_bar.add_theme_stylebox_override("fill", fill_style)
+	$Root.add_child(_enter_bar)
+
+	_enter_label = Label.new()
+	_enter_label.name = "BuildingEntryLabel"
+	_enter_label.text = "Entering..."
+	_enter_label.visible = false
+	_enter_label.add_theme_font_size_override("font_size", 12)
+	_enter_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
+	_enter_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	_enter_label.add_theme_constant_override("shadow_offset_x", 1)
+	_enter_label.add_theme_constant_override("shadow_offset_y", 1)
+	$Root.add_child(_enter_label)
+
+	_refresh_enter_bar_position()
+
+
+func _refresh_enter_bar_position() -> void:
+	if not _enter_bar or not _enter_label:
+		return
+	var root_size: Vector2 = $Root.get_rect().size
+	var bar_x: float = root_size.x / 2.0 - _enter_bar.size.x / 2.0
+	var bar_y: float = root_size.y - 230.0  # just above the rubble bar area
+	_enter_bar.position = Vector2(bar_x, bar_y)
+	_enter_label.position = Vector2(root_size.x / 2.0 - 100.0, bar_y - 22.0)
+
+
+func _on_enter_building_started(prompt_text: String) -> void:
+	_enter_bar.value = 0.0
+	_enter_bar.visible = true
+	_enter_label.text = prompt_text
+	_enter_label.visible = true
+	_refresh_enter_bar_position()
+
+
+func _on_enter_building_progress(progress: float) -> void:
+	if _enter_bar:
+		_enter_bar.value = progress
+
+
+func _on_enter_building_completed() -> void:
+	_enter_bar.visible = false
+	_enter_label.visible = false
+	_enter_bar.value = 0.0
+
+
+func _on_enter_building_cancelled() -> void:
+	_enter_bar.visible = false
+	_enter_label.visible = false
+	_enter_bar.value = 0.0
 
 
 # ---------------------------------------------------------------------------
