@@ -480,6 +480,15 @@ func creative_restore_all(is_host_called: bool = false) -> void:
 			ruin_status_changed.emit(ruin_id, state.status)
 			building_restored.emit(ruin_id, def.building_name if def else "")
 	
+	# Notify the objective manager. Clients already receive this via the
+	# host's _broadcast_state() -> _apply_remote_town_state() ->
+	# sync_restored_town_buildings(), but the HOST skips applying its own
+	# broadcast (see _sync_town_state_chunk), so without this direct call the
+	# host would never earn the "restore N town buildings" objective credit.
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_building_restored"):
+		om.on_building_restored()
+	
 	# Recalculate town level
 	calculate_town_level()
 	

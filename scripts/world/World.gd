@@ -4385,12 +4385,14 @@ func _spawn_ruined_town() -> void:
 	# (origin_x - 10) to (origin_x + 18) in tile x and from about
 	# (origin_y + 2) to (origin_y + 20) in tile y.
 	# The building layout spans x offset -6..+14 and y offset +5..+16.
-	# This rect is generously padded on all sides so the backdrop sprite
-	# and all buildings are fully protected from tree/nature overlap.
+	# This rect is padded so the backdrop sprite and all buildings are fully
+	# protected from tree/nature overlap. The north/south padding is kept
+	# tight (1 tile above the plaza, 0 below) so nature isn't excluded too
+	# aggressively above/below the town.
 	var town_left := origin_x - 10
-	var town_top := origin_y - 2
+	var town_top := origin_y + 1
 	var town_right := origin_x + 18
-	var town_bottom := origin_y + 21
+	var town_bottom := origin_y + 20
 	set_meta("town_rect", Rect2i(town_left, town_top, town_right - town_left + 1, town_bottom - town_top + 1))
 	
 	# Connect to restoration signals
