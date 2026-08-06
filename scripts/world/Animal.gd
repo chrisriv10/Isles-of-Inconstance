@@ -459,6 +459,15 @@ func _die() -> void:
 		_broadcast_animal_rpc("_sync_animal_died", [animal_id, _loot_drops], true)
 	_loot_drops.clear()
 	
+	# Expedition island animals are generated independently per peer (not
+	# host-authoritative remote copies), so the per-node RPC above can't reach
+	# other peers. Route removal through the island's shared sync instead: the
+	# deterministic island_obj_id lets every peer remove its matching copy.
+	if has_meta("island_obj_id"):
+		var island := get_tree().get_first_node_in_group("expedition_island")
+		if is_instance_valid(island) and island.has_method("notify_island_object_removed"):
+			island.notify_island_object_removed(int(get_meta("island_obj_id")))
+	
 	# Death effects
 	EffectSpawner.spawn_particles(global_position, Color(0.5, 0.0, 0.0), 6, 10.0)
 	EffectSpawner.spawn_floating_text(animal_name + " slain!", global_position, Color(1.0, 0.3, 0.3))

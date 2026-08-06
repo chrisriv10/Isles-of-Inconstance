@@ -1106,6 +1106,9 @@ func _scatter_animals() -> void:
 		animal.setup(p_type, animal.global_position, true)
 		# Scale down expedition animals so they fit better on the smaller islands
 		animal.scale *= _rng.randf_range(0.5, 0.75)
+		# Tag with a deterministic island_obj_id (shared counter) so a death on
+		# one peer can be broadcast and applied to every peer's matching copy.
+		_tag_island_obj(animal)
 
 
 func _place_return_boat() -> void:
