@@ -2898,7 +2898,10 @@ func enter_build_mode() -> bool:
 	
 	# No materials — give unmistakable persistent feedback so the player can't miss it
 	ToastNotification.show_toast("⚠ No building materials! Craft fence or campfire from the Crafting menu [C] first", ToastNotification.ToastType.ERROR, 5.0)
-	_show_hud_hint("Need fence_material, stone_fence_material, or campfire_kit — press C to craft then V to build")
+	var _fence_name := DataManager.get_item("fence_material").display_name if DataManager.get_item("fence_material") else "Fence Material"
+	var _stone_name := DataManager.get_item("stone_fence_material").display_name if DataManager.get_item("stone_fence_material") else "Stone Fence Material"
+	var _campfire_name := DataManager.get_item("campfire_kit").display_name if DataManager.get_item("campfire_kit") else "Campfire Kit"
+	_show_hud_hint("Need %s, %s, or %s — press C to craft then V to build" % [_fence_name, _stone_name, _campfire_name])
 	return false
 
 
