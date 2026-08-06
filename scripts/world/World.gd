@@ -4201,6 +4201,23 @@ func building_peer_disconnected(peer_id: int) -> void:
 	_peer_building.erase(peer_id)
 
 
+## Host: remove a peer from its shared-island session when they disconnect.
+## An abrupt disconnect skips the normal _server_exit_island RPC, so the dead
+## peer would otherwise stay in _island_sessions[type]["members"] and
+## _island_peer_type forever — pinning that island type's seed so later
+## players join a stale, depleted island instead of a fresh one.
+func island_peer_disconnected(peer_id: int) -> void:
+	var isl_type: int = _island_peer_type.get(peer_id, -1)
+	_island_peer_type.erase(peer_id)
+	if isl_type >= 0 and _island_sessions.has(isl_type):
+		_island_sessions[isl_type]["members"].erase(peer_id)
+		if _island_sessions[isl_type]["members"].is_empty():
+			# No one is on this island type anymore — its seed will rotate on
+			# the next entry, so drop its cached removal list to avoid growth.
+			_island_removed.erase(int(_island_sessions[isl_type].get("seed", -1)))
+			_island_sessions.erase(isl_type)
+
+
 # ── Ruined town ──
 
 func _spawn_ruined_town() -> void:
@@ -5412,6 +5429,26 @@ func _sync_visitor_pos(index: int, x: float, y: float) -> void:
 	for v in get_tree().get_nodes_in_group("visitor_npcs"):
 		if v is VisitorNPC and v._synced_index == index:
 			v.apply_remote_position(Vector2(x, y))
+			break
+
+
+## Host: relay an interior wander NPC's authoritative position to all clients.
+## Keyed by the NPC's stable in-room origin (identical on every peer because
+## shared interiors are generated from the same seed only when two players are
+## in the SAME building). Non-members simply find no matching copy and ignore it.
+func relay_interior_wander_pos(x: float, y: float, ox: float, oy: float) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_interior_wander_pos", x, y, ox, oy)
+
+
+## Client: mirror an interior wander NPC's host position.
+@rpc("unreliable", "authority")
+func _sync_interior_wander_pos(x: float, y: float, ox: float, oy: float) -> void:
+	if multiplayer.is_server():
+		return
+	for w in get_tree().get_nodes_in_group("interior_wander_npcs"):
+		if w is InteriorWanderNPC and w._origin.distance_to(Vector2(ox, oy)) < 1.0:
+			w.apply_remote_position(Vector2(x, y))
 			break
 
 

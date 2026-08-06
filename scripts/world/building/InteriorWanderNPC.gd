@@ -30,6 +30,15 @@ var _pause_timer: float = 0.0
 ## The Sprite2D to flip based on movement direction
 var _sprite: Sprite2D = null
 
+# Multiplayer position replication (host-authoritative, via World relay).
+## Whether this is a client-side copy that mirrors the host's position.
+var _is_remote: bool = false
+## Seconds between host broadcasts of this NPC's position to clients.
+const POS_SYNC_INTERVAL: float = 0.25
+var _pos_sync_timer: float = 0.0
+## The World node used to relay positions (cached in _ready).
+var _world: Node = null
+
 
 func _ready() -> void:
 	var parent := get_parent()
@@ -40,10 +49,25 @@ func _ready() -> void:
 		if child is Sprite2D:
 			_sprite = child
 			break
+	add_to_group("interior_wander_npcs")
+	_world = get_tree().get_first_node_in_group("world")
 	_pick_new_target()
 
 
 func _process(delta: float) -> void:
+	# Host-authoritative position relay: host nodes broadcast so every player in
+	# the same shared building interior sees this NPC in the same spot; remote
+	# copies apply via World relay. Local in-room position is used because the
+	# interior base (INTERIOR_VOID) is identical on every peer.
+	if not _is_remote and NetworkManager.is_network_active() and multiplayer.is_server() \
+			and _world and _world.has_method("relay_interior_wander_pos"):
+		_pos_sync_timer -= delta
+		if _pos_sync_timer <= 0.0:
+			_pos_sync_timer = POS_SYNC_INTERVAL
+			var p := get_parent()
+			if p is Node2D:
+				_world.relay_interior_wander_pos(p.position.x, p.position.y, _origin.x, _origin.y)
+
 	if _moving:
 		var dir: Vector2 = (_target - get_parent().position).normalized()
 		var dist_sq: float = get_parent().position.distance_squared_to(_target)
@@ -70,3 +94,11 @@ func _pick_new_target() -> void:
 		randf_range(-wander_radius, wander_radius),
 		randf_range(-wander_radius, wander_radius)
 	)
+
+
+## Mirror the host's authoritative position (called by World._sync_interior_wander_pos).
+func apply_remote_position(pos: Vector2) -> void:
+	if not _is_remote:
+		return
+	if get_parent() is Node2D:
+		get_parent().position = pos

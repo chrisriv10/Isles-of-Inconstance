@@ -298,6 +298,41 @@ func _server_request_creative_spawn_boss(scene_path: String, pos_x: float, pos_y
 	spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y))
 
 
+## Client → host: request a spirit-harvest boss summon from the bait item-use
+## path. The client removes the bait from its own inventory, then forwards here
+## so the HOST spawns an authoritative boss that broadcasts a synced remote copy
+## to every peer. (A client spawning locally would create a ghost boss invisible
+## to others and unkillable — attacks RPC to a node that doesn't exist host-side.)
+## Only the four known boss scenes are accepted, and no summon happens while a
+## boss is already alive.
+@rpc("any_peer", "reliable")
+func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float) -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var allow_list: Array[String] = [
+		"res://scenes/enemies/RootWarden.tscn",
+		"res://scenes/enemies/HollowStag.tscn",
+		"res://scenes/enemies/BloomingWyrm.tscn",
+		"res://scenes/enemies/InconstantSoul.tscn",
+	]
+	if not allow_list.has(scene_path):
+		push_warning("_server_request_summon_boss: rejected unregistered scene_path %s" % scene_path)
+		return
+	# Prevent multiple boss summons host-side.
+	for eb in get_tree().get_nodes_in_group("bosses"):
+		if is_instance_valid(eb):
+			return
+	var boss_scene := load(scene_path) as PackedScene
+	if not boss_scene:
+		return
+	var enemy: Enemy = boss_scene.instantiate()
+	if not enemy:
+		return
+	spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y))
+	if enemy.has_method("_summon_spawn_effect"):
+		enemy._summon_spawn_effect()
+
+
 ## Client: create a remote copy of a creative-panel boss spawn.
 @rpc("authority", "reliable")
 func _receive_spawn_boss(scene_path: String, pos_x: float, pos_y: float, eid: int, hp: int, max_hp: int) -> void:

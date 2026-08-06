@@ -1715,17 +1715,28 @@ func _summon_boss(bait_item_id: String) -> void:
 	var boss: Enemy = boss_scene.instantiate()
 	boss.global_position = spawn_pos
 
-	# Multiplayer: route through the spawner so clients get a synced remote copy
-	# under the same node path (id + name + broadcast), same as creative-panel spawns.
-	if NetworkManager.is_network_active() and multiplayer.is_server():
-		var spawner := get_tree().get_first_node_in_group("enemy_spawner") as EnemySpawner
-		if spawner:
-			spawner.spawn_creative_boss(boss, boss_scene.resource_path, spawn_pos)
-			# Dramatic summoning effects (delegates to boss-specific visuals)
-			boss._summon_spawn_effect()
-			ToastNotification.show_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+	# Multiplayer: the HOST spawns authoritatively and broadcasts a synced remote
+	# copy on every peer. A client must NOT spawn locally — that would create a
+	# ghost boss invisible to others, unkillable, and would waste the bait. A
+	# client forwards the request to the host (same pattern as the creative-panel
+	# boss spawn) and drops its local copy.
+	if NetworkManager.is_network_active():
+		if multiplayer.is_server():
+			var spawner := get_tree().get_first_node_in_group("enemy_spawner") as EnemySpawner
+			if spawner:
+				spawner.spawn_creative_boss(boss, boss_scene.resource_path, spawn_pos)
+				# Dramatic summoning effects (delegates to boss-specific visuals)
+				boss._summon_spawn_effect()
+				ToastNotification.show_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+				return
+			# Fall through to local spawn if no spawner exists
+		else:
+			# Client → host: host validates + broadcasts a synced remote copy.
+			boss.queue_free()
+			var spawner_node := get_tree().get_first_node_in_group("enemy_spawner")
+			if spawner_node:
+				spawner_node.rpc_id(1, "_server_request_summon_boss", boss_scene.resource_path, spawn_pos.x, spawn_pos.y)
 			return
-		# Fall through to local spawn if no spawner exists
 
 	world.add_child(boss)
 	# Apply difficulty scaling synchronously (the _ready() deferred call no-ops
