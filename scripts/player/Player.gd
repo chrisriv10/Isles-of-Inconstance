@@ -1379,6 +1379,7 @@ func apply_downed_state() -> void:
 	# (tint + DOWNED label) and becomes revivable.
 	if NetworkManager.is_network_active():
 		rpc("_sync_downed_state", true)
+	_maybe_all_down_respawn()
 
 ## Called by GameManager when player is revived.
 func remove_downed_state() -> void:
@@ -1421,7 +1422,8 @@ func _show_downed_ui() -> void:
 	# Give the label an explicit centered size so the text sits directly above
 	# the player's head rather than anchoring to the left edge of position (0,0).
 	downed_label.size = Vector2(100, 14)
-	downed_label.position = Vector2(-50, -50)
+	# Slightly lower than the bleedout bar so it sits a touch closer to the head.
+	downed_label.position = Vector2(-50, -44)
 	add_child(downed_label)
 	
 	# Bleedout bar — drains as the player bleeds out toward auto-respawn
@@ -1487,6 +1489,10 @@ func _sync_downed_state(is_downed: bool) -> void:
 		modulate = Color(1.0, 1.0, 1.0, 1.0)
 		sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		_hide_downed_ui()
+	# Host: if this downed-state change means every player is now downed,
+	# respawn the whole team. (Other peers trigger this when their own copy
+	# transitions; only the host's GameManager may broadcast the respawn.)
+	_maybe_all_down_respawn()
 
 ## Called by GameManager when a downed player bleeds out and auto-respawns.
 ## Clears the downed state and visuals without the revive feedback/noise, and
@@ -1527,6 +1533,12 @@ func _update_bleedout_bar(remaining_frac: float) -> void:
 	var fill := get_node_or_null("BleedoutBarFill")
 	if fill:
 		fill.size.x = clampf(80.0 * remaining_frac, 0.0, 80.0)
+
+## Host-side team-wipe check: if every player is downed, respawn the whole team
+## (prevents a party-wipe soft-lock). No-op on clients and in singleplayer.
+func _maybe_all_down_respawn() -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		GameManager.check_all_down_respawn()
 
 ## Drives the LOCAL downed player's bleedout bar from this peer's own timer.
 func _update_local_bleedout_bar() -> void:

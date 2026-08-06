@@ -391,6 +391,18 @@ func _on_player_died() -> void:
 		# Singleplayer: instant respawn (original behavior)
 		_instant_respawn()
 
+## Returns the LOCAL player node (the one this peer owns). The "player" group
+## also holds remote copies of teammates, and get_first_node_in_group is
+## order-undefined — using it directly can return a remote copy, which would
+## make downed/revive state get applied to the wrong node (leaving the real
+## player's DOWNED label stuck on).
+func _get_local_player_node() -> Node2D:
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and p is Node2D \
+				and (not NetworkManager.is_network_active() or p.get_multiplayer_authority() == multiplayer.get_unique_id()):
+			return p
+	return get_tree().get_first_node_in_group("player")
+
 func _enter_downed_state() -> void:
 	if _is_downed:
 		return  # Already downed — don't re-trigger (health is pinned at 1)
@@ -403,19 +415,8 @@ func _enter_downed_state() -> void:
 	health_changed.emit(health, MAX_HEALTH)
 	_try_broadcast_player_stats()
 	
-	# Notify the LOCAL player node to apply downed effects. The "player"
-	# group also holds remote copies of teammates, and get_first_node_in_group
-	# is order-undefined — applying downed state to a remote copy would leave
-	# the real player standing (still targeted by enemies) while the wrong
-	# node keels over.
-	var player_node: Node2D = null
-	for p in get_tree().get_nodes_in_group("player"):
-		if is_instance_valid(p) and p is Node2D \
-				and (not NetworkManager.is_network_active() or p.get_multiplayer_authority() == multiplayer.get_unique_id()):
-			player_node = p
-			break
-	if player_node == null:
-		player_node = get_tree().get_first_node_in_group("player")
+	# Notify the LOCAL player node to apply downed effects.
+	var player_node := _get_local_player_node()
 	if player_node and player_node.has_method("apply_downed_state"):
 		player_node.apply_downed_state()
 	
@@ -436,7 +437,7 @@ func _instant_respawn() -> void:
 	health_changed.emit(health, MAX_HUNGER)
 	hunger_changed.emit(hunger, MAX_HUNGER)
 	_try_broadcast_player_stats()
-	var player := get_tree().get_first_node_in_group("player")
+	var player := _get_local_player_node()
 	if player:
 		# Teleport to overworld spawn (the player's starting island)
 		if world_death:
@@ -474,7 +475,7 @@ func _bleedout() -> void:
 	_downed_timer = 0.0
 	player_bleedout.emit(player_name)
 
-	var player := get_tree().get_first_node_in_group("player")
+	var player := _get_local_player_node()
 
 	# Apply damage based on how long the player was downed (simulating bleeding)
 	# At 1 minute (60 seconds), reduce to 0 HP
@@ -520,12 +521,59 @@ func revive_player(reviver_name: String) -> void:
 	_try_broadcast_player_stats()
 	
 	# Notify player node to remove downed effects
-	var player := get_tree().get_first_node_in_group("player")
+	var player := _get_local_player_node()
 	if player and player.has_method("remove_downed_state"):
 		player.remove_downed_state()
 	
 	player_revived.emit(player_name, reviver_name)
 	ToastNotification.show_toast("%s revived you!" % reviver_name, ToastNotification.ToastType.SUCCESS, 4.0)
+
+## Host: called whenever the host's view of ANY player's downed state changes.
+## If every connected player (self + all peers) is downed at once, respawn the
+## whole team so a party wipe isn't a soft-lock. Singleplayer is unaffected —
+## singleplayer uses instant respawn and never enters the downed state.
+func check_all_down_respawn() -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var root := get_tree().root
+	var ids: Array[int] = [multiplayer.get_unique_id()]
+	for pid in multiplayer.get_peers():
+		ids.append(pid)
+	if ids.is_empty():
+		return
+	# If ANY player isn't downed (or its node is missing), nothing to do.
+	for pid in ids:
+		var node = root.get_node_or_null("Bootstrap/Game/Player_%d" % pid)
+		if node == null or not (node is Player and node._is_downed):
+			return
+	# Every player is downed — reset the whole team locally and on every peer.
+	_apply_team_wipe_respawn()
+	rpc("_respawn_all_team")
+
+
+@rpc("any_peer", "reliable")
+func _respawn_all_team() -> void:
+	_apply_team_wipe_respawn()
+
+
+## Respawn this peer after a team wipe: clear downed state, restore health and
+## hunger, and teleport back to the overworld spawn.
+func _apply_team_wipe_respawn() -> void:
+	_is_downed = false
+	_downed_timer = 0.0
+	health = MAX_HEALTH
+	hunger = MAX_HUNGER
+	health_changed.emit(health, MAX_HEALTH)
+	hunger_changed.emit(hunger, MAX_HUNGER)
+	_try_broadcast_player_stats()
+	var player := _get_local_player_node()
+	if player:
+		if player.has_method("clear_downed_state"):
+			player.clear_downed_state()
+		var world := get_tree().get_first_node_in_group("world")
+		if world and world.has_method("get_default_spawn_position"):
+			player.global_position = world.get_default_spawn_position()
+	ToastNotification.show_toast("Your team was wiped — respawning everyone!", ToastNotification.ToastType.WARNING, 4.0)
 
 # Game mode
 var game_mode: int = GameMode.SURVIVAL
