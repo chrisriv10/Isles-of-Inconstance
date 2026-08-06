@@ -2407,6 +2407,62 @@ func _server_receive_animal_attack(aid: int, amount: int, crit: bool) -> void:
 		animal._server_receive_animal_attack(aid, amount, crit)
 
 
+## ── Enemy RPC relay ──────────────────────────────────────────────────────
+## Per-node enemy RPCs (e.g. _sync_enemy_state) used to route to the enemy
+## node path, which doesn't exist on a joining peer until its world regen +
+## spawn broadcasts finish — the engine then floods "Node not found" errors.
+## Instead, host enemies broadcast through World (which always exists) and
+## the receiver looks the enemy up by its enemy_id; missing enemies are
+## silently skipped (the late-joiner pull recreates them moments later).
+
+## Host → all clients: relay an unreliable enemy RPC (position).
+@rpc("authority", "unreliable")
+func _relay_enemy_rpc_unreliable(method: String, args: Array) -> void:
+	_apply_enemy_relay(method, args)
+
+
+## Host → all clients: relay a reliable enemy RPC (damage/died).
+@rpc("authority", "reliable")
+func _relay_enemy_rpc_reliable(method: String, args: Array) -> void:
+	_apply_enemy_relay(method, args)
+
+
+## Routes a relayed enemy RPC to the local enemy matching the id (args[0]).
+## Runs only on clients (host enemies apply their state locally already).
+func _apply_enemy_relay(method: String, args: Array) -> void:
+	if multiplayer.is_server():
+		return  # Host's real enemies handled their own state already
+	if args.is_empty() or not (args[0] is int):
+		return
+	var eid: int = args[0]
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and "enemy_id" in e and e.enemy_id == eid:
+			e.callv(method, args)
+			return
+
+
+## Look up a live enemy by its stable enemy_id. Used by the World-routed
+## client→host handler below so it never depends on matching Enemy_N node
+## names across peers (those names drift apart after per-peer worldgen/respawn).
+func _find_enemy_by_id(eid: int) -> Enemy:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(e) and e is Enemy and e.enemy_id == eid:
+			return e as Enemy
+	return null
+
+
+## Client → host: forward a melee/ranged attack on a remote copy. Routed
+## through World's stable path; the old Enemy-node rpc_id flooded "Node
+## not found" whenever host/client enemy names drifted apart.
+@rpc("any_peer", "reliable")
+func _server_receive_enemy_attack(eid: int, amount: int, crit: bool, ranged: bool = false) -> void:
+	if not multiplayer.is_server():
+		return
+	var enemy := _find_enemy_by_id(eid)
+	if enemy:
+		enemy._server_receive_enemy_attack(eid, amount, crit, ranged)
+
+
 ## Spawns a couple of starter animals on walkable land near the player's
 ## starting position so they encounter animals immediately without having
 ## to search the entire island. Spawns 2 of the same type (chickens) so

@@ -55,7 +55,9 @@ func _on_body_entered(body: Node) -> void:
 		# through World), so we deliberately don't forward here for them.
 		if not is_visual and body.has_method("_server_receive_enemy_attack") and \
 				(body.is_in_group("enemies") or body.is_in_group("bosses")):
-			body.rpc_id(1, "_server_receive_enemy_attack", body.enemy_id, arrow_damage, is_critical, true)
+			var world: Node = body._get_world()
+			if world and is_instance_valid(world) and world.has_method("_server_receive_enemy_attack"):
+				world.rpc_id(1, "_server_receive_enemy_attack", body.enemy_id, arrow_damage, is_critical, true)
 		_on_hit_effect()
 		return
 	

@@ -50,6 +50,7 @@ const SYNC_INTERVAL: float = 0.1  # seconds between position broadcasts (host on
 var enemy_id: int = 0
 var _is_remote: bool = false
 var _sync_timer: float = 0.0
+var _world_ref: Node = null  # cached World node for per-node RPC relay
 
 # Health bar nodes
 var _health_bar_bg: ColorRect = null
@@ -259,7 +260,7 @@ func _physics_process(delta: float) -> void:
 		_sync_timer += delta
 		if _sync_timer >= SYNC_INTERVAL:
 			_sync_timer = 0.0
-			rpc("_sync_enemy_state", enemy_id, global_position, current_health, state)
+			_broadcast_enemy_rpc("_sync_enemy_state", [enemy_id, global_position, current_health, state], false)
 
 
 func _update_state() -> void:
@@ -434,7 +435,9 @@ func take_damage(amount: int, _source: Node2D = null, is_critical: bool = false)
 	
 	# Client-side remote copy — forward attack to host for authoritative processing
 	if NetworkManager.is_network_active() and _is_remote:
-		rpc_id(1, "_server_receive_enemy_attack", enemy_id, amount, is_critical)
+		var world := _get_world()
+		if world and is_instance_valid(world) and world.has_method("_server_receive_enemy_attack"):
+			world.rpc_id(1, "_server_receive_enemy_attack", enemy_id, amount, is_critical)
 		return
 	
 	current_health -= amount
@@ -494,7 +497,7 @@ func take_damage(amount: int, _source: Node2D = null, is_critical: bool = false)
 	
 	# Host: broadcast damage update to all clients
 	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
-		rpc("_sync_enemy_damage", enemy_id, current_health, amount, is_critical, global_position, max_health)
+		_broadcast_enemy_rpc("_sync_enemy_damage", [enemy_id, current_health, amount, is_critical, global_position, max_health], true)
 
 
 ## Public death trigger — called by CreativePanel kill-all and other external systems.
@@ -517,7 +520,7 @@ func _die() -> void:
 	# _pending_loot_drops may still hold the host's own instanced roll (queued
 	# for the host's own inventory); we simply omit it from the client broadcast.
 	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
-		rpc("_sync_enemy_died", enemy_id, _pending_loot_drops if not GameManager.loot_instanced else [])
+		_broadcast_enemy_rpc("_sync_enemy_died", [enemy_id, _pending_loot_drops if not GameManager.loot_instanced else []], true)
 	_pending_loot_drops.clear()
 	
 	var is_boss := is_in_group("bosses")
@@ -655,6 +658,33 @@ func _queue_loot(item_id: String, count: int = 1) -> void:
 
 
 # ── Multiplayer RPC ──────────────────────────────────────────────────────
+
+## Returns the World node (stable relay path for per-node RPCs). Enemies may
+## live under any parent, but World always exists and is where client→host /
+## host→client enemy RPCs get routed to avoid "Node not found" floods when
+## per-peer enemy node names drift apart.
+func _get_world() -> Node:
+	if _world_ref and is_instance_valid(_world_ref):
+		return _world_ref
+	_world_ref = get_tree().get_first_node_in_group("world")
+	return _world_ref
+
+
+## Host: broadcast an enemy RPC through World instead of this node, so a
+## joining peer (whose matching Enemy_N node doesn't exist yet) receives it
+## on World and drops it gracefully instead of flooding "Node not found".
+func _broadcast_enemy_rpc(method: String, args: Array, reliable: bool) -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	if _is_in_host_only_subtree():
+		return
+	var world := _get_world()
+	if world and is_instance_valid(world):
+		if reliable:
+			world.rpc("_relay_enemy_rpc_reliable", method, args)
+		else:
+			world.rpc("_relay_enemy_rpc_unreliable", method, args)
+
 
 ## Returns true if this node lives under a host-only subtree (expedition
 ## island, mine room, or building interior). Such interiors are generated
