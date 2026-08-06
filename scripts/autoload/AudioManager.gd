@@ -237,6 +237,15 @@ func _derive_ambient_from_phase() -> int:
 ## Return to the ambient day/night theme after a zone override ends. Falls
 ## back to the current phase if no base track was captured.
 func resume_ambient_music(fade_seconds: float = 1.0) -> void:
+	# Don't stomp a non-ambient, non-zone-override track that's already playing
+	# — e.g. the main-menu music while the world initializes behind the menu.
+	# Zone overrides (cave/boss/interior) are still restored to ambient here.
+	if _current_music >= 0 \
+			and _current_music != Sound.AMBIENT_DAY \
+			and _current_music != Sound.AMBIENT_NIGHT \
+			and not _is_override_track(_current_music):
+		_base_music = -1
+		return
 	var target: int = _base_music if _base_music >= 0 else _derive_ambient_from_phase()
 	_base_music = -1
 	play_music(target, fade_seconds)
