@@ -15,9 +15,17 @@ var _host_lobby_public: bool = true
 # True when hosting a brand-new world from an empty slot (vs. an existing save).
 var _host_is_new: bool = false
 
+## URL for the desktop version download. Placeholder — replace with the real
+## itch.io / hosting link when ready. Used by the web multiplayer warning dialog.
+const DESKTOP_DOWNLOAD_URL: String = "https://example.com/download"
+
+# Modal dialog shown on the web build when a player tries to host/join.
+var _web_mp_dialog: AcceptDialog = null
+
 func _ready() -> void:
 	print("Bootstrap._ready() running")
 	_setup_emoji_font_fallback()
+	_setup_web_mp_dialog()
 	# CRITICAL: CanvasLayer children render independently of parent Node2D
 	# visibility. Even with game.visible = false, HUD/Shop/Inventory/etc.
 	# CanvasLayers still render on top of the main menu. Hide them explicitly.
@@ -42,8 +50,48 @@ func _check_cli_join() -> void:
 			var code: String = arg.get_slice("=", 1).strip_edges()
 			if not code.is_empty():
 				print("Bootstrap: CLI join code: ", code)
+				if not _block_mp_on_web():
+					return
 				_on_join_online(code)
 			break
+
+
+## Build the modal warning shown on the web build when a player tries to
+## host or join. It tells the player multiplayer is desktop-only and offers a
+## placeholder link to download the desktop version.
+func _setup_web_mp_dialog() -> void:
+	_web_mp_dialog = AcceptDialog.new()
+	_web_mp_dialog.name = "WebMpDialog"
+	_web_mp_dialog.title = "Multiplayer Not Available"
+	_web_mp_dialog.dialog_text = (
+		"Online multiplayer is only available in the desktop version. "
+		+ "Please install the desktop version to play with friends — "
+		+ "the browser version is single-player only."
+	)
+	_web_mp_dialog.ok_button_text = "OK"
+	# Add a "Download Desktop Version" button that opens the placeholder URL.
+	var download_btn: Button = _web_mp_dialog.add_button("Download Desktop Version")
+	download_btn.pressed.connect(_on_web_mp_download_pressed)
+
+	var canvas: CanvasLayer = get_node_or_null("CanvasLayer") as CanvasLayer
+	if canvas:
+		canvas.add_child(_web_mp_dialog)
+
+
+## Opens the desktop download page (placeholder URL) from the web warning dialog.
+func _on_web_mp_download_pressed() -> void:
+	OS.shell_open(DESKTOP_DOWNLOAD_URL)
+
+
+## Returns true if host/join may proceed, false if blocked. On the web build
+## this shows the warning dialog and blocks the action; on desktop it does
+## nothing and lets the action proceed.
+func _block_mp_on_web() -> bool:
+	if not OS.has_feature("web"):
+		return true
+	if _web_mp_dialog:
+		_web_mp_dialog.popup_centered()
+	return false
 
 
 func _setup_emoji_font_fallback() -> void:
@@ -135,6 +183,8 @@ func _on_save_select_back() -> void:
 
 ## Host Game clicked — pick which existing save to host (join-code lobby).
 func _on_host_game() -> void:
+	if not _block_mp_on_web():
+		return
 	print("Bootstrap: Host Game requested")
 	_host_save_seed = -1
 	_host_join_code = ""
@@ -146,6 +196,8 @@ func _on_host_game() -> void:
 ## Called when the host picks a filled save slot in HOST mode.
 ## Reads the seed/mode from the save and starts the EOS join-code lobby.
 func _on_host_save_selected(slot_idx: int, public_lobby: bool = true) -> void:
+	if not _block_mp_on_web():
+		return
 	print("Bootstrap: Host save selected: ", slot_idx)
 	_host_is_new = false
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
@@ -167,6 +219,8 @@ func _on_host_save_selected(slot_idx: int, public_lobby: bool = true) -> void:
 ## lobby flow, then generates the fresh world via _start_new_game so joining
 ## clients receive the seed through notify_world_generated.
 func _on_host_new_save(slot_idx: int, seed: int, mode: int, difficulty: int, public_lobby: bool = true) -> void:
+	if not _block_mp_on_web():
+		return
 	print("Bootstrap: Host NEW save requested in slot %d (seed=%d)" % [slot_idx, seed])
 	_host_is_new = true
 	_host_save_seed = seed
@@ -244,6 +298,8 @@ func _host_load_save() -> void:
 	)
 
 func _on_join_online(join_code: String) -> void:
+	if not _block_mp_on_web():
+		return
 	print("Bootstrap: Join Online requested, code=", join_code)
 	_connect_mp_success_signal(_on_join_success)
 	_connect_mp_fail_signal()
