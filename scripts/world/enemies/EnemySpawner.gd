@@ -452,3 +452,56 @@ func _receive_despawn_enemy(eid: int) -> void:
 	var enemy := get_node_or_null("Enemy_%d" % eid) as Enemy
 	if enemy:
 		enemy.queue_free()
+
+
+# ── Late-joiner enemy-state sync ──────────────────────────────────────────
+
+## Join-time pull: a freshly connected client asks the host for every enemy
+## currently alive (night mobs, raid pirates, sporeling minions, bosses) so it
+## can spawn matching remote copies. Spawn broadcasts that happened before the
+## client was ready never reach it, leaving it blind to (but lootable by) mobs.
+@rpc("any_peer", "reliable")
+func _server_request_enemy_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	var entries: Array = []
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if enemy is Enemy and is_instance_valid(enemy):
+			entries.append({
+				"s": enemy.get_script().get_global_name(),
+				"x": enemy.global_position.x,
+				"y": enemy.global_position.y,
+				"i": enemy.enemy_id,
+				"hp": enemy.current_health,
+				"mx": enemy.max_health,
+				"p": enemy.scene_file_path,
+				"pir": enemy.has_meta("is_pirate"),
+			})
+	rpc_id(sender, "_receive_enemy_state_snapshot", entries)
+
+
+## Client: receive the host's alive-enemy snapshot and recreate each remote
+## copy through the same per-type helpers the live spawn broadcasts use, so
+## ids, node names and RPC routing match on every peer.
+@rpc("authority", "reliable")
+func _receive_enemy_state_snapshot(entries: Array) -> void:
+	if multiplayer.is_server():
+		return
+	for entry in entries:
+		var eid: int = int(entry.get("i", 0))
+		if eid <= 0:
+			continue
+		if get_node_or_null("Enemy_%d" % eid):
+			continue
+		var pos := Vector2(float(entry.get("x", 0.0)), float(entry.get("y", 0.0)))
+		var hp: int = int(entry.get("hp", 1))
+		var mx: int = int(entry.get("mx", hp))
+		if entry.get("pir", false):
+			_receive_spawn_pirate(pos.x, pos.y, eid, hp, mx)
+		elif String(entry.get("p", "")).length() > 0:
+			_receive_spawn_boss(String(entry.get("p", "")), pos.x, pos.y, eid, hp, mx)
+		else:
+			_receive_spawn_enemy(String(entry.get("s", "")), pos.x, pos.y, eid, hp, mx)

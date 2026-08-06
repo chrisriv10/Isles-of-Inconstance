@@ -722,3 +722,23 @@ func deserialize(data: Dictionary) -> void:
 		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
 	if not _completed.has(ObjectiveType.CATCH_ALL_FISH):
 		_progress[ObjectiveType.CATCH_ALL_FISH] = _caught_fish.size()
+
+
+## Join-time pull: a freshly connected client asks the host for its current
+## objective progress so it doesn't re-arm incomplete objectives or display
+## stale milestone counts that the host already finished.
+@rpc("any_peer", "reliable")
+func _server_request_objective_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	rpc_id(sender, "_receive_objective_state", serialize())
+
+
+## Host → client: apply the host's objective progress on a late joiner.
+@rpc("authority", "reliable")
+func _receive_objective_state(data: Dictionary) -> void:
+	deserialize(data)
+	objectives_updated.emit()

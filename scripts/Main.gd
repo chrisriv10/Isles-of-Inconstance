@@ -530,6 +530,21 @@ func _receive_world_seed(seed: int) -> void:
 		var raid: PirateRaidEvent = world.get("pirate_raid") as PirateRaidEvent
 		if raid and raid.has_method("_server_request_raid_state"):
 			raid.rpc_id(1, "_server_request_raid_state")
+		# Pull the host's live world state (removed resources, harvested
+		# bushes, placed buildings, sprinklers, chests) so this late joiner
+		# doesn't sit in a pristine copy of the world.
+		if world.has_method("_server_request_world_state"):
+			world.rpc_id(1, "_server_request_world_state")
+		# Pull every enemy currently alive on the host (night mobs, raid
+		# pirates, minions, bosses) so they exist on this peer too.
+		var esp: EnemySpawner = world.get("enemy_spawner") as EnemySpawner
+		if esp and esp.has_method("_server_request_enemy_state"):
+			esp.rpc_id(1, "_server_request_enemy_state")
+		# Pull the host's objective progress so this peer doesn't re-arm
+		# milestones the host already completed.
+		var om_obj: Node = get_tree().get_first_node_in_group("objective_manager")
+		if om_obj and om_obj.has_method("_server_request_objective_state"):
+			om_obj.rpc_id(1, "_server_request_objective_state")
 	# The client world is now ready — hide the scenic background layer that
 	# Bootstrap shows while waiting for the world sync.
 	var bootstrap := get_tree().root.get_node_or_null("Bootstrap")

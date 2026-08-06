@@ -47,6 +47,7 @@ var _generator: WorldGenerator
 var _soil_data: Dictionary = {}
 var _crop_nodes: Dictionary = {}
 var _sprinklers: Dictionary = {}  # cell -> {"active": true, "placed_day": int}
+var _removed_cell_objects: Dictionary = {}  # cell -> true: freed world objects (trees, rocks, flowers) for late-joiner snapshots
 var _scarecrow_cells: Array[Vector2i] = []  # cells with scarecrows
 var _compost_bin_cells: Array[Vector2i] = []  # cells with compost bins
 var _greenhouse_cells: Array[Vector2i] = []  # cells with greenhouses
@@ -273,6 +274,7 @@ func _clear_world() -> void:
 	_soil_data.clear()
 	_crop_nodes.clear()
 	_sprinklers.clear()
+	_removed_cell_objects.clear()
 	_biome_grid.clear()
 	_biome_list.clear()
 	# Clear node-reference arrays (nodes were freed above)
@@ -2307,6 +2309,12 @@ func _sync_spawn_animal(data: Dictionary) -> void:
 ## to search the entire island. Spawns 2 of the same type (chickens) so
 ## the player can try breeding right away.
 func spawn_starter_animals_near(world_pos: Vector2) -> void:
+	# Dedupe: only stock starter animals on a fresh world. If this peer
+	# already has any animals (second seed handshake, or the same session
+	# joined more than once), spawning again would create duplicate
+	# Animal_20/21-style names and break per-node RPC routing.
+	if not get_tree().get_nodes_in_group("animals").is_empty():
+		return
 	var spawn_cell := world_to_cell(world_pos)
 	var starter_type := "chicken"
 	var placed := 0
@@ -3325,6 +3333,9 @@ func _deferred_setup_mine_room(mine: MineRoom) -> void:
 	# authority and is never sent broadcasts, so it only acks when a client.
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		rpc_id(1, "_notify_mine_room_ready")
+		# Pull the host's current ore-depletion snapshot so deposits this peer
+		# never saw being mined don't look full (and its swings aren't rejected).
+		rpc_id(1, "_server_request_mine_deposit_state")
 
 	# Push fresh stats now that we are inside the mine: remote copies rely on
 	# inside_interior/inside_mine flags to stay visible and show their health
@@ -3339,6 +3350,52 @@ func _notify_mine_room_ready() -> void:
 	if not multiplayer.is_server():
 		return
 	_mine_session_room_ready[_sender_id()] = true
+
+
+## Client → host: this peer just built its local mine room and wants the
+## host's current ore-depletion for every deposit, so deposits that were
+## mined (or regenerating) before it built its copy match exactly.
+@rpc("any_peer", "reliable")
+func _server_request_mine_deposit_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = _sender_id()
+	if not current_mine_room or not is_instance_valid(current_mine_room):
+		return
+	var entries: Array = []
+	for child in current_mine_room.get_children():
+		if child is OreDeposit and is_instance_valid(child):
+			entries.append({
+				"d": child.deposit_id,
+				"h": child.remaining_hits,
+				"g": child.get("_is_regenerating") == true,
+			})
+	if entries.is_empty():
+		return
+	rpc_id(sender, "_receive_mine_deposit_state", entries)
+
+
+## Host → client: apply the host's ore-depletion snapshot to the matching
+## deposits in the local room (matched by deterministic deposit_id).
+@rpc("authority", "reliable")
+func _receive_mine_deposit_state(entries: Array) -> void:
+	if not current_mine_room or not is_instance_valid(current_mine_room):
+		return
+	for entry in entries:
+		var did: int = int(entry.get("d", -1))
+		if did < 0:
+			continue
+		for child in current_mine_room.get_children():
+			if child is OreDeposit and is_instance_valid(child) and child.deposit_id == did:
+				child.remaining_hits = int(entry.get("h", child.remaining_hits))
+				if child.remaining_hits <= 0:
+					# Mirror the host's depleted/regenerating state (hides sprite,
+					# disables collision, starts the same regen timer or frees it).
+					if child.has_method("_start_regeneration_host"):
+						child._start_regeneration_host()
+				elif child.has_method("_update_depletion_visual"):
+					child._update_depletion_visual()
+				break
 
 
 ## Peers whose local mine room is built and ready to receive node-path RPCs.
@@ -4495,13 +4552,21 @@ func notify_cell_object_removed(world_pos: Vector2) -> void:
 	if not NetworkManager.is_network_active():
 		return
 	var cell := world_to_cell(world_pos)
+	_removed_cell_objects[cell] = true
 	rpc("_sync_remove_cell_object", cell)
 
 
 ## Received by all peers to remove a world object at the given cell.
 @rpc("any_peer", "call_local")
 func _sync_remove_cell_object(cell: Vector2i) -> void:
-	# Find and remove any node at this cell position on the objects layer
+	_removed_cell_objects[cell] = true
+	_remove_object_at_cell(cell)
+
+
+## Removes any world object node sitting at the given cell (trees, rocks,
+## flowers, stumps — plus any Node2D that landed there). Used by both the
+## live removal RPC and the late-joiner world-state snapshot.
+func _remove_object_at_cell(cell: Vector2i) -> void:
 	for child in objects_root.get_children():
 		if child is Node2D and is_instance_valid(child):
 			var child_cell := world_to_cell(child.global_position)
@@ -4627,6 +4692,63 @@ func _sync_place_building(b_type: int, cell: Vector2i) -> void:
 func _sync_remove_building(cell: Vector2i, b_type: int) -> void:
 	building_system.remove_building(cell, self)
 	_unregister_special_building(b_type, cell)
+
+
+# ── Late-joiner world-state sync ──────────────────────────────────────────
+
+## Called by a client right after it regenerates its world, asking the host to
+## send a snapshot of the world's mutable state: removed resources, harvested
+## bushes, placed buildings, sprinklers and chest inventories. Without this a
+## late joiner sees a pristine world that diverges from the host's.
+@rpc("any_peer", "reliable")
+func _server_request_world_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var removed: Array = []
+	for cell in _removed_cell_objects.keys():
+		removed.append([cell.x, cell.y])
+	var harvested_bushes: Array = []
+	for child in objects_root.get_children():
+		if child is Bush and is_instance_valid(child) and child.get("_harvested"):
+			var bc := world_to_cell(child.global_position)
+			harvested_bushes.append([bc.x, bc.y])
+	var build_snapshot: Array = []
+	if building_system:
+		for b in building_system.placed_buildings:
+			var b_cell: Vector2i = b.get("cell", Vector2i.ZERO)
+			build_snapshot.append({"t": b.get("type", 0), "x": b_cell.x, "y": b_cell.y, "r": b.get("rotation", 0)})
+	var sprinkler_snapshot: Array = []
+	for cell in _sprinklers.keys():
+		var s_data: Dictionary = _sprinklers[cell]
+		sprinkler_snapshot.append({"x": cell.x, "y": cell.y, "t": s_data.get("tier", 0), "d": s_data.get("placed_day", 0)})
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
+	rpc_id(sender, "_receive_world_state_snapshot", removed, harvested_bushes, build_snapshot, sprinkler_snapshot, GameManager.chest_inventories.duplicate(true))
+
+
+## Applies the host's world-state snapshot on a late-joining client.
+@rpc("authority", "reliable")
+func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buildings: Array, sprinklers: Array, chests: Dictionary) -> void:
+	for entry in removed:
+		_remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
+	for entry in harvested_bushes:
+		var cell := Vector2i(int(entry[0]), int(entry[1]))
+		for child in objects_root.get_children():
+			if child is Bush and is_instance_valid(child):
+				if world_to_cell(child.global_position) == cell:
+					child.set_harvested()
+					break
+	for entry in buildings:
+		_sync_place_building(int(entry.get("t", 0)), Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0))))
+	for entry in sprinklers:
+		var cell := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+		if _is_in_bounds(cell) and not _sprinklers.has(cell):
+			_sprinklers[cell] = {"active": true, "placed_day": int(entry.get("d", GameManager.current_day)), "tier": int(entry.get("t", 0))}
+	if not chests.is_empty():
+		GameManager.chest_inventories.clear()
+		for key in chests.keys():
+			GameManager.chest_inventories[key] = chests.get(key)
 
 
 # ── Visitor ship sync ───────────────────────────────────────────────────

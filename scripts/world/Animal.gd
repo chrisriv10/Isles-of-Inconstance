@@ -335,6 +335,24 @@ func _sync_animal_pos(aid: int, pos: Vector2) -> void:
 		return
 	global_position = pos
 
+## Client → host: a client fed an animal; ask the host to mark its copy
+## tamed and relay to everyone so remote copies match.
+@rpc("any_peer", "reliable")
+func _request_animal_tamed(aid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if animal_id != aid:
+		return
+	_tamed = true
+	rpc("_sync_animal_tamed", aid)
+
+## Host → all clients: mark the animal with this id as tamed.
+@rpc("authority", "call_local")
+func _sync_animal_tamed(aid: int) -> void:
+	if animal_id != aid:
+		return
+	_tamed = true
+
 ## Host → all clients: broadcast damage result so remote copies show effects.
 @rpc("authority", "call_local")
 func _sync_animal_damage(aid: int, hp: int, dmg: int, crit: bool, pos: Vector2, mhp: int) -> void:
@@ -600,6 +618,15 @@ func feed(food_item_id: String) -> bool:
 	is_love_mode = true
 	_love_timer = 15.0  # 15 seconds of love mode
 	_tamed = true  # now stays near fences
+
+	# Multiplayer: broadcast the tame so every peer's copy (host + clients)
+	# marks this animal as tamed too. Local mutation is unconditional; the
+	# relay is purely additive (client → host → everyone).
+	if NetworkManager.is_network_active():
+		if multiplayer.is_server():
+			rpc("_sync_animal_tamed", animal_id)
+		else:
+			rpc_id(1, "_request_animal_tamed", animal_id)
 	
 	# Burst of heart sprites
 	EffectSpawner.spawn_hearts(global_position + Vector2(0, -12), 8, 14.0, -28.0)
