@@ -12,6 +12,8 @@ var game: Node2D
 var _host_save_seed: int = -1
 var _host_join_code: String = ""
 var _host_lobby_public: bool = true
+# True when hosting a brand-new world from an empty slot (vs. an existing save).
+var _host_is_new: bool = false
 
 func _ready() -> void:
 	print("Bootstrap._ready() running")
@@ -109,6 +111,7 @@ func _connect_signals() -> void:
 		save_select_ui.back_requested.connect(_on_save_select_back)
 		save_select_ui.new_save_requested.connect(_on_new_save_from_slot)
 		save_select_ui.host_save_selected.connect(_on_host_save_selected)
+		save_select_ui.host_new_save_requested.connect(_on_host_new_save)
 	
 	# Listen for hardcore death — game over deletes save and returns to main menu
 	if not GameManager.hardcore_death_occurred.is_connected(_on_hardcore_death):
@@ -135,6 +138,7 @@ func _on_host_game() -> void:
 	print("Bootstrap: Host Game requested")
 	_host_save_seed = -1
 	_host_join_code = ""
+	_host_is_new = false
 	main_menu.modulate.a = 1.0
 	if save_select_ui:
 		save_select_ui.show_ui(SaveSelectUI.Mode.HOST)
@@ -143,11 +147,32 @@ func _on_host_game() -> void:
 ## Reads the seed/mode from the save and starts the EOS join-code lobby.
 func _on_host_save_selected(slot_idx: int, public_lobby: bool = true) -> void:
 	print("Bootstrap: Host save selected: ", slot_idx)
+	_host_is_new = false
 	var info: Dictionary = SaveManager.get_save_slot_info(slot_idx)
 	_host_save_seed = int(info.get("world_seed", 0))
 	_host_lobby_public = public_lobby
 	GameManager.set_game_mode(int(info.get("game_mode", GameManager.GameMode.SURVIVAL)))
 	GameManager.set_difficulty(int(info.get("difficulty", GameManager.Difficulty.NORMAL)))
+	SaveManager.current_slot = slot_idx
+	if save_select_ui:
+		save_select_ui.set_status("Starting host...")
+	if not NetworkManager.ezcha_lobby_created.is_connected(_on_host_lobby_created):
+		NetworkManager.ezcha_lobby_created.connect(_on_host_lobby_created)
+	_connect_mp_success_signal(_on_host_started)
+	_connect_mp_fail_signal()
+	NetworkManager.host_via_eos("", 8, _host_lobby_public)
+
+## Called when the host clicks an EMPTY save slot in HOST mode: host a brand
+## new world in that slot (no create-then-back-out dance). Runs the same EOS
+## lobby flow, then generates the fresh world via _start_new_game so joining
+## clients receive the seed through notify_world_generated.
+func _on_host_new_save(slot_idx: int, seed: int, mode: int, difficulty: int, public_lobby: bool = true) -> void:
+	print("Bootstrap: Host NEW save requested in slot %d (seed=%d)" % [slot_idx, seed])
+	_host_is_new = true
+	_host_save_seed = seed
+	_host_lobby_public = public_lobby
+	GameManager.set_game_mode(mode)
+	GameManager.set_difficulty(difficulty)
 	SaveManager.current_slot = slot_idx
 	if save_select_ui:
 		save_select_ui.set_status("Starting host...")
@@ -166,7 +191,15 @@ func _on_host_lobby_created(join_code: String) -> void:
 func _on_host_started(_peer_id: int) -> void:
 	print("Bootstrap: Host started successfully")
 	_cleanup_mp_signals()
-	if _host_save_seed >= 0:
+	if _host_is_new:
+		# Hosting a brand-new world: keep the save select open briefly so the
+		# host can share the join code, then generate the fresh world.
+		if save_select_ui:
+			save_select_ui.set_status("Join code: %s" % _host_join_code)
+		var ntween := create_tween()
+		ntween.tween_interval(1.5)
+		ntween.tween_callback(_host_start_new_game)
+	elif _host_save_seed >= 0:
 		# Hosting an existing save: keep the save select open so the host can
 		# share the join code, then load the world (clients get the seed via
 		# notify_world_generated once it is generated).
@@ -177,6 +210,22 @@ func _on_host_started(_peer_id: int) -> void:
 		tween.tween_callback(_host_load_save)
 	else:
 		_show_save_select()
+
+func _host_start_new_game() -> void:
+	# Close the save select, then generate the fresh hosted world. _start_new_game
+	# broadcasts the seed via notify_world_generated so joining clients build an
+	# identical world.
+	if save_select_ui:
+		save_select_ui.close_ui()
+	var tween := create_tween()
+	tween.tween_interval(0.2)
+	tween.tween_callback(func():
+		_start_new_game(_host_save_seed)
+		# _start_new_game clears the join-code display, so set it afterwards.
+		var hud_node: CanvasLayer = game.get_node_or_null("HUD") as CanvasLayer if game else null
+		if hud_node and hud_node.has_method("set_join_code_display"):
+			hud_node.set_join_code_display(_host_join_code)
+	)
 
 func _host_load_save() -> void:
 	# Close the save select, then load the hosted save so late-joining
@@ -207,6 +256,7 @@ func _on_join_success(peer_id: int) -> void:
 
 func _on_mp_connect_failed() -> void:
 	print("Bootstrap: Multiplayer connection failed!")
+	_host_is_new = false
 	_cleanup_mp_signals()
 	if main_menu:
 		main_menu.visible = true
@@ -682,6 +732,9 @@ func _hide_game_and_show_menu() -> void:
 
 func _on_exit_to_menu() -> void:
 	print("Bootstrap._on_exit_to_menu() running")
+
+	# Any in-flight "host new game" request is void once we bail to the menu.
+	_host_is_new = false
 
 	# Exit the mine first if inside one, so the save records a valid
 	# overworld player position instead of the INTERIOR_VOID mine offset.

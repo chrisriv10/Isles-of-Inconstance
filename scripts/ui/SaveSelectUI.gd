@@ -18,6 +18,7 @@ signal save_selected(slot_index: int)
 signal back_requested()
 signal new_save_requested(slot_index: int, seed: int, game_mode: int, difficulty: int)
 signal host_save_selected(slot_index: int, public_lobby: bool)
+signal host_new_save_requested(slot_index: int, seed: int, game_mode: int, difficulty: int, public_lobby: bool)
 
 # UI Style constants
 var LIGHT_WOOD: StyleBoxTexture
@@ -272,12 +273,16 @@ func _refresh_slot(slot_idx: int) -> void:
 		hint_label.visible = false
 	else:
 		name_label.text = "Empty"
-		hint_label.visible = _current_mode == Mode.NEW_GAME
+		hint_label.visible = _current_mode in [Mode.NEW_GAME, Mode.HOST]
+		if _current_mode == Mode.HOST:
+			hint_label.text = "Click to host new game"
+		else:
+			hint_label.text = "Click to start new game"
 		ts_label.text = ""
 		if _current_mode == Mode.CONTINUE:
 			info_label.text = "No save"
 		elif _current_mode == Mode.HOST:
-			info_label.text = "No save"
+			info_label.text = "Host a new game here"
 		else:
 			info_label.text = "Start a new game here"
 		delete_btn.visible = false
@@ -301,11 +306,21 @@ func _on_slot_gui_input(event: InputEvent, slot_idx: int) -> void:
 		Mode.HOST:
 			if has_save:
 				host_save_selected.emit(slot_idx, public_toggle.button_pressed)
+			else:
+				# Host a brand-new world in this slot — no need to create a
+				# single-player save first and then back out to re-host it.
+				_emit_host_new_save(slot_idx)
 
 
 func _emit_new_save(slot_idx: int) -> void:
 	var seed: int = seed_input.text.to_int()
 	_fade_out_and_emit("new", slot_idx, seed, _selected_mode, _selected_difficulty)
+
+## Host a brand-new world in an empty slot, reusing the seed/mode/difficulty
+## options so the fresh world is configurable before the lobby starts.
+func _emit_host_new_save(slot_idx: int) -> void:
+	var seed: int = seed_input.text.to_int()
+	_fade_out_and_emit("new_host", slot_idx, seed, _selected_mode, _selected_difficulty)
 
 
 ## Applies the shared golden dialog theme. MUST be called AFTER add_child()
@@ -500,6 +515,8 @@ func _fade_out_and_emit(action: String, slot_idx: int = -1, seed: int = 0, game_
 				save_selected.emit(slot_idx)
 			"new":
 				new_save_requested.emit(slot_idx, seed, game_mode, difficulty)
+			"new_host":
+				host_new_save_requested.emit(slot_idx, seed, game_mode, difficulty, public_toggle.button_pressed)
 			"back":
 				back_requested.emit()
 	)
@@ -512,11 +529,13 @@ func show_ui(p_mode: Mode = Mode.CONTINUE) -> void:
 	visible = true
 	modulate.a = 0.0
 	back_button.disabled = false
-	options_box.visible = _current_mode == Mode.NEW_GAME
+	# The seed/mode/difficulty options are also shown in HOST mode so a brand
+	# new world can be configured before hosting it from an empty slot.
+	options_box.visible = _current_mode in [Mode.NEW_GAME, Mode.HOST]
 	host_options_box.visible = _current_mode == Mode.HOST
 	status_label.visible = _current_mode == Mode.HOST
 	if _current_mode == Mode.HOST:
-		status_label.text = "Pick a save to host"
+		status_label.text = "Pick a save to host, or click an empty slot to host a new game."
 		public_toggle.button_pressed = true
 	_refresh_all()
 	# Re-enable slot panel mouse filters (they were set to IGNORE by fade-out)
