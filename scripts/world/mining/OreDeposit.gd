@@ -254,6 +254,10 @@ func _server_mine_ore_hit(did: int, miner_peer: int) -> void:
 	if _is_regenerating or remaining_hits <= 0:
 		return
 
+	# Do NOT trust the caller-supplied miner_peer param: credit the ore to
+	# whoever actually sent this hit so a client can't forge loot routing to
+	# another player's inventory. (Single-player legitimacy is unaffected.)
+	miner_peer = multiplayer.get_remote_sender_id()
 	_process_hit_locally(miner_peer)
 
 

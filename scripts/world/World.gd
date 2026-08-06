@@ -4903,11 +4903,13 @@ func _broadcast_farm_delta() -> void:
 func _apply_farm_delta(soil_delta: Array = [], crop_delta: Array = []) -> void:
 	if multiplayer.is_server():
 		return
-	# Replace local soil with the host's authoritative state.
+	# Build the set of cells the host still farms, and apply its soil state.
+	var host_cells: Dictionary = {}
 	for entry in soil_delta:
 		var cell := Vector2i(int(entry[0]), int(entry[1]))
 		if _is_in_bounds(cell) and entry.size() >= 3:
 			_soil_data[cell] = SoilData.deserialize(entry[2])
+			host_cells[cell] = true
 	# Track which cells the host currently has crops on, and rebuild the local
 	# crop nodes from the delta so growth / mutation / death apply cleanly.
 	var host_crop_cells: Dictionary = {}
@@ -4928,13 +4930,27 @@ func _apply_farm_delta(soil_delta: Array = [], crop_delta: Array = []) -> void:
 				crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)))
 			crop.mutated.connect(_on_crop_mutated.bind(cc))
 			_crop_nodes[cc] = crop
-	# Drop any local crop node whose crop died on the host (crop_id cleared).
-	if not crop_delta.is_empty():
-		for cell in _crop_nodes.keys():
-			if not host_crop_cells.has(cell) and _soil_data.has(cell) \
-					and _soil_data[cell].crop_id == "":
-				_crop_nodes[cell].queue_free()
-				_crop_nodes.erase(cell)
+	# Drop local crop nodes the host no longer has: either the crop died on the
+	# host (soil remains, crop_id cleared) or the whole plot was reverted.
+	for cell in _crop_nodes.keys():
+		var keep: bool = host_crop_cells.has(cell) and _soil_data.has(cell) \
+				and _soil_data[cell].crop_id != ""
+		if not keep:
+			_crop_nodes[cell].queue_free()
+			_crop_nodes.erase(cell)
+	# Remove local soil the host reverted to grass, and restore the ground tile
+	# visual (mirrors the host's revert in _on_day_changed so a guest's plot
+	# doesn't stay a ghost of tilled dirt after the host regrew it).
+	for cell in _soil_data.keys():
+		if not host_cells.has(cell):
+			_soil_data.erase(cell)
+			if cell.y < _tile_grid.size() and cell.x < _tile_grid[cell.y].size():
+				var tile_id: String = _tile_grid[cell.y][cell.x]
+				if tile_id in ["tilled", "watered_tilled"]:
+					_tile_grid[cell.y][cell.x] = "grass"
+					var gtype: TileTypeData = DataManager.get_tile_type("grass")
+					if gtype:
+						ground_layer.set_cell(cell, 0, gtype.atlas_coords)
 
 
 # ── Visitor ship sync ───────────────────────────────────────────────────

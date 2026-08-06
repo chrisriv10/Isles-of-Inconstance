@@ -766,7 +766,12 @@ func _receive_time_state(day: int, min_of_day: int, phase: int, season: int, wea
 	if day_night:
 		day_night.current_phase = phase
 	if season_system:
+		var prev_season: int = season_system.current_season
 		season_system.current_season = season
+		# Re-emit season_changed on the client so the season toast/FX (HUD)
+		# fire there too, not just on the host. Mirrors the weather re-emit below.
+		if season != prev_season:
+			season_changed.emit(season, season_system.get_season_name())
 	if weather_system:
 		var prev_weather: int = weather_system.current_weather
 		weather_system.current_weather = weather
@@ -784,6 +789,10 @@ func _receive_time_state(day: int, min_of_day: int, phase: int, season: int, wea
 	if _has_received_client_time and day != prev_day:
 		_apply_bank_interest()
 		day_changed.emit(current_day)
+		# This client persists its own personal progression on each host day
+		# rollover (SaveManager routes to the personal-only writer on clients),
+		# so a co-op-only player's items/money/level survive the session.
+		SaveManager.save_game()
 	_has_received_client_time = true
 	
 	var hour := get_hour()

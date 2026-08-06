@@ -24,10 +24,11 @@ func save_game() -> void:
 	# In an active multiplayer session the host owns the shared world (soil,
 	# buildings, chests, town), so a client must NOT write host/synced world
 	# data over its own save slot. Only the host (and single-player) persists
-	# the full save; clients load their personal progression on join via
-	# load_player_progression() instead.
+	# the full save. A client still persists ITS OWN personal progression
+	# (gear, money, level, quests/objectives, pets...) so a co-op-only player
+	# keeps their progress across sessions — see load_player_progression().
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
-		print("SaveManager: skipping full save on client (multiplayer)")
+		_save_player_progression()
 		return
 	
 	var path := _get_save_path(current_slot)
@@ -48,6 +49,66 @@ func save_game() -> void:
 	file.close()
 	print("Game saved successfully to: ", path)
 	save_completed.emit(true)
+
+
+## Write ONLY the player's personal progression to the slot. This is the
+## counterpart to load_player_progression(): it serializes the exact subset of
+## keys _apply_player_progression restores and deliberately NEVER writes shared
+## world state (soil, buildings, chests, town, difficulty, game mode, weather,
+## raid...). Used by clients in a live session so they keep their own
+## gear/money/level/quests/objectives without clobbering host world data.
+func _save_player_progression() -> void:
+	_ensure_save_directory()
+	var path := _get_save_path(current_slot)
+	var save_data := _collect_player_progression_data()
+	save_data["save_version"] = SAVE_VERSION
+	save_data["save_timestamp"] = Time.get_unix_time_from_system()
+	save_data["save_slot"] = current_slot
+	save_data["save_name"] = GameManager.save_name
+	var json_string := JSON.stringify(save_data)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if not file:
+		printerr("Failed to open save file for writing (progression): ", path)
+		save_completed.emit(false)
+		return
+	file.store_string(json_string)
+	file.close()
+	print("Player progression saved to: ", path)
+	save_completed.emit(true)
+
+
+## Collect ONLY the personal-progression fields (mirrors _apply_player_progression).
+func _collect_player_progression_data() -> Dictionary:
+	var data := {}
+	data["player_name"] = GameManager.player_name
+	data["inventory"] = InventoryManager.get_all_items()
+	data["money"] = GameManager.money
+	data["bank_balance"] = GameManager.bank_balance
+	data["upgrades"] = UpgradeManager.get_upgrade_levels()
+	data["discovered_crops"] = DataManager.get_discovered_crop_ids()
+	data["discovered_items"] = DataManager.get_discovered_item_ids()
+	data["farming_stats"] = {
+		"total_crops_harvested": GameManager.total_crops_harvested,
+		"total_giant_crops_harvested": GameManager.total_giant_crops_harvested,
+		"total_mutations_occurred": GameManager.total_mutations_occurred,
+		"total_compost_produced": GameManager.total_compost_produced,
+		"total_seeds_planted": GameManager.total_seeds_planted,
+		"best_quality_tier": GameManager.best_quality_tier
+	}
+	data["player_level"] = LevelManager.serialize()
+	data["equipped_armor"] = GameManager.equipped_armor.duplicate()
+	data["health"] = GameManager.health
+	data["hunger"] = GameManager.hunger
+	if PetManager and PetManager.has_method("serialize"):
+		data["pets"] = PetManager.serialize()
+	var quest_manager := get_tree().get_first_node_in_group("quest_manager")
+	if quest_manager and quest_manager.has_method("serialize"):
+		data["quests"] = quest_manager.serialize()
+	var obj_mgr := get_tree().get_first_node_in_group("objective_manager")
+	if obj_mgr and obj_mgr.has_method("serialize"):
+		data["objectives"] = obj_mgr.serialize()
+	data["seen_dialogues"] = GameManager.seen_dialogues.duplicate()
+	return data
 
 ## Load all game state from the currently selected slot.
 func load_game() -> void:

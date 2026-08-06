@@ -478,9 +478,14 @@ func _die() -> void:
 	# Drop loot (populates _pending_loot_drops for broadcast)
 	_drop_loot()
 	
-	# Host: broadcast death and loot to all clients
+	# Host: broadcast death and loot to all clients. In INSTANCED loot mode each
+	# client already received its own private roll via _receive_loot_drop, so we
+	# must NOT also broadcast the host's pending roll (that would double-loot the
+	# guests). Only SHARED mode sends the host's single rolled loot to everyone.
+	# _pending_loot_drops may still hold the host's own instanced roll (queued
+	# for the host's own inventory); we simply omit it from the client broadcast.
 	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
-		rpc("_sync_enemy_died", enemy_id, _pending_loot_drops)
+		rpc("_sync_enemy_died", enemy_id, _pending_loot_drops if not GameManager.loot_instanced else [])
 	_pending_loot_drops.clear()
 	
 	var is_boss := is_in_group("bosses")

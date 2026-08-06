@@ -501,11 +501,20 @@ func _on_raid_victory() -> void:
 	
 	# Remove the pirate ship
 	_remove_pirate_ship()
-	_broadcast_raid_state()
-	
+	# Broadcast the victory (active=false, victory=true) so every client rolls
+	# and keeps its own reward, advances its own per-player objective, and sees
+	# the win banner — not just the host. (Clients apply in the _sync_raid_state
+	# victory branch; the host applies via _apply_raid_victory_reward below.)
+	_broadcast_raid_state(true)
+	_apply_raid_victory_reward()
+
+
+## Per-player reward for winning a raid. Runs on the host (from _on_raid_victory)
+## and on each client (from the _sync_raid_state victory branch). Each peer
+## keeps its own gold/loot roll, advances its own "survive raid" objective, and
+## shows the win toast/banner.
+func _apply_raid_victory_reward() -> void:
 	ToastNotification.show_toast("🏆 RAID DEFEATED! Pirates routed!", ToastNotification.ToastType.SUCCESS, 5.0)
-	
-	# Reward: gold + pirate-themed loot
 	GameManager.add_money(roundi((50 + _rng.randi() % 100) * GameManager.get_income_mult()))
 	InventoryManager.add_item("cutlass", 1)
 	InventoryManager.add_item("cannonball", 3 + _rng.randi() % 5)
@@ -513,25 +522,23 @@ func _on_raid_victory() -> void:
 		InventoryManager.add_item("treasure_map", 1)
 	if _rng.randf() > 0.85:
 		InventoryManager.add_item("ancient_coin", 1)
-	
-	# Track objective completion
+	# Track objective completion (per-player)
 	var obj_mgr := get_tree().get_first_node_in_group("objective_manager")
 	if obj_mgr and obj_mgr.has_method("on_pirate_raid_survived"):
 		obj_mgr.on_pirate_raid_survived()
-	
 	raid_ended.emit(true)
 
 ## Host: broadcast the raid state so clients show the same ship and waves.
-func _broadcast_raid_state() -> void:
+func _broadcast_raid_state(victory: bool = false) -> void:
 	if _is_remote or not NetworkManager.is_network_active() or not multiplayer.is_server():
 		return
-	rpc("_sync_raid_state", state != RaidState.INACTIVE and state != RaidState.COOLDOWN, current_wave, max_waves)
+	rpc("_sync_raid_state", state != RaidState.INACTIVE and state != RaidState.COOLDOWN, current_wave, max_waves, victory)
 
 
 ## Client: apply the host's raid state — shows the pirate ship, berth
 ## displacement, and wave info without running any raid logic locally.
 @rpc("authority", "call_local")
-func _sync_raid_state(active: bool, wave: int, total_waves: int) -> void:
+func _sync_raid_state(active: bool, wave: int, total_waves: int, victory: bool = false) -> void:
 	if multiplayer.is_server():
 		return
 	var was_active: bool = state == RaidState.ACTIVE or state == RaidState.WARNING
@@ -539,9 +546,13 @@ func _sync_raid_state(active: bool, wave: int, total_waves: int) -> void:
 		state = RaidState.COOLDOWN
 		_remove_pirate_ship()
 		if was_active:
-			# Client-side banner: the raid is over (client never sees the
-			# host's victory/defeat flag; the ship removal is the signal).
-			raid_ended.emit(false)
+			# The SAME flag the host used: a won raid grants everyone their own
+			# reward + per-player objective and a win banner; a lost/timed-out
+			# raid is a plain defeat banner. No more host-vs-client mismatch.
+			if victory:
+				_apply_raid_victory_reward()
+			else:
+				raid_ended.emit(false)
 		return
 	var was_wave: int = current_wave
 	state = RaidState.ACTIVE if wave > 0 else RaidState.WARNING
