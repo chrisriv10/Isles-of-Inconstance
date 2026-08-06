@@ -4126,14 +4126,30 @@ func _server_request_island_removals(seed: int) -> void:
 	var ids: Array = []
 	for obj_id: Variant in _island_removed.get(seed, {}):
 		ids.append(int(obj_id))
-	rpc_id(sender, "_receive_island_removals", seed, ids)
+	# Also backfill the live animal states from the authority island so a late
+	# joiner's fresh deterministic copies match the host's damaged/tamed/kept
+	# animals (removals alone only cover static gathered objects, not HP/status).
+	var animal_states: Array = []
+	var island := _get_authority_island_by_seed(seed)
+	if island:
+		for a in get_tree().get_nodes_in_group("animals"):
+			if is_instance_valid(a) and a is Animal and a.animal_id != 0 \
+					and island.is_ancestor_of(a):
+				animal_states.append({
+					"id": a.animal_id,
+					"hp": a.current_health,
+					"mhp": a.max_health,
+					"tamed": a._tamed,
+				})
+	rpc_id(sender, "_receive_island_removals", seed, ids, animal_states)
 
 
-## Host → client: apply the session's already-removed objects to this peer so
-## it matches the host's gathered state (removals recorded regardless of island
-## presence are still applied when the seed matches).
+## Host → client: apply the session's already-removed objects plus live animal
+## states to this peer so it matches the host's gathered/damaged island state
+## (removals recorded regardless of island presence are still applied when the
+## seed matches, and matching-copy animals adopt the host's HP/tamed status).
 @rpc("authority", "reliable")
-func _receive_island_removals(seed: int, ids: Array) -> void:
+func _receive_island_removals(seed: int, ids: Array, animal_states: Array = []) -> void:
 	if multiplayer.is_server():
 		return
 	if not _island_removed.has(seed):
@@ -4143,6 +4159,23 @@ func _receive_island_removals(seed: int, ids: Array) -> void:
 		_island_removed[seed][oid] = true
 		if _island_has_seed(seed):
 			_current_island._sync_island_object_removed(oid)
+	# Match backfilled animal states against this peer's freshly-built copies.
+	for state: Variant in animal_states:
+		var st: Dictionary = state
+		var aid: int = int(st.get("id", 0))
+		if aid == 0:
+			continue
+		for a in get_tree().get_nodes_in_group("animals"):
+			if is_instance_valid(a) and a is Animal and a.animal_id == aid:
+				if st.has("hp"):
+					a.current_health = int(st["hp"])
+				if st.has("mhp"):
+					a.max_health = int(st["mhp"])
+				if st.get("tamed", false):
+					a.set("_tamed", true)
+				if a.has_method("_update_health_bar"):
+					a._update_health_bar()
+				break
 
 
 ## True if this peer currently has a local island built with the given seed.
@@ -4150,6 +4183,20 @@ func _island_has_seed(seed: int) -> bool:
 	if not is_instance_valid(_current_island):
 		return false
 	return int(_current_island.get("_island_seed")) == seed
+
+
+## Return the host's authoritative island instance for a given session seed:
+## the host player's own _current_island if it matches, else the hidden host
+## proxy built for an off-island client session (or null if neither exists).
+## Used to backfill live animal state to late-joining clients.
+func _get_authority_island_by_seed(seed: int) -> Node:
+	if _host_island_proxy and is_instance_valid(_host_island_proxy) \
+			and int(_host_island_proxy.get("_island_seed")) == seed:
+		return _host_island_proxy
+	if _current_island and is_instance_valid(_current_island) \
+			and int(_current_island.get("_island_seed")) == seed:
+		return _current_island
+	return null
 
 
 ## Return from the expedition island back to the main world.
