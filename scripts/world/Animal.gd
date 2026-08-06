@@ -416,9 +416,13 @@ func _server_receive_animal_attack(aid: int, amount: int, crit: bool) -> void:
 
 
 func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false) -> void:
-	# Client-side remote copy — forward attack to host for authoritative processing
+	# Client-side remote copy — forward attack to host for authoritative
+	# processing via World's stable node path. The Animal node's own path can
+	# differ per peer (names drift after per-peer worldgen/respawn), and an
+	# rpc_id on it flooded "Node not found" when the host lacked that name.
 	if NetworkManager.is_network_active() and _is_remote:
-		rpc_id(1, "_server_receive_animal_attack", animal_id, amount, _is_critical)
+		if _world_ref and is_instance_valid(_world_ref) and _world_ref.has_method("_server_receive_animal_attack"):
+			_world_ref.rpc_id(1, "_server_receive_animal_attack", animal_id, amount, _is_critical)
 		return
 	
 	current_health -= amount
@@ -632,12 +636,16 @@ func feed(food_item_id: String) -> bool:
 
 	# Multiplayer: broadcast the tame so every peer's copy (host + clients)
 	# marks this animal as tamed too. Local mutation is unconditional; the
-	# relay is purely additive (client → host → everyone).
+	# relay is purely additive (client → host → everyone). Routed through
+	# World's stable path — per-node RPCs on the Animal node flooded
+	# "Node not found" whenever per-peer animal names drifted (and the old
+	# server-side rpc() skipped the host-only-subtree guard entirely).
 	if NetworkManager.is_network_active():
 		if multiplayer.is_server():
-			rpc("_sync_animal_tamed", animal_id)
+			_broadcast_animal_rpc("_sync_animal_tamed", [animal_id], true)
 		else:
-			rpc_id(1, "_request_animal_tamed", animal_id)
+			if _world_ref and is_instance_valid(_world_ref) and _world_ref.has_method("_server_tame_animal"):
+				_world_ref.rpc_id(1, "_server_tame_animal", animal_id)
 	
 	# Burst of heart sprites
 	EffectSpawner.spawn_hearts(global_position + Vector2(0, -12), 8, 14.0, -28.0)

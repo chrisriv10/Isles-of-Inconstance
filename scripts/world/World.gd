@@ -2360,6 +2360,40 @@ func _apply_animal_relay(method: String, args: Array) -> void:
 			return
 
 
+## Look up a live animal by its stable animal_id. Used by the World-routed
+## client→host handlers below so they never depend on matching Animal_N node
+## names across peers (those names drift apart after per-peer worldgen/respawn).
+func _find_animal_by_id(aid: int) -> Animal:
+	for a in get_tree().get_nodes_in_group("animals"):
+		if is_instance_valid(a) and a is Animal and a.animal_id == aid:
+			return a as Animal
+	return null
+
+
+## Client → host: a client fed an animal. Routed through World's stable node
+## path instead of the Animal node (whose per-peer names can drift and flood
+## "Node not found"). Delegates to the existing host-side tame handler.
+@rpc("any_peer", "reliable")
+func _server_tame_animal(aid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var animal := _find_animal_by_id(aid)
+	if animal:
+		animal._request_animal_tamed(aid)
+
+
+## Client → host: forward a melee/ranged attack on a remote copy. Routed
+## through World's stable path; the old Animal-node rpc_id flooded "Node
+## not found" whenever host/client animal names drifted apart.
+@rpc("any_peer", "reliable")
+func _server_receive_animal_attack(aid: int, amount: int, crit: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	var animal := _find_animal_by_id(aid)
+	if animal:
+		animal._server_receive_animal_attack(aid, amount, crit)
+
+
 ## Spawns a couple of starter animals on walkable land near the player's
 ## starting position so they encounter animals immediately without having
 ## to search the entire island. Spawns 2 of the same type (chickens) so
