@@ -339,10 +339,19 @@ func _on_quit() -> void:
 func grant_starter_inventory() -> void:
 	InventoryManager.clear()
 	var starter_crops: Array[CropData] = DataManager.get_procedural_crops()
+	if starter_crops.is_empty():
+		return
+	# Grant 3 seeds of a common crop variety, deterministically from the world
+	# seed (so all players on the same world get the same starter seeds). Prefer
+	# a "Common"-labeled crop, but fall back to the first crop: crop rarity is
+	# procedurally weighted and some seeds produce no Common-labeled crop at all,
+	# which would otherwise leave the player with zero starter seeds.
+	var chosen: CropData = starter_crops[0]
 	for starter_crop in starter_crops:
 		if starter_crop.rarity == "Common":
-			InventoryManager.add_item(starter_crop.seed_item_id, 3)
+			chosen = starter_crop
 			break
+	InventoryManager.add_item(chosen.seed_item_id, 3)
 
 func _hide_persistent_background() -> void:
 	var canvas: CanvasLayer = get_node("CanvasLayer") as CanvasLayer
