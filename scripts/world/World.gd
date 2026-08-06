@@ -5433,21 +5433,25 @@ func _sync_visitor_pos(index: int, x: float, y: float) -> void:
 
 
 ## Host: relay an interior wander NPC's authoritative position to all clients.
-## Keyed by the NPC's stable in-room origin (identical on every peer because
-## shared interiors are generated from the same seed only when two players are
-## in the SAME building). Non-members simply find no matching copy and ignore it.
-func relay_interior_wander_pos(x: float, y: float, ox: float, oy: float) -> void:
+## Keyed by the owning building's cell ("cell_x,cell_y") plus the NPC's stable
+## in-room origin. The cell key is essential: a client in a DIFFERENT building
+## of the same layout has NPCs with identical origins, so matching by origin
+## alone would cross-apply another building's positions onto them.
+func relay_interior_wander_pos(cell_key: String, x: float, y: float, ox: float, oy: float) -> void:
 	if NetworkManager.is_network_active() and multiplayer.is_server():
-		rpc("_sync_interior_wander_pos", x, y, ox, oy)
+		rpc("_sync_interior_wander_pos", cell_key, x, y, ox, oy)
 
 
 ## Client: mirror an interior wander NPC's host position.
 @rpc("unreliable", "authority")
-func _sync_interior_wander_pos(x: float, y: float, ox: float, oy: float) -> void:
+func _sync_interior_wander_pos(cell_key: String, x: float, y: float, ox: float, oy: float) -> void:
 	if multiplayer.is_server():
 		return
 	for w in get_tree().get_nodes_in_group("interior_wander_npcs"):
-		if w is InteriorWanderNPC and w._origin.distance_to(Vector2(ox, oy)) < 1.0:
+		# Same building session AND same in-room origin (multiple wander NPCs
+		# can share a cell — e.g. hotel guests — so origin disambiguates).
+		if w is InteriorWanderNPC and w._cell_key == cell_key \
+				and w._origin.distance_to(Vector2(ox, oy)) < 1.0:
 			w.apply_remote_position(Vector2(x, y))
 			break
 

@@ -1681,6 +1681,7 @@ func _add_hotel_guest(pos: Vector2, appearance_index: int, guest_name: String) -
 	# Add wander behavior so hotel guests move around instead of standing still
 	var wander := InteriorWanderNPC.new()
 	wander._is_remote = NetworkManager.is_network_active() and not multiplayer.is_server()
+	wander._cell_key = "%d,%d" % [building_cell.x, building_cell.y]
 	guest.add_child(wander)
 	
 	# Talk interaction — pressing E shows a greeting bubble
@@ -1946,6 +1947,7 @@ func _spawn_resident_npc() -> void:
 	# Add InteriorWanderNPC so the resident moves around inside the room
 	var wander := InteriorWanderNPC.new()
 	wander._is_remote = NetworkManager.is_network_active() and not multiplayer.is_server()
+	wander._cell_key = "%d,%d" % [building_cell.x, building_cell.y]
 	npc.add_child(wander)
 	
 	# Talk interaction — pressing E opens the same quest dialogue panel as

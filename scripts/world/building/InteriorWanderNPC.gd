@@ -18,6 +18,13 @@ var pause_max: float = 6.0
 ## Origin position (where the NPC was placed in the interior)
 var _origin: Vector2 = Vector2.ZERO
 
+## Stable identity for multiplayer relay matching: the building cell this NPC
+## belongs to ("cell_x,cell_y", copied from BuildingInterior.building_cell).
+## The host broadcasts positions of every open interior's wander NPCs, so the
+## client must scope matches to its own building cell — matching by _origin
+## alone is ambiguous when two same-layout buildings exist (identical origins).
+var _cell_key: String = ""
+
 ## Current target waypoint
 var _target: Vector2 = Vector2.ZERO
 
@@ -60,13 +67,13 @@ func _process(delta: float) -> void:
 	# copies apply via World relay. Local in-room position is used because the
 	# interior base (INTERIOR_VOID) is identical on every peer.
 	if not _is_remote and NetworkManager.is_network_active() and multiplayer.is_server() \
-			and _world and _world.has_method("relay_interior_wander_pos"):
+			and _world and _world.has_method("relay_interior_wander_pos") and not _cell_key.is_empty():
 		_pos_sync_timer -= delta
 		if _pos_sync_timer <= 0.0:
 			_pos_sync_timer = POS_SYNC_INTERVAL
 			var p := get_parent()
 			if p is Node2D:
-				_world.relay_interior_wander_pos(p.position.x, p.position.y, _origin.x, _origin.y)
+				_world.relay_interior_wander_pos(_cell_key, p.position.x, p.position.y, _origin.x, _origin.y)
 
 	if _moving:
 		var dir: Vector2 = (_target - get_parent().position).normalized()
