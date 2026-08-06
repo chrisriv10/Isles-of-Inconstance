@@ -75,6 +75,10 @@ static var inside_building: bool = false
 # True only while inside the shared co-op mine (remote players stay visible
 # there), as opposed to private interiors (buildings, expeditions).
 static var inside_mine: bool = false
+# Non-zero while the local player is on a shared expedition island; stores the
+# island session's seed. Two peers on the SAME seed share one island and can
+# see each other; different seeds → different islands → hidden.
+static var inside_island_seed: int = 0
 
 # Game completion flag — set when the Inconstant Soul is defeated
 var game_completed: bool = false
@@ -999,11 +1003,11 @@ func _try_broadcast_player_stats() -> void:
 	var local_player := get_tree().get_first_node_in_group("player")
 	if local_player and local_player.has_method("get_active_hotbar_item_id"):
 		held_item_id = local_player.get_active_hotbar_item_id()
-	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building)
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building, inside_island_seed)
 
 
 @rpc("unreliable", "any_peer")
-func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0) -> void:
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0, island_seed: int = 0) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == multiplayer.get_unique_id():
 		return  # ignore our own broadcast
@@ -1017,6 +1021,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"inside_interior": interior != 0,
 		"inside_mine": in_mine != 0,
 		"inside_building": in_building != 0,
+		"island_seed": island_seed,
 		"armor_set": armor_set,
 		"level": level,
 		"held_item_id": held_item_id,
