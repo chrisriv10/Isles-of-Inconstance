@@ -19,6 +19,10 @@ extends Node
 
 const TEST_PORT := 34200
 const CHAT_TEXT := "hello-mp-client"
+const CHEST_KEY := "smoke_chest"
+# Realistic-enough inventory slot payloads for the shared-chest test.
+const CHEST_PUT := [{"item_id": "wood", "count": 5}]
+const CHEST_STALE := [{"item_id": "stone", "count": 99}]
 
 var _role: String = ""
 var _fails: Array[String] = []
@@ -37,6 +41,13 @@ var _saw_day_change := false
 var _save_writes := 0
 var _saw_server_disconnect := false
 var _checked_save := false
+# Shared-chest live test stages (driven by client, observed on both sides).
+var _chest_req_sent := false
+var _chest_fetched := false
+var _chest_put_sent := false
+var _chest_put_verified := false
+var _chest_stale_sent := false
+var _chest_stale_checked := false
 
 # Host evidence + FSM
 var _saw_chat := false
@@ -139,11 +150,13 @@ func _host_fsm() -> void:
 		_b_asserts = true
 		_host_asserts()
 	# Stage 4: drop the client -> client server_disconnected -> personal save.
-	if not _b_disconnect and _timeline >= _stage_base + 4.5:
+	# Keep this LATE so the shared-chest put/stale stages (client t=4/6/8)
+	# complete while the peer is still connected.
+	if not _b_disconnect and _timeline >= _stage_base + 8.5:
 		_b_disconnect = true
 		print("[MP-SMOKE] HOST disconnecting client")
 		NetworkManager.disconnect_from_server()
-	if _timeline >= 13.0:
+	if _timeline >= 18.0:
 		_finish()
 
 
@@ -197,8 +210,51 @@ func _client_fsm() -> void:
 	if _timeline >= 6.0 and not _connected:
 		_fail("client never connected (no connection_succeeded)")
 		_connected = true  # mark "reported"
-	if _timeline >= 12.0:
+	_chest_fsm()
+	if _timeline >= 16.0:
 		_finish()
+
+
+## Shared-chest live test. Drives the REAL GameManager chest channel over the
+## wire: fetch -> put (host version bump + broadcast) -> stale write (rejected,
+## client reloaded to authoritative v1).
+func _chest_fsm() -> void:
+	if not _connected:
+		return
+	if _timeline >= 4.0 and not _chest_req_sent:
+		_chest_req_sent = true
+		GameManager.request_chest_data(CHEST_KEY)
+	if _timeline >= 4.0 and _chest_req_sent and not _chest_fetched \
+			and GameManager.chest_inventories.has(CHEST_KEY):
+		_chest_fetched = true
+		_pass("client fetched chest data from host (%s)" % str(GameManager.chest_inventories[CHEST_KEY]))
+	if _timeline >= 6.0 and _chest_fetched and not _chest_put_sent:
+		_chest_put_sent = true
+		GameManager.sync_chest_on_close(CHEST_KEY, CHEST_PUT.duplicate(true), 0)
+	if _timeline >= 6.5 and _chest_put_sent and not _chest_put_verified \
+			and GameManager.chest_versions.get(CHEST_KEY, 0) >= 1:
+		_chest_put_verified = true
+		var ok: bool = GameManager.chest_inventories.get(CHEST_KEY, []) == CHEST_PUT
+		if ok:
+			_pass("client put -> host committed + broadcast both sides (v=%d)" \
+					% GameManager.chest_versions.get(CHEST_KEY, 0))
+		else:
+			_fail("client put landed but content wrong (expect %s got %s)" \
+					% [str(CHEST_PUT), str(GameManager.chest_inventories.get(CHEST_KEY, []))])
+	if _timeline >= 8.0 and _chest_put_verified and not _chest_stale_sent:
+		_chest_stale_sent = true
+		# Deliberately resend with the OLD version (0) -> host must reject.
+		GameManager.sync_chest_on_close(CHEST_KEY, CHEST_STALE.duplicate(true), 0)
+	if _timeline >= 8.5 and _chest_stale_sent and not _chest_stale_checked:
+		_chest_stale_checked = true
+		var v: int = GameManager.chest_versions.get(CHEST_KEY, 0)
+		if v == 1 and GameManager.chest_inventories.get(CHEST_KEY, []) == CHEST_PUT:
+			_pass("stale chest write REJECTED; client reloaded to authoritative v1")
+		elif v >= 2:
+			_fail("stale chest write was ACCEPTED (v=%d) — versioning broken" % v)
+		else:
+			_fail("chest state wrong after stale write (v=%d content=%s)" \
+					% [v, str(GameManager.chest_inventories.get(CHEST_KEY, []))])
 
 
 func _on_client_disconnected() -> void:
@@ -214,6 +270,10 @@ func _finish() -> void:
 		_checked_save = true
 		_check_personal_save()
 	if _role == "client":
+		if _chest_put_sent and not _chest_put_verified:
+			_fail("chest put never verified — host never bumped version")
+		if _chest_stale_sent and not _chest_stale_checked:
+			_fail("chest stale-write test did not complete")
 		if _saw_day_change:
 			_pass("client day_changed re-emitted (fix #5/#6 day rollover)")
 		else:
@@ -232,6 +292,12 @@ func _finish() -> void:
 			_pass("client wrote personal save at least once")
 		else:
 			_fail("client never wrote a personal save")
+	elif _role == "host":
+		var cv: int = GameManager.chest_versions.get(CHEST_KEY, 0)
+		if cv >= 1:
+			_pass("host committed shared-chest write (v=%d)" % cv)
+		else:
+			_fail("host never committed shared-chest write")
 	print("[MP-SMOKE] %s: %d pass, %d fail" % [_role.to_upper(), _passes.size(), _fails.size()])
 	for p in _passes:
 		print("[MP-SMOKE]   PASS  ", p)
