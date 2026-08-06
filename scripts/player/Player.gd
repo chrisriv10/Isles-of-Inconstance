@@ -429,6 +429,9 @@ func _update_remote_health_bar() -> void:
 	# Apply held item visual on remote copy
 	var held_item_id: String = stats.get("held_item_id", "")
 	_apply_remote_held_item(held_item_id)
+	# Keep the bleedout bar in sync with the downed player's own timer
+	if _is_downed:
+		_update_bleedout_bar(stats.get("bleedout_frac", 1.0))
 	var ratio := float(hp) / float(max_hp)
 	var bar_w := 24.0
 	_remote_hp_bar_fill.size.x = ratio * bar_w
@@ -585,8 +588,12 @@ func _apply_remote_held_item(item_id: String) -> void:
 
 
 func _process(_delta: float) -> void:
-	if NetworkManager.is_network_active() and not is_multiplayer_authority():
+	if not NetworkManager.is_network_active():
+		return
+	if not is_multiplayer_authority():
 		_update_remote_health_bar()
+	elif _is_downed:
+		_update_local_bleedout_bar()
 
 
 func _physics_process(delta: float) -> void:
@@ -1403,21 +1410,39 @@ func _show_downed_ui() -> void:
 	downed_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
 	downed_label.add_theme_constant_override("shadow_offset_x", 2)
 	downed_label.add_theme_constant_override("shadow_offset_y", 2)
-	downed_label.position = Vector2(0, -48)
+	# Give the label an explicit centered size so the text sits directly above
+	# the player's head rather than anchoring to the left edge of position (0,0).
+	downed_label.size = Vector2(100, 14)
+	downed_label.position = Vector2(-50, -50)
 	add_child(downed_label)
 	
+	# Bleedout bar — drains as the player bleeds out toward auto-respawn
+	var bo_bg := ColorRect.new()
+	bo_bg.name = "BleedoutBarBG"
+	bo_bg.size = Vector2(80, 6)
+	bo_bg.position = Vector2(-40, -62)
+	bo_bg.color = Color(0.1, 0.1, 0.1, 0.8)
+	add_child(bo_bg)
+	
+	var bo_fill := ColorRect.new()
+	bo_fill.name = "BleedoutBarFill"
+	bo_fill.size = Vector2(80, 6)
+	bo_fill.position = Vector2(-40, -62)
+	bo_fill.color = Color(1.0, 0.3, 0.3, 1.0)
+	add_child(bo_fill)
+
 	# Revive progress bar
 	var bg := ColorRect.new()
 	bg.name = "ReviveProgressBG"
 	bg.size = Vector2(80, 6)
-	bg.position = Vector2(-40, -34)
+	bg.position = Vector2(-40, -30)
 	bg.color = Color(0.1, 0.1, 0.1, 0.8)
 	add_child(bg)
 	
 	var fill := ColorRect.new()
 	fill.name = "ReviveProgressFill"
 	fill.size = Vector2(0, 6)
-	fill.position = Vector2(-40, -34)
+	fill.position = Vector2(-40, -30)
 	fill.color = Color(0.2, 1.0, 0.3, 1.0)
 	add_child(fill)
 
@@ -1431,6 +1456,12 @@ func _hide_downed_ui() -> void:
 	var fill := get_node_or_null("ReviveProgressFill")
 	if fill:
 		fill.queue_free()
+	var bo_bg := get_node_or_null("BleedoutBarBG")
+	if bo_bg:
+		bo_bg.queue_free()
+	var bo_fill := get_node_or_null("BleedoutBarFill")
+	if bo_fill:
+		bo_fill.queue_free()
 
 ## Received on remote copies when the owning peer enters/leaves the downed
 ## state. Mirrors the downed visuals and toggles the downed flag so the copy
@@ -1481,6 +1512,18 @@ func _update_revive_progress(delta: float) -> void:
 	var fill := get_node_or_null("ReviveProgressFill")
 	if fill:
 		fill.size.x = 80.0 * (_revive_progress / 3.0)
+
+## Updates the bleedout bar fill from a remaining-fraction (1.0 = just downed,
+## 0.0 = about to bleed out / auto-respawn). No-op when the bar isn't present.
+func _update_bleedout_bar(remaining_frac: float) -> void:
+	var fill := get_node_or_null("BleedoutBarFill")
+	if fill:
+		fill.size.x = clampf(80.0 * remaining_frac, 0.0, 80.0)
+
+## Drives the LOCAL downed player's bleedout bar from this peer's own timer.
+func _update_local_bleedout_bar() -> void:
+	var remaining := 1.0 - clampf(GameManager._downed_timer / GameManager.BLEEDOUT_TIME, 0.0, 1.0)
+	_update_bleedout_bar(remaining)
 
 ## Returns the nearest downed teammate within revive range (64 px), or null.
 func get_nearest_downed_player() -> Player:

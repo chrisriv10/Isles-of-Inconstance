@@ -457,6 +457,10 @@ func _process_downed(delta: float) -> void:
 	if int(_downed_timer) % 5 == 0 and int(_downed_timer) != int(_downed_timer - delta):
 		print("Downed timer: ", _downed_timer, "/", BLEEDOUT_TIME)
 	
+	# Rate-limited broadcast keeps remote copies' bleedout bars in sync so
+	# teammates know how much time is left to revive.
+	_try_broadcast_player_stats()
+	
 	# Check bleedout
 	if _downed_timer >= BLEEDOUT_TIME:
 		_bleedout()
@@ -1003,11 +1007,16 @@ func _try_broadcast_player_stats() -> void:
 	var local_player := get_tree().get_first_node_in_group("player")
 	if local_player and local_player.has_method("get_active_hotbar_item_id"):
 		held_item_id = local_player.get_active_hotbar_item_id()
-	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building, inside_island_seed)
+	# Remaining bleedout fraction for this downed player (1.0 = just downed,
+	# 0.0 = about to auto-respawn). Broadcast so remote copies show a bar too.
+	var downed_frac := 0.0
+	if _is_downed:
+		downed_frac = clampf(1.0 - _downed_timer / BLEEDOUT_TIME, 0.0, 1.0)
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building, inside_island_seed, downed_frac)
 
 
 @rpc("unreliable", "any_peer")
-func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0, island_seed: int = 0) -> void:
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0, island_seed: int = 0, downed_frac: float = 0.0) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == multiplayer.get_unique_id():
 		return  # ignore our own broadcast
@@ -1025,6 +1034,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"armor_set": armor_set,
 		"level": level,
 		"held_item_id": held_item_id,
+		"bleedout_frac": downed_frac,
 	}
 	player_list_changed.emit()
 
