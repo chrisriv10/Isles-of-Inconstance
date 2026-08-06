@@ -518,6 +518,12 @@ func _receive_world_seed(seed: int) -> void:
 		var bootstrap := get_tree().root.get_node_or_null("Bootstrap")
 		if bootstrap and bootstrap.has_method("grant_starter_inventory"):
 			bootstrap.grant_starter_inventory()
+		# Overlay the client's own personal progression (inventory, money,
+		# level, pets, personal quests) from its save slot so a returning
+		# player keeps their progress instead of starting blank. Run after
+		# grant_starter_inventory so a real save replaces the fresh starter
+		# set; brand-new players (no save) keep the starter inventory.
+		SaveManager.load_player_progression()
 		# Pull the host's current town + world-event state so a late joiner
 		# sees town progress, an active blood moon, and an active raid that
 		# broadcast before this client was ready to receive them.
@@ -540,11 +546,6 @@ func _receive_world_seed(seed: int) -> void:
 		var esp: EnemySpawner = world.get("enemy_spawner") as EnemySpawner
 		if esp and esp.has_method("_server_request_enemy_state"):
 			esp.rpc_id(1, "_server_request_enemy_state")
-		# Pull the host's objective progress so this peer doesn't re-arm
-		# milestones the host already completed.
-		var om_obj: Node = get_tree().get_first_node_in_group("objective_manager")
-		if om_obj and om_obj.has_method("_server_request_objective_state"):
-			om_obj.rpc_id(1, "_server_request_objective_state")
 	# The client world is now ready — hide the scenic background layer that
 	# Bootstrap shows while waiting for the world sync.
 	var bootstrap := get_tree().root.get_node_or_null("Bootstrap")

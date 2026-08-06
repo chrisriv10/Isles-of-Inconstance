@@ -21,6 +21,15 @@ static func _get_save_path(slot_index: int) -> String:
 func save_game() -> void:
 	_ensure_save_directory()
 	
+	# In an active multiplayer session the host owns the shared world (soil,
+	# buildings, chests, town), so a client must NOT write host/synced world
+	# data over its own save slot. Only the host (and single-player) persists
+	# the full save; clients load their personal progression on join via
+	# load_player_progression() instead.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		print("SaveManager: skipping full save on client (multiplayer)")
+		return
+	
 	var path := _get_save_path(current_slot)
 	var save_data := _collect_save_data()
 	save_data["save_version"] = SAVE_VERSION
@@ -81,6 +90,137 @@ func load_game() -> void:
 	_apply_save_data(save_data)
 	print("Game loaded successfully from: ", path)
 	load_completed.emit(true)
+
+
+## Read ONLY the player's personal progression from the current slot and
+## apply it WITHOUT any world data. Joining multiplayer clients use this so
+## returning friends keep their gear, money, level, pets and personal quests
+## instead of starting blank. Returns true if a save was applied.
+func load_player_progression() -> bool:
+	_ensure_save_directory()
+	var path := _get_save_path(current_slot)
+	if not FileAccess.file_exists(path):
+		print("No save found for personal progression at: ", path)
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if not file:
+		printerr("Failed to open save file for reading: ", path)
+		return false
+	var json_string := file.get_as_text()
+	file.close()
+	if json_string.is_empty():
+		return false
+	var json := JSON.new()
+	if json.parse(json_string) != OK:
+		printerr("Failed to parse save file JSON: ", json.get_error_message())
+		return false
+	var save_data: Dictionary = json.data
+	_apply_player_progression(save_data)
+	print("Player progression loaded from: ", path)
+	return true
+
+
+## Apply ONLY the personal-progression fields. Mirrors the relevant subset of
+## _apply_save_data but deliberately NEVER touches world, soil, buildings,
+## chests, town, objectives, day/time, difficulty, or game mode — those are
+## host-authoritative in multiplayer (8a).
+func _apply_player_progression(save_data: Dictionary) -> void:
+	var player: Node = get_tree().get_first_node_in_group("player")
+
+	# Player name
+	if save_data.has("player_name"):
+		GameManager.player_name = save_data["player_name"]
+		if player and player.has_node("NameLabel"):
+			player.get_node("NameLabel").text = GameManager.player_name
+	GameManager.save_name = save_data.get("save_name", "")
+
+	# Inventory
+	if save_data.has("inventory"):
+		InventoryManager.clear()
+		var inventory: Dictionary = save_data["inventory"]
+		for item_id in inventory:
+			var amount: int = inventory[item_id]
+			if amount is int and amount > 0:
+				InventoryManager.add_item(item_id, amount)
+
+	# Money & bank
+	if save_data.has("money"):
+		var money_val: int = save_data["money"]
+		if money_val is int:
+			GameManager.money = money_val
+	if save_data.has("bank_balance"):
+		var bank_val: int = save_data["bank_balance"]
+		if bank_val is int:
+			GameManager.bank_balance = bank_val
+
+	# Upgrades
+	if save_data.has("upgrades"):
+		var upgrades: Dictionary = save_data["upgrades"]
+		for upgrade_id in upgrades:
+			var level_val: int = upgrades[upgrade_id]
+			if level_val is int:
+				# JSON serializes enum int-keys to strings; convert back
+				var upgrade_enum: int = int(upgrade_id) if upgrade_id is String else upgrade_id
+				UpgradeManager.set_upgrade_level(upgrade_enum, level_val)
+
+	# Discovered crops / items (collections)
+	if save_data.has("discovered_crops"):
+		for crop_id in save_data["discovered_crops"]:
+			if crop_id is String:
+				DataManager.mark_discovered(crop_id)
+	if save_data.has("discovered_items"):
+		for item_id in save_data["discovered_items"]:
+			if item_id is String:
+				DataManager.mark_item_discovered(item_id)
+
+	# Farming stats
+	if save_data.has("farming_stats"):
+		var fs: Dictionary = save_data["farming_stats"]
+		GameManager.total_crops_harvested = fs.get("total_crops_harvested", 0)
+		GameManager.total_giant_crops_harvested = fs.get("total_giant_crops_harvested", 0)
+		GameManager.total_mutations_occurred = fs.get("total_mutations_occurred", 0)
+		GameManager.total_compost_produced = fs.get("total_compost_produced", 0)
+		GameManager.total_seeds_planted = fs.get("total_seeds_planted", 0)
+		GameManager.best_quality_tier = fs.get("best_quality_tier", 0)
+
+	# Level (restore BEFORE health/hunger so max stats are correct)
+	if save_data.has("player_level"):
+		LevelManager.deserialize(save_data["player_level"])
+		GameManager.refresh_max_stats()
+
+	# Armor
+	if save_data.has("equipped_armor"):
+		var armor_data: Dictionary = save_data["equipped_armor"]
+		for slot: String in armor_data:
+			GameManager.equipped_armor[slot] = armor_data[slot]
+		GameManager.armor_changed.emit(GameManager.get_armor_defense())
+
+	# Health & hunger
+	if save_data.has("health"):
+		GameManager.health = clampi(save_data["health"], 0, GameManager.MAX_HEALTH)
+	if save_data.has("hunger"):
+		GameManager.hunger = clampi(save_data["hunger"], 0, GameManager.MAX_HUNGER)
+
+	# Pets
+	if save_data.has("pets") and PetManager and PetManager.has_method("deserialize"):
+		PetManager.deserialize(save_data["pets"])
+
+	# Personal quest progress
+	if save_data.has("quests"):
+		var quest_manager: Node = get_tree().get_first_node_in_group("quest_manager")
+		if quest_manager and quest_manager.has_method("deserialize"):
+			quest_manager.deserialize(save_data["quests"])
+
+	# Personal objective progress — per-player, restored from the player's own
+	# save (NOT synced from the host; no shared/co-op objectives).
+	if save_data.has("objectives"):
+		var obj_mgr: Node = get_tree().get_first_node_in_group("objective_manager")
+		if obj_mgr and obj_mgr.has_method("deserialize"):
+			obj_mgr.deserialize(save_data["objectives"])
+
+	# Player dialogue seen flags (so first-time dialogue doesn't replay)
+	if save_data.has("seen_dialogues"):
+		GameManager.seen_dialogues = (save_data["seen_dialogues"] as Dictionary).duplicate()
 
 ## Check if ANY save slot has a save file.
 func has_save_file() -> bool:
