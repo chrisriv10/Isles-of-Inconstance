@@ -896,53 +896,10 @@ func _deserialize_sprinklers(data: Dictionary, world: Node2D) -> void:
 		}
 
 ## After deserializing town data, respawn resident NPC sprites in the world.
+## Delegates to TownManager's canonical reconciliation (deterministic, idempotent)
+## so load-time spawning and multiplayer roster sync share one code path.
 func _respawn_town_residents() -> void:
 	var town_manager := get_tree().get_first_node_in_group("town_manager")
-	if not town_manager or not town_manager.has_method("get_residents"):
+	if not town_manager or not town_manager.has_method("reconcile_resident_npcs"):
 		return
-	var residents: Array = town_manager.get_residents()
-	for r in residents:
-		if not (r is TownManager.ResidentData):
-			continue
-		# Check if the resident NPC is already in the scene
-		var exists := false
-		var all_residents := get_tree().get_nodes_in_group("town_residents")
-		for existing in all_residents:
-			if existing is TownResidentNPC and existing.npc_id == r.npc_id:
-				exists = true
-				break
-		if exists:
-			continue
-		# Spawn the resident NPC at their home
-		var def: TownManager.RuinDef = town_manager.get_ruin_def(r.home_ruin_id)
-		if not def:
-			continue
-		var world := get_tree().get_first_node_in_group("world")
-		if not world:
-			continue
-		var home_world_pos := Vector2(def.grid_cell.x * 16 + 8, def.grid_cell.y * 16 + 16)
-		var resident_scene := preload("res://scenes/world/town/TownResidentNPC.tscn")
-		if not resident_scene:
-			continue
-		var resident := resident_scene.instantiate() as TownResidentNPC
-		if not resident:
-			continue
-		var role_map: Dictionary = {
-			"villager": TownResidentNPC.Role.VILLAGER,
-			"baker": TownResidentNPC.Role.BAKER,
-			"chef": TownResidentNPC.Role.CHEF,
-			"innkeeper": TownResidentNPC.Role.INNKEEPER,
-			"blacksmith": TownResidentNPC.Role.BLACKSMITH,
-			"shopkeep": TownResidentNPC.Role.SHOPKEEP,
-			"scholar": TownResidentNPC.Role.SCHOLAR,
-			"stablehand": TownResidentNPC.Role.STABLEHAND,
-		}
-		var role_int: int = role_map.get(r.role, TownResidentNPC.Role.VILLAGER)
-		# Spawn at the building's door position (below the sprite) rather
-		# than on top of it. The building sprite is centered on grid_cell,
-		# so the door is ~2 tiles below center.
-		var door_pos: Vector2 = home_world_pos + Vector2(0, 32)
-		resident.global_position = door_pos
-		resident.initialize(r.npc_id, r.npc_name, role_int, r.home_ruin_id, door_pos, door_pos)
-		if world.has_node("Objects"):
-			world.get_node("Objects").add_child(resident)
+	town_manager.reconcile_resident_npcs()

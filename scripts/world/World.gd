@@ -4898,6 +4898,14 @@ func _unregister_special_building(b_type: int, cell: Vector2i) -> void:
 ## Received by clients to place a building at the given cell.
 @rpc("any_peer", "call_local")
 func _sync_place_building(b_type: int, cell: Vector2i) -> void:
+	# Idempotency guard: the actor's try_place_building() already places
+	# locally (and fires the objective), and this RPC is call_local — so the
+	# sender would otherwise double-place. Remote peers have nothing at this
+	# cell yet and place normally. Same-type check keeps a legit replacement
+	# (different building type at the same origin) from being skipped.
+	var existing := building_system.get_building_at(cell)
+	if not existing.is_empty() and int(existing.get("type", -1)) == b_type:
+		return
 	building_system.place_building(b_type, cell, 0, self, false)
 	_register_special_building(b_type, cell)
 
@@ -5283,6 +5291,7 @@ func _sync_spawn_visitor_ship(roster: Array, berth_x: float = 0.0, berth_y: floa
 		var npc := NPC_SCENE.instantiate() as VisitorNPC
 		npc.npc_type = ntype
 		npc._synced_index = i
+		npc._is_remote = true
 		var spawn_pos: Vector2 = VisitorShip.dock_spawn_position(dock_pos, i, self)
 		npc.home_position = spawn_pos
 		npc.dock_position = dock_pos
@@ -5368,6 +5377,42 @@ func _sync_visitor_recall() -> void:
 		if is_instance_valid(npc) and npc.has_method("return_to_ship"):
 			var walkway_target: Vector2 = dock_pos + Vector2(randf_range(32.0, 96.0), randf_range(-32.0, 8.0))
 			npc.call_deferred("return_to_ship", walkway_target)
+
+
+# ── NPC position sync (host-authoritative) ───────────────────────────────
+
+## Host: relay a town resident's authoritative position to all clients.
+func relay_resident_pos(npc_id: String, x: float, y: float) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_resident_pos", npc_id, x, y)
+
+
+## Client: mirror a town resident's host position.
+@rpc("unreliable", "authority")
+func _sync_resident_pos(npc_id: String, x: float, y: float) -> void:
+	if multiplayer.is_server():
+		return
+	for r in get_tree().get_nodes_in_group("town_residents"):
+		if r is TownResidentNPC and r.npc_id == npc_id:
+			r.apply_remote_position(Vector2(x, y))
+			break
+
+
+## Host: relay a visitor NPC's authoritative position to all clients.
+func relay_visitor_pos(index: int, x: float, y: float) -> void:
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		rpc("_sync_visitor_pos", index, x, y)
+
+
+## Client: mirror a visitor NPC's host position.
+@rpc("unreliable", "authority")
+func _sync_visitor_pos(index: int, x: float, y: float) -> void:
+	if multiplayer.is_server():
+		return
+	for v in get_tree().get_nodes_in_group("visitor_npcs"):
+		if v is VisitorNPC and v._synced_index == index:
+			v.apply_remote_position(Vector2(x, y))
+			break
 
 
 ## Host: broadcast a hotel's guest count so clients' hotel interiors match.

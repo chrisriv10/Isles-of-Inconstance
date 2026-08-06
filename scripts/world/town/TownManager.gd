@@ -625,11 +625,80 @@ func _apply_remote_town_state(data: Dictionary) -> void:
 		if not known_resident_ids.has(rid):
 			var r: ResidentData = residents[rid]
 			resident_moved_in.emit(rid, r.npc_name)
+	# Spawn/refresh TownResidentNPC nodes to match the synced roster so
+	# clients get visible resident sprites — both for late-joiners and for
+	# live recruits that arrive via town-state broadcasts. Idempotent.
+	call_deferred("reconcile_resident_npcs")
 	town_level_changed.emit(town_level)
 	reputation_changed.emit(reputation)
 	if town_fully_restored:
 		all_ruins_restored.emit()
 		_swap_plaza_to_restored()
+
+## Spawn or remove TownResidentNPC scene nodes to match the resident roster.
+## Idempotent and deterministic: positions derive from the home ruin's cell and
+## the resident's npc_id (no unseeded jitter), so every peer places residents
+## identically. Runs on clients after town-state applies (late-join + live
+## recruit) and on every peer at load time (via SaveManager delegation).
+func reconcile_resident_npcs() -> void:
+	var world := get_tree().get_first_node_in_group("world")
+	if not world:
+		return
+	var resident_scene := preload("res://scenes/world/town/TownResidentNPC.tscn")
+	if not resident_scene:
+		return
+	var is_remote: bool = NetworkManager.is_network_active() and not multiplayer.is_server()
+
+	var existing: Array[Node] = get_tree().get_nodes_in_group("town_residents")
+	var existing_ids: Dictionary = {}
+	for e in existing:
+		if e is TownResidentNPC:
+			existing_ids[e.npc_id] = true
+
+	var role_map: Dictionary = {
+		"villager": TownResidentNPC.Role.VILLAGER,
+		"baker": TownResidentNPC.Role.BAKER,
+		"chef": TownResidentNPC.Role.CHEF,
+		"innkeeper": TownResidentNPC.Role.INNKEEPER,
+		"blacksmith": TownResidentNPC.Role.BLACKSMITH,
+		"shopkeep": TownResidentNPC.Role.SHOPKEEP,
+		"scholar": TownResidentNPC.Role.SCHOLAR,
+		"stablehand": TownResidentNPC.Role.STABLEHAND,
+	}
+
+	for r in get_residents():
+		if not (r is ResidentData) or existing_ids.has(r.npc_id):
+			continue
+		var def: RuinDef = get_ruin_def(r.home_ruin_id)
+		if not def:
+			continue
+		var home_world_pos := Vector2(def.grid_cell.x * 16 + 8, def.grid_cell.y * 16 + 16)
+		var door_pos: Vector2 = home_world_pos + Vector2(0, 32)
+		var resident := resident_scene.instantiate() as TownResidentNPC
+		if not resident:
+			continue
+		resident._is_remote = is_remote
+		# Deterministic "post" stand (seeded from npc_id) so all peers agree.
+		var rng := RandomNumberGenerator.new()
+		rng.seed = r.npc_id.hash()
+		var post_pos: Vector2 = door_pos + Vector2(rng.randf_range(-10.0, 10.0), 2.0)
+		resident.global_position = door_pos
+		resident.initialize(r.npc_id, r.npc_name, role_map.get(r.role, TownResidentNPC.Role.VILLAGER), r.home_ruin_id, door_pos, post_pos, r.visitor_type)
+		var objects := world.get_node_or_null("Objects")
+		if objects:
+			objects.add_child(resident)
+		else:
+			world.add_child(resident)
+
+	# Free remote resident nodes that are no longer in the roster.
+	var known_ids: Dictionary = {}
+	for r in get_residents():
+		if r is ResidentData:
+			known_ids[r.npc_id] = true
+	for e in existing:
+		if e is TownResidentNPC and e._is_remote and not known_ids.has(e.npc_id):
+			e.queue_free()
+
 
 func _swap_plaza_to_restored() -> void:
 	# Walk up from self to find the World node (more reliable than _world

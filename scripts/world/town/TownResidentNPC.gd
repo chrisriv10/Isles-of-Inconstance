@@ -75,6 +75,13 @@ var _bob_offset: float = 0.0
 var _bob_direction: int = 1
 var _idle_at_post: bool = false
 
+# Multiplayer position replication (host-authoritative, via World relay).
+## Whether this is a client-side copy that mirrors the host's position.
+var _is_remote: bool = false
+## Seconds between host broadcasts of this resident's position to clients.
+const POS_SYNC_INTERVAL: float = 0.25
+var _pos_sync_timer: float = 0.0
+
 func _ready() -> void:
 	add_to_group("town_residents")
 	_world = get_tree().get_first_node_in_group("world")
@@ -217,6 +224,15 @@ func _setup_dialogue() -> void:
 func _process(delta: float) -> void:
 	_update_schedule()
 	
+	# Host-authoritative position relay: host nodes broadcast so every player
+	# sees each resident in the same spot; remote copies apply via World relay.
+	if not _is_remote and NetworkManager.is_network_active() and multiplayer.is_server() \
+			and _world and _world.has_method("relay_resident_pos"):
+		_pos_sync_timer -= delta
+		if _pos_sync_timer <= 0.0:
+			_pos_sync_timer = POS_SYNC_INTERVAL
+			_world.relay_resident_pos(npc_id, global_position.x, global_position.y)
+	
 	match _current_schedule:
 		"inside":
 			# Invisible, at home, not moving
@@ -300,6 +316,13 @@ func _update_schedule() -> void:
 		_switch_to("home")
 	else:
 		_switch_to("sleep")
+
+
+## Mirror the host's authoritative position (called by World._sync_resident_pos).
+func apply_remote_position(pos: Vector2) -> void:
+	if not _is_remote:
+		return
+	global_position = pos
 
 
 ## Switch schedule and handle visibility transitions.

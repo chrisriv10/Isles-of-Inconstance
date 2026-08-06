@@ -904,7 +904,11 @@ func _server_request_advance_days(count: int) -> void:
 func complete_game() -> void:
 	game_completed = true
 	ToastNotification.show_toast("🏆 You have conquered the Isles of Inconstance!", ToastNotification.ToastType.SUCCESS, 8.0)
-	# Also mark the final objective — ObjectiveManager tracks boss kills
+	# Also mark the final capstone objective — ObjectiveManager recomputes the
+	# game-completion goal from the boss kill (its DEFEAT_INCONSTANT_SOUL pillar).
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_game_completed"):
+		om.on_game_completed()
 
 ## Play the boss defeat cutscene locally and broadcast it so every peer sees
 ## it. The boss _die() only runs on the host's authority copy, so the host is

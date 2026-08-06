@@ -82,6 +82,13 @@ var _npc_texture_variant: int = 0
 ## Roster index within the visitor ship — used to match NPC copies across peers.
 var _synced_index: int = -1
 
+# Multiplayer position replication (host-authoritative, via World relay).
+## Whether this is a client-side copy that mirrors the host's position.
+var _is_remote: bool = false
+## Seconds between host broadcasts of this NPC's position to clients.
+const POS_SYNC_INTERVAL: float = 0.25
+var _pos_sync_timer: float = 0.0
+
 ## Seeded RNG for deterministic multiplayer sync (position, hotel chance, etc.)
 var _rng: RandomNumberGenerator = null
 
@@ -355,6 +362,15 @@ func _pick_biased_position() -> Vector2:
 			return world_center + Vector2(_rng.randf_range(-600.0, 600.0), _rng.randf_range(-600.0, 600.0))
 
 func _process(delta: float) -> void:
+	# Host-authoritative position relay: host nodes broadcast so every player
+	# sees each visitor in the same spot; remote copies apply via World relay.
+	if not _is_remote and NetworkManager.is_network_active() and multiplayer.is_server() \
+			and _world and _world.has_method("relay_visitor_pos"):
+		_pos_sync_timer -= delta
+		if _pos_sync_timer <= 0.0:
+			_pos_sync_timer = POS_SYNC_INTERVAL
+			_world.relay_visitor_pos(_synced_index, global_position.x, global_position.y)
+
 	# Already checked in — do nothing (invisible, waiting for departure)
 	if _checked_in:
 		return
@@ -394,6 +410,13 @@ func _process(delta: float) -> void:
 			_idle_timer -= delta
 			if _idle_timer <= 0.0:
 				_pick_new_target()
+
+## Mirror the host's authoritative position (called by World._sync_visitor_pos).
+func apply_remote_position(pos: Vector2) -> void:
+	if not _is_remote:
+		return
+	global_position = pos
+
 
 func _move_toward(target: Vector2, delta: float) -> void:
 	var dir := (target - global_position).normalized()
@@ -564,9 +587,13 @@ static func spawn_resident_from(parent: Node, npc_id: String, resident_name: Str
 	# 1.5–2 tiles below center (24–36 px depending on sprite size).
 	var door_pos: Vector2 = home_world_pos + Vector2(0, 32)
 	# Post position: a varied stand just off the door so residents don't all
-	# bob at the exact same pixel during their "post" service hours.
-	var post_pos: Vector2 = door_pos + Vector2(randf_range(-10.0, 10.0), 2.0)
+	# bob at the exact same pixel during their "post" service hours. Seeded
+	# from npc_id so host and client place the stand identically.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = npc_id.hash()
+	var post_pos: Vector2 = door_pos + Vector2(rng.randf_range(-10.0, 10.0), 2.0)
 	resident.global_position = door_pos
+	resident._is_remote = NetworkManager.is_network_active() and not parent.multiplayer.is_server()
 	resident.initialize(npc_id, resident_name, role, home_ruin_id, door_pos, post_pos, vtype)
 
 	# Add to world's objects root

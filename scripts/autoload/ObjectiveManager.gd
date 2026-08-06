@@ -79,6 +79,8 @@ enum ObjectiveType {
 	VISIT_VOLCANIC_ISLAND,   # 62
 	VISIT_ETHEREAL_ISLAND,   # 63
 	VISIT_ALL_ISLANDS,       # 64
+	# === Game completion capstone (v6) ===
+	COMPLETE_GAME,           # 65
 }
 
 const OBJECTIVE_DEFS := {
@@ -120,7 +122,7 @@ const OBJECTIVE_DEFS := {
 	ObjectiveType.RESTORE_FIRST_BUILDING: {"name": "First Light", "desc": "Restore your first ruined building", "icon": "🌅"},
 	ObjectiveType.RESTORE_3_BUILDINGS: {"name": "Rebuilder", "desc": "Restore 3 buildings", "icon": "🏗️", "threshold": 3},
 	ObjectiveType.RESTORE_6_BUILDINGS: {"name": "Town Planner", "desc": "Restore 6 buildings", "icon": "🏘️", "threshold": 6},
-	ObjectiveType.RESTORE_ALL_BUILDINGS: {"name": "Restorer", "desc": "Restore all ruined buildings", "icon": "🏛️", "threshold": 11},
+	ObjectiveType.RESTORE_ALL_BUILDINGS: {"name": "Restorer", "desc": "Restore all ruined buildings", "icon": "🏛️", "threshold": 14},
 	ObjectiveType.RECRUIT_FIRST_RESIDENT: {"name": "New Neighbor", "desc": "Welcome your first town resident", "icon": "🤝"},
 	ObjectiveType.RECRUIT_3_RESIDENTS: {"name": "Growing Community", "desc": "Have 3 town residents", "icon": "👨‍👩‍👧‍👦", "threshold": 3},
 	ObjectiveType.RECRUIT_ALL_RESIDENTS: {"name": "Mayor", "desc": "Fill all town residences", "icon": "👑", "threshold": 8},
@@ -153,6 +155,8 @@ const OBJECTIVE_DEFS := {
 	ObjectiveType.VISIT_VOLCANIC_ISLAND: {"name": "Ash Walker", "desc": "Visit the volcanic expedition island", "icon": "🌋"},
 	ObjectiveType.VISIT_ETHEREAL_ISLAND: {"name": "Beyond the Veil", "desc": "Visit the ethereal expedition island", "icon": "🔮"},
 	ObjectiveType.VISIT_ALL_ISLANDS: {"name": "True Adventurer", "desc": "Visit all 6 expedition islands", "icon": "🧭", "threshold": 6},
+	# === Game completion capstone (v6) ===
+	ObjectiveType.COMPLETE_GAME: {"name": "Conqueror of the Isles", "desc": "Defeat the Inconstant Soul, restore every town building, visit all expedition islands, and reach Farmer Level 50", "icon": "👑", "threshold": 4},
 }
 
 # ---------------------------------------------------------------------------
@@ -260,6 +264,7 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.BREED_FIRST_ANIMAL,
 			ObjectiveType.REACH_LEVEL_25,
 			ObjectiveType.REACH_LEVEL_50,
+			ObjectiveType.COMPLETE_GAME,
 		],
 	},
 	"town": {
@@ -368,6 +373,8 @@ func get_active_objective() -> Dictionary:
 			ObjectiveType.DEFEAT_ROOT_WARDEN, ObjectiveType.DEFEAT_HOLLOW_STAG,
 			ObjectiveType.DEFEAT_BLOOMING_WYRM, ObjectiveType.DEFEAT_INCONSTANT_SOUL,
 			ObjectiveType.SURVIVE_PIRATE_RAID,
+			# Capstone — game completion
+			ObjectiveType.COMPLETE_GAME,
 		]:
 		if not _completed.has(t):
 			var def_raw = OBJECTIVE_DEFS.get(t, {})
@@ -481,6 +488,15 @@ func on_boss_defeated() -> void:
 		2: track_progress(ObjectiveType.DEFEAT_HOLLOW_STAG)
 		3: track_progress(ObjectiveType.DEFEAT_BLOOMING_WYRM)
 		4: track_progress(ObjectiveType.DEFEAT_INCONSTANT_SOUL)
+	_update_game_completion_progress()
+
+
+## Called by GameManager.complete_game() when the final boss is defeated.
+## Recomputes the capstone objective (the DEFEAT_INCONSTANT_SOUL pillar was
+## already marked by on_boss_defeated, but this keeps the capstone in sync
+## even if that path ever changes).
+func on_game_completed() -> void:
+	_update_game_completion_progress()
 
 
 func on_money_earned(amount: int) -> void:
@@ -564,6 +580,7 @@ func on_building_restored() -> void:
 	track_progress(ObjectiveType.RESTORE_3_BUILDINGS)
 	track_progress(ObjectiveType.RESTORE_6_BUILDINGS)
 	track_progress(ObjectiveType.RESTORE_ALL_BUILDINGS)
+	_update_game_completion_progress()
 
 
 ## World-derived objective sync. The town "restore N buildings" goals reflect
@@ -589,6 +606,7 @@ func sync_restored_town_buildings(count: int) -> void:
 			_completed[t] = true
 		else:
 			_completed.erase(t)
+	_update_game_completion_progress()
 	objectives_updated.emit()
 	var tm := get_tree().get_first_node_in_group("town_manager")
 	if tm and "town_level" in tm:
@@ -627,6 +645,7 @@ func on_player_level_up(new_level: int) -> void:
 		track_progress(ObjectiveType.REACH_LEVEL_25)
 	elif new_level >= 25:
 		track_progress(ObjectiveType.REACH_LEVEL_25)
+	_update_game_completion_progress()
 
 # ---------------------------------------------------------------------------
 # New objective hooks (v4) — fishing / foraging / special events
@@ -702,6 +721,7 @@ func on_expedition_visited(island_type: int) -> void:
 		_visited_islands[island_type] = true
 		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
 		_check_completion(ObjectiveType.VISIT_ALL_ISLANDS)
+	_update_game_completion_progress()
 	objectives_updated.emit()
 
 ## Helper: check a single objective for completion without the additive track_progress.
@@ -719,6 +739,24 @@ func _check_completion(type: int) -> void:
 		ToastNotification.show_toast("%s %s complete!" % [icon_str, name_str], ToastNotification.ToastType.SUCCESS, 5.0)
 		objective_completed.emit(type, name_str)
 	objectives_updated.emit()
+
+
+## Recompute the game-completion capstone (COMPLETE_GAME) from the four
+## pillar objectives. Idempotent — safe to call from any pillar's hook or
+## after loading a save. Completion of the four pillars contributes 1 each.
+func _update_game_completion_progress() -> void:
+	var pillars: Array[int] = [
+		ObjectiveType.DEFEAT_INCONSTANT_SOUL,
+		ObjectiveType.RESTORE_ALL_BUILDINGS,
+		ObjectiveType.VISIT_ALL_ISLANDS,
+		ObjectiveType.REACH_LEVEL_50,
+	]
+	var met: int = 0
+	for t in pillars:
+		if _completed.has(t):
+			met += 1
+	_progress[ObjectiveType.COMPLETE_GAME] = met
+	_check_completion(ObjectiveType.COMPLETE_GAME)
 
 
 func serialize() -> Dictionary:
@@ -748,3 +786,7 @@ func deserialize(data: Dictionary) -> void:
 		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
 	if not _completed.has(ObjectiveType.CATCH_ALL_FISH):
 		_progress[ObjectiveType.CATCH_ALL_FISH] = _caught_fish.size()
+
+	# Recompute the game-completion capstone from the four pillar objectives
+	# so loaded saves reflect the correct capstone progress immediately.
+	_update_game_completion_progress()
