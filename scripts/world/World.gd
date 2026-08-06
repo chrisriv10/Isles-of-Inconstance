@@ -233,12 +233,14 @@ func generate_world() -> void:
 	_spawn_boat()
 	_spawn_chest()
 	_spawn_shop_stand()
-	_scatter_objects()
 	
-	# Place the ruined town district BEFORE trees/nature so the town area
-	# fills with path tiles and prevents trees from growing on the streets.
+	# Place the ruined town district BEFORE any object scattering so the town
+	# area fills with path tiles AND sets the town_rect meta. Trees, nature
+	# objects, biome resources (stones/berry bushes/flowers) and iron ore all
+	# consult town_rect to keep the town plaza clear of natural spawns.
 	_spawn_ruined_town()
 	
+	_scatter_objects()
 	_scatter_nature_objects()
 	_scatter_trees()
 	_scatter_animals()
@@ -619,8 +621,15 @@ func _scatter_objects() -> void:
 	
 	# Spawn resources for each biome with its per-cell count
 	var spawner := ResourceSpawner.new()
-	# Callable that checks if a cell is occupied by a building or the dock
+	# Callable that checks if a cell is occupied by a building or the dock.
+	# Also used for iron ore placement (via _pick_mountain_favored_positions),
+	# so the town exclusion below protects BOTH biome resources and ores.
 	var is_building_blocked := func(cell: Vector2i) -> bool:
+		# Never place resources or ore on the town plaza or its buildings —
+		# the backdrop sprite and ruin structures own that area.
+		var town_rect: Rect2i = get_meta("town_rect", Rect2i())
+		if town_rect.size.x > 0 and town_rect.has_point(cell):
+			return true
 		# Block resources on the dock's entire visual footprint (~30×14 cells)
 		if _dock_cell != Vector2i(-1, -1):
 			var dock_local := cell - _dock_cell

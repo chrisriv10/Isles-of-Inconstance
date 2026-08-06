@@ -155,6 +155,11 @@ func spawn_biome_resources(
 						continue
 					if used_positions.has(cluster_cell):
 						continue
+					# Cluster children must respect the blocked callback too - a
+					# cluster from a resource placed just outside the town rect
+					# must not hop inside it.
+					if is_cell_blocked.is_valid() and is_cell_blocked.call(cluster_cell):
+						continue
 					
 					_place_resource(selected_entry, cluster_cell, objects_root, cell_to_world_func)
 					spawn_map[spacing_key].append(cluster_cell)
