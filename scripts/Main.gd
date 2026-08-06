@@ -498,7 +498,13 @@ func notify_world_generated(seed: int) -> void:
 func _receive_world_seed(seed: int) -> void:
 	print("Main: received world seed %d — regenerating world" % seed)
 	if not (world and world.has_method("generate_world_with_seed")):
-		print("Main: _receive_world_seed but world not ready yet!")
+		# World node not ready yet (e.g. the client's Game scene is still
+		# instantiating when the reliable seed RPC lands). Defer instead of
+		# dropping the seed: dropping it would leave the client on a seed-0
+		# world with NO starter inventory, while the host has the real seed
+		# and its starter seeds.
+		print("Main: _receive_world_seed but world not ready — deferring seed %d" % seed)
+		call_deferred("_receive_world_seed", seed)
 		return
 	player.set_process(false)
 	player.set_physics_process(false)
@@ -511,7 +517,13 @@ func _receive_world_seed(seed: int) -> void:
 	if hud and hud.has_method("set_seed_display"):
 		hud.set_seed_display(seed)
 	_position_player_at_spawn()
-	if not multiplayer.is_server():
+	# _receive_world_seed is @rpc("authority","reliable") with no call_local, so
+	# ONLY the host ever sends it and it ONLY executes on clients. The former
+	# `if not multiplayer.is_server():` guard could transiently read as true on a
+	# client during the EOS peer handshake (unique_id still defaults to 1), which
+	# skipped the starter grant and left the joining player with zero seeds even
+	# though the world had synced. Run this client-only block unconditionally.
+	if true:
 		# The host's starter animals (Animal_20/21) were spawned before we
 		# connected, so no spawn RPC ever reached us. Re-create them locally
 		# with the same deterministic names so the host's per-node sync RPCs
