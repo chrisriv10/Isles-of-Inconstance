@@ -952,6 +952,33 @@ func _server_request_advance_days(count: int) -> void:
 		return
 	advance_days(count)
 
+
+## Force-set the weather (from the Creative Panel). Host-authoritative so a
+## client changing weather doesn't desync its own peer; the host broadcasts the
+## new weather to every peer via _receive_time_state. Mirrors the sleep/advance
+## host-forward pattern.
+func request_force_weather(weather: int) -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_request_force_weather", weather)
+		return
+	_apply_forced_weather(weather)
+
+
+## Host: apply a client's creative weather-change request and broadcast to all.
+@rpc("any_peer", "reliable")
+func _server_request_force_weather(weather: int) -> void:
+	if not multiplayer.is_server():
+		return
+	_apply_forced_weather(weather)
+
+
+func _apply_forced_weather(weather: int) -> void:
+	if not weather_system:
+		return
+	weather_system.force_weather(weather as WeatherSystem.WeatherType)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		_broadcast_time_state()
+
 ## Marks the game as completed (final boss defeated). Shows a permanent
 ## celebration toast and sets a save flag that persists across sessions.
 func complete_game() -> void:

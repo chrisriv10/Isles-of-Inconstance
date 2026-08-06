@@ -664,9 +664,11 @@ func _on_instant_growth_toggled(pressed: bool) -> void:
 
 
 func _on_weather_pressed(weather: WeatherSystem.WeatherType) -> void:
-	if not GameManager or not GameManager.weather_system:
+	if not GameManager:
 		return
-	GameManager.weather_system.force_weather(weather)
+	# Host-authoritative: on a client this forwards to the host, which applies
+	# and broadcasts _receive_time_state so every peer sees the same weather.
+	GameManager.request_force_weather(int(weather))
 	var weather_name: String = WeatherSystem.WeatherType.keys()[weather]
 	ToastNotification.show_toast("☁ Weather set to " + weather_name, ToastNotification.ToastType.INFO, 2.0)
 
