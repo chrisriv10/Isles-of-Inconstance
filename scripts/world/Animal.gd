@@ -245,6 +245,7 @@ var current_health: int = 20
 var is_love_mode: bool = false
 var is_baby: bool = false
 var _growth_progress: float = 0.0  # 0.0 = newborn, 1.0 = adult
+var _growth_sync_timer: float = 0.0  # throttle for broadcasting baby growth to clients
 var _breed_cooldown: float = 0.0  # seconds until can breed again
 var _feed_cooldown: float = 0.0  # seconds until can feed again
 var _following_player: bool = false
@@ -344,10 +345,33 @@ func _broadcast_animal_rpc(method: String, args: Array, reliable: bool) -> void:
 			_world_ref.rpc("_relay_animal_rpc_unreliable", method, args)
 
 ## Host → all clients: sync position for a remote copy (via World relay).
-func _sync_animal_pos(aid: int, pos: Vector2) -> void:
+## p_scale carries the host copy's current scale so remote babies grow in sync
+## with the host instead of staying at their spawn-time (0.5) scale forever.
+func _sync_animal_pos(aid: int, pos: Vector2, p_scale: float = 1.0) -> void:
 	if not _is_remote or animal_id != aid:
 		return
 	global_position = pos
+	if is_baby:
+		scale = Vector2(p_scale, p_scale)
+
+
+## Host → all clients: incremental baby growth for a remote copy (via World relay).
+## Remote babies run no local _grow_baby, so this keeps their scale in sync.
+func _sync_animal_growth(aid: int, growth: float) -> void:
+	if not _is_remote or animal_id != aid:
+		return
+	_growth_progress = growth
+	scale = Vector2(0.5 + _growth_progress * 0.5, 0.5 + _growth_progress * 0.5)
+
+
+## Host → all clients: a baby has grown to adult (via World relay).
+func _sync_animal_adult(aid: int) -> void:
+	if not _is_remote or animal_id != aid:
+		return
+	is_baby = false
+	_growth_progress = 1.0
+	scale = Vector2.ONE
+
 
 ## Client → host: a client fed an animal; ask the host to mark its copy
 ## tamed and relay to everyone so remote copies match.
@@ -359,6 +383,27 @@ func _request_animal_tamed(aid: int) -> void:
 		return
 	_tamed = true
 	_broadcast_animal_rpc("_sync_animal_tamed", [aid], true)
+
+## Host-side handling for a client-initiated feed (invoked via World's
+## _server_feed_animal RPC). Mirrors feed()'s love-mode entry so the host's
+## authoritative copy is in love mode and can breed with a mate, then broadcasts
+## the tame and attempts breeding. Without this, a client-fed animal only enters
+## love mode on the client's copy and the host never spawns a baby from it.
+func _request_feed_from_client(aid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if animal_id != aid:
+		return
+	if _feed_cooldown > 0.0:
+		return
+	is_love_mode = true
+	_love_timer = 15.0
+	_tamed = true
+	EffectSpawner.spawn_hearts(global_position + Vector2(0, -12), 8, 14.0, -28.0)
+	_broadcast_animal_rpc("_sync_animal_tamed", [aid], true)
+	if _breed_cooldown <= 0.0:
+		_try_breed()
+
 
 ## Host → all clients: mark the animal with this id as tamed (via World relay).
 func _sync_animal_tamed(aid: int) -> void:
@@ -653,8 +698,11 @@ func feed(food_item_id: String) -> bool:
 		if multiplayer.is_server():
 			_broadcast_animal_rpc("_sync_animal_tamed", [animal_id], true)
 		else:
-			if _world_ref and is_instance_valid(_world_ref) and _world_ref.has_method("_server_tame_animal"):
-				_world_ref.rpc_id(1, "_server_tame_animal", animal_id)
+			# Tell the host to enter love mode + breed on its authoritative copy,
+			# not just tame it. Taming alone leaves the host copy out of love mode
+			# so a client-fed animal never produces a baby.
+			if _world_ref and is_instance_valid(_world_ref) and _world_ref.has_method("_server_feed_animal"):
+				_world_ref.rpc_id(1, "_server_feed_animal", animal_id)
 	
 	# Burst of heart sprites
 	EffectSpawner.spawn_hearts(global_position + Vector2(0, -12), 8, 14.0, -28.0)
@@ -735,6 +783,17 @@ func _grow_baby(delta: float) -> void:
 		is_baby = false
 		scale = Vector2.ONE
 		_max_health_change()  # restore to adult health
+		# Sync the baby→adult transition so remote copies also grow up.
+		if NetworkManager.is_network_active() and multiplayer.is_server():
+			_broadcast_animal_rpc("_sync_animal_adult", [animal_id], true)
+	elif NetworkManager.is_network_active() and multiplayer.is_server():
+		# Incrementally sync growth so remote baby copies scale up too (they run
+		# no local _grow_baby since _process returns early for _is_remote).
+		# Throttled to ~0.5s so it doesn't flood with a reliable RPC every frame.
+		_growth_sync_timer += delta
+		if _growth_sync_timer >= 0.5:
+			_growth_sync_timer = 0.0
+			_broadcast_animal_rpc("_sync_animal_growth", [animal_id, _growth_progress], true)
 
 func _max_health_change() -> void:
 	# Restore to full health when growing up
@@ -2612,7 +2671,7 @@ func _process(delta: float) -> void:
 		_last_pos_sync_time += delta
 		if _last_pos_sync_time >= POS_SYNC_INTERVAL:
 			_last_pos_sync_time = 0.0
-			_broadcast_animal_rpc("_sync_animal_pos", [animal_id, global_position], false)
+			_broadcast_animal_rpc("_sync_animal_pos", [animal_id, global_position, scale.x], false)
 
 func _walk_toward(delta: float) -> void:
 	var dir: Vector2 = (_target_pos - global_position).normalized()

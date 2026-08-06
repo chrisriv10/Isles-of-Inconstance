@@ -2395,6 +2395,20 @@ func _server_tame_animal(aid: int) -> void:
 		animal._request_animal_tamed(aid)
 
 
+## Client → host: a client fed an animal. The host's authoritative copy must
+## also enter love mode (plus tamed) and run _try_breed so breeding works when
+## a non-host player feeds — otherwise only the client's local copy enters love
+## mode and the host (which actually spawns babies) never sees a mate in love
+## mode, so no baby is ever born from a client-initiated feeding.
+@rpc("any_peer", "reliable")
+func _server_feed_animal(aid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var animal := _find_animal_by_id(aid)
+	if animal:
+		animal._request_feed_from_client(aid)
+
+
 ## Client → host: forward a melee/ranged attack on a remote copy. Routed
 ## through World's stable path; the old Animal-node rpc_id flooded "Node
 ## not found" whenever host/client animal names drifted apart.
