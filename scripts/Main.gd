@@ -451,6 +451,11 @@ func _setup_multiplayer() -> void:
 func _register_me_to_remote(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
+	# Never trust the caller-supplied peer_id for routing: a client could
+	# otherwise register/spawn remote-player copies for a DIFFERENT peer.
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender != 0:
+		peer_id = sender
 	print("Main: client %d registered; world_generated=%s" % [peer_id, str(_world_generated)])
 	# Ensure the remote player exists locally
 	_instantiate_remote_player(peer_id)

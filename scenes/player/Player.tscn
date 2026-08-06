@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://bngru5n8hiyf7" path="res://scripts/player/Player.gd" id="1"]
 [ext_resource type="Script" uid="uid://qpvsd8nmya5e" path="res://scripts/player/PlayerInteractor.gd" id="2"]
 [ext_resource type="Script" uid="uid://b360n4m5fqut5" path="res://scripts/camera/CameraController.gd" id="3"]
-[ext_resource type="Script" uid="uid://blsjmtms3hgym" path="res://scripts/player/PlayerDialogueBubble.gd" id="4"]
+[ext_resource type="Script" uid="uid://bf75uys7k7dbg" path="res://scripts/player/PlayerDialogueBubble.gd" id="4"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(16, 16)

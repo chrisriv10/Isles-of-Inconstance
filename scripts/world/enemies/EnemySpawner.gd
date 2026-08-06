@@ -257,11 +257,21 @@ func spawn_creative_boss(enemy: Enemy, scene_path: String, pos: Vector2) -> void
 			enemy.enemy_id, enemy.current_health, enemy.max_health)
 
 
+## Whitelist for creative-panel spawn requests: only the game's own enemy
+## scripts / boss scenes may be instantiated host-side, so a remote client
+## can't make the host load arbitrary scenes or scripts.
+func is_valid_creative_spawn_path(scene_path: String) -> bool:
+	return scene_path.begins_with("res://scripts/world/enemies/") \
+		or scene_path.begins_with("res://scenes/enemies/")
+
+
 ## Client: request the host to spawn a creative-panel enemy at a position.
 ## The host broadcasts the spawn so every peer (including the requester) gets a copy.
 @rpc("any_peer", "reliable")
 func _server_request_creative_spawn_enemy(scene_path: String, pos_x: float, pos_y: float) -> void:
 	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	if not is_valid_creative_spawn_path(scene_path):
 		return
 	var gdscript := load(scene_path) as GDScript
 	if not gdscript:
@@ -276,6 +286,8 @@ func _server_request_creative_spawn_enemy(scene_path: String, pos_x: float, pos_
 @rpc("any_peer", "reliable")
 func _server_request_creative_spawn_boss(scene_path: String, pos_x: float, pos_y: float) -> void:
 	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	if not is_valid_creative_spawn_path(scene_path):
 		return
 	var boss_scene := load(scene_path) as PackedScene
 	if not boss_scene:

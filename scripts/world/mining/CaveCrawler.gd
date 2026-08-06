@@ -298,7 +298,20 @@ func _server_receive_mine_enemy_attack(eid: int, amount: int, crit: bool) -> voi
 		return
 	if _is_remote or enemy_id != eid:
 		return
-	take_damage(amount, null, crit)
+	# Validation mirroring overworld enemies: the attacker must be the
+	# sending peer's own player node and within melee range, so an off-map
+	# client can't land arbitrary damage on shared mine enemies.
+	var attacker: Node2D = null
+	var sender: int = multiplayer.get_remote_sender_id()
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and p.get_multiplayer_authority() == sender:
+			attacker = p as Node2D
+			break
+	if attacker == null:
+		return
+	if global_position.distance_to(attacker.global_position) > 100.0:
+		return
+	take_damage(amount, attacker, crit)
 
 
 ## Public death trigger — called by CreativePanel kill-all and other external systems.

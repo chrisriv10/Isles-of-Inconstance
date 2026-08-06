@@ -1,6 +1,5 @@
 [gd_scene format=3 uid="uid://bhajulj0ruone"]
-
-[ext_resource type="Texture2D" uid="uid://bjpyv2lsj8p62" path="res://assets/generated/travel_boat_ai_v3_frame_0.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/generated/travel_boat_ai_v3_frame_0.png" id="1"]
 [ext_resource type="Script" uid="uid://c57dpb2yccnta" path="res://scripts/world/TravelBoat.gd" id="2"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_block"]

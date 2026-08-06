@@ -16,7 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://d3ge1mgbxrmim" path="res://scenes/ui/FarmingUI.tscn" id="14"]
 [ext_resource type="PackedScene" uid="uid://c8j87my3cfvk7" path="res://scenes/ui/TownUI.tscn" id="15"]
 [ext_resource type="PackedScene" uid="uid://bqmb1ls28cwja" path="res://scenes/ui/RestorationPanel.tscn" id="16"]
-[ext_resource type="PackedScene" uid="uid://bhkoc7p2s8hp7" path="res://scenes/ui/CollectionsUI.tscn" id="17"]
+[ext_resource type="PackedScene" path="res://scenes/ui/CollectionsUI.tscn" id="17"]
 
 [node name="Main" type="Node2D" unique_id=1096722776]
 script = ExtResource("1")

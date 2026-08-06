@@ -13,6 +13,31 @@ signal load_completed(success: bool)
 ## The currently selected save slot index (0-based).
 var current_slot: int = 0
 
+
+func _ready() -> void:
+	# NetworkManager is a LATER autoload, so hook its disconnect signal once
+	# the scene tree is up. If the host drops mid-session, this peer instantly
+	# persists its own personal progression instead of losing the session.
+	get_tree().process_frame.connect(_hook_server_disconnect, CONNECT_ONE_SHOT)
+
+
+func _hook_server_disconnect() -> void:
+	var nm: Node = get_tree().root.get_node_or_null("NetworkManager")
+	if nm and not nm.server_disconnected.is_connected(_on_server_disconnected):
+		nm.server_disconnected.connect(_on_server_disconnected)
+
+
+## Host dropped the session: write ONLY this player's personal progression.
+## (Direct call, not save_game(), because NetworkManager already reset its
+## mode to NONE by the time this fires, so save_game() would take the full
+## world path — which a client must never write.)
+func _on_server_disconnected() -> void:
+	if multiplayer.is_server():
+		return
+	_save_player_progression()
+	print("SaveManager: host disconnected — personal progression saved")
+
+
 ## Get the file path for a specific save slot.
 static func _get_save_path(slot_index: int) -> String:
 	return "user://save_%d.json" % slot_index
