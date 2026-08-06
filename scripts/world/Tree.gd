@@ -95,7 +95,7 @@ func _setup_progress_bar() -> void:
 	_progress_bg = ColorRect.new()
 	_progress_bg.name = "ChopProgressBG"
 	_progress_bg.size = Vector2(28, 4)
-	_progress_bg.position = Vector2(-14, -36)  # Above the tree sprite
+	_progress_bg.position = Vector2(-14, -22)  # Above the tree sprite (lowered to match harvest-bar level)
 	_progress_bg.color = Color(0.1, 0.1, 0.1, 0.6)
 	_progress_bg.visible = false
 	add_child(_progress_bg)
@@ -103,7 +103,7 @@ func _setup_progress_bar() -> void:
 	_progress_fill = ColorRect.new()
 	_progress_fill.name = "ChopProgressFill"
 	_progress_fill.size = Vector2(0, 4)
-	_progress_fill.position = Vector2(-14, -36)
+	_progress_fill.position = Vector2(-14, -22)
 	_progress_fill.color = Color(0.3, 0.8, 0.3, 0.9)
 	_progress_fill.visible = false
 	add_child(_progress_fill)

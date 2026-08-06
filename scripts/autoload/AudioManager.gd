@@ -203,10 +203,14 @@ func _on_phase_changed(phase: int) -> void:
 	_base_music = _get_ambient_for_phase(phase)
 	if _current_music >= 0 and _current_music != Sound.AMBIENT_DAY and _current_music != Sound.AMBIENT_NIGHT:
 		return  # a zone override or the menu music is playing
+	# Night music is tied to the NIGHT phase (hour 20+), which is exactly when
+	# the day/night overlay reaches full darkness. During DUSK the screen is
+	# still mostly light (the overlay only ramps 0->0.7 over hours 18-20), so
+	# keep the day theme playing until night actually takes effect visually.
 	match phase:
-		0, 1:  # DAWN, DAY
+		0, 1, 2:  # DAWN, DAY, DUSK
 			play_music(Sound.AMBIENT_DAY, 2.0)
-		2, 3:  # DUSK, NIGHT
+		3:  # NIGHT
 			play_music(Sound.AMBIENT_NIGHT, 2.0)
 
 ## True when the track is a zone override (replaces ambient while inside a
@@ -214,9 +218,11 @@ func _on_phase_changed(phase: int) -> void:
 func _is_override_track(sound_type: Sound) -> bool:
 	return sound_type == Sound.CAVE_MUSIC or sound_type == Sound.BOSS_MUSIC or sound_type == Sound.INTERIOR_MUSIC
 
-## Ambient theme for a day/night phase (0-1 = day, 2-3 = night).
+## Ambient theme for a day/night phase. Only the NIGHT phase uses the night
+## theme (matching when the day/night overlay reaches full darkness); DAWN,
+## DAY and DUSK all use the day theme.
 func _get_ambient_for_phase(phase: int) -> int:
-	return Sound.AMBIENT_DAY if phase < 2 else Sound.AMBIENT_NIGHT
+	return Sound.AMBIENT_NIGHT if phase == DayNightCycle.Phase.NIGHT else Sound.AMBIENT_DAY
 
 ## Resolve the ambient theme from the current day/night phase. Fallback used
 ## when no phase change has been observed yet (e.g. world regen on join).

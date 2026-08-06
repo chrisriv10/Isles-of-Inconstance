@@ -56,7 +56,7 @@ static func _create_plains() -> BiomeDefinition:
 	biome.crop_yield_multiplier = 1.0
 	biome.crop_color_tint = Color.WHITE
 	biome.unique_crop_chance = 0.02
-	biome.resources = [_wildflowers()]
+	biome.resources = [_wildflowers(), _small_stone()]
 	return biome
 
 
@@ -83,6 +83,7 @@ static func _create_forest() -> BiomeDefinition:
 		_forest_tree(),
 		_forest_berries(),
 		_forest_mushrooms(),
+		_small_stone(),
 	]
 	return biome
 
@@ -281,6 +282,19 @@ static func _wildflowers() -> ResourceSpawnEntry:
 	entry.min_spacing = 1
 	entry.clusters = false
 	entry.scene_path = "res://scenes/objects/FlowerPatch.tscn"
+	entry.harvestable = true
+	return entry
+
+
+static func _small_stone() -> ResourceSpawnEntry:
+	var entry := ResourceSpawnEntry.new()
+	entry.resource_id = "small_stone"
+	entry.display_name = "Small Stone"
+	entry.weight = 3.0
+	entry.min_spacing = 1
+	entry.clusters = true
+	entry.cluster_size_range = Vector2i(1, 3)
+	entry.scene_path = "res://scenes/objects/SmallStone.tscn"
 	entry.harvestable = true
 	return entry
 

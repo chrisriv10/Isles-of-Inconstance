@@ -7,7 +7,7 @@ class_name LogStump
 @export var stump_variant: int = 0  # 0=small stump, 1=large stump, 2=fallen log
 @export var wood_amount: int = 2
 func _ready() -> void:
-	interaction_prompt = "Chop"
+	interaction_prompt = "Gather Wood"
 	
 # Initialize seeded RNG for deterministic multiplayer visuals
 	var world := get_tree().get_first_node_in_group("world")
