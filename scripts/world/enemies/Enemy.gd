@@ -693,8 +693,13 @@ func _sync_enemy_damage(eid: int, hp: int, dmg: int, crit: bool, pos: Vector2, m
 
 
 ## Host → all clients: signal that this enemy has died and distribute loot.
+## NOTE: `loot` is an untyped Array on purpose — the caller passes a plain []
+## literal when loot is instanced (each client already rolled its own), and a
+## typed Array[Dictionary] otherwise. A typed-array RPC param aborts the local
+## call ("Cannot convert argument 2 from Array to Array"), which silently broke
+## the death broadcast for the whole room.
 @rpc("authority", "call_local")
-func _sync_enemy_died(eid: int, loot: Array[Dictionary] = []) -> void:
+func _sync_enemy_died(eid: int, loot: Array = []) -> void:
 	if not _is_remote or enemy_id != eid:
 		return
 	state = State.DEAD

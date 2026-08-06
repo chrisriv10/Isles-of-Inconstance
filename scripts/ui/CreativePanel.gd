@@ -827,6 +827,25 @@ func _on_heal_pressed() -> void:
 
 
 func _on_kill_enemies_pressed() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		# Client: ask the host to kill, so every peer's enemy copies die via the
+		# host's _sync_enemy_died broadcast (a local-only kill leaves the other
+		# players' copies alive).
+		rpc_id(1, "_server_request_kill_all_enemies")
+		ToastNotification.show_toast("Kill-all requested from host…", ToastNotification.ToastType.INFO, 2.0)
+		return
+	_kill_all_enemies_local()
+
+
+## Host: receive a client's kill-all request and apply it on the authority copy.
+@rpc("any_peer", "reliable")
+func _server_request_kill_all_enemies() -> void:
+	if not multiplayer.is_server():
+		return
+	_kill_all_enemies_local()
+
+
+func _kill_all_enemies_local() -> void:
 	var enemies := get_tree().get_nodes_in_group("enemies")
 	var count := 0
 	for enemy in enemies:
