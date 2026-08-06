@@ -551,7 +551,7 @@ func check_all_down_respawn() -> void:
 	rpc("_respawn_all_team")
 
 
-@rpc("any_peer", "reliable")
+@rpc("authority", "reliable")
 func _respawn_all_team() -> void:
 	_apply_team_wipe_respawn()
 
@@ -559,6 +559,11 @@ func _respawn_all_team() -> void:
 ## Respawn this peer after a team wipe: clear downed state, restore health and
 ## hunger, and teleport back to the overworld spawn.
 func _apply_team_wipe_respawn() -> void:
+	# If the team wiped inside a mine, clean up the mine state first so the
+	# camera isn't left clamped to the mine void and the room node is freed.
+	var world_death := get_tree().get_first_node_in_group("world")
+	if world_death and world_death.has_method("emergency_exit_mine"):
+		world_death.emergency_exit_mine()
 	_is_downed = false
 	_downed_timer = 0.0
 	health = MAX_HEALTH

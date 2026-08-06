@@ -371,8 +371,7 @@ func _ready() -> void:
 # Biome info label removed (debug display no longer needed)
 
 func _on_root_resized() -> void:
-	_refresh_raid_alert_position()
-	_refresh_blood_moon_alert_position()
+	_refresh_alert_positions()
 	_refresh_creative_label_position()
 	_refresh_eat_bar_position()
 	_refresh_mine_bar_position()
@@ -939,7 +938,7 @@ func _setup_raid_alert() -> void:
 	_raid_alert.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_raid_alert.visible = false
 	$Root.add_child(_raid_alert)
-	_refresh_raid_alert_position()
+	_refresh_alert_positions()
 	
 	# Connect to pirate raid signals
 	var world: Node = get_tree().get_first_node_in_group("world")
@@ -1022,13 +1021,25 @@ func _on_all_ruins_restored() -> void:
 		6.0
 	)
 
-func _refresh_raid_alert_position() -> void:
-	if _raid_alert:
-		var root_size: Vector2 = $Root.get_rect().size
-		# Position at top-center. The objective panel occupies y=132..178 when
-		# expanded, so the alerts sit below it; when it's minimized they move up.
-		var raid_y: float = 190.0 if _objective_minimized else 236.0
-		_raid_alert.position = Vector2(root_size.x / 2.0 - 200.0, raid_y)
+## Positions the pirate-raid and blood-moon alerts at the top-center, stacking
+## them when both are visible so they never overlap. Blood moon sits in the top
+## slot; the raid alert rises into that slot when the blood moon is absent and
+## drops a row below it when both are active. The objective panel occupies
+## y=132..178 when expanded, so the top slot starts below it and slides up when
+## the panel is minimized.
+func _refresh_alert_positions() -> void:
+	var root_size: Vector2 = $Root.get_rect().size
+	var base_y: float = 144.0 if _objective_minimized else 190.0
+	const SLOT_H: float = 30.0
+	var cursor_y: float = base_y
+	var bm_visible: bool = _blood_moon_alert and _blood_moon_alert.visible
+	var raid_visible: bool = _raid_alert and _raid_alert.visible
+	if bm_visible:
+		_blood_moon_alert.position = Vector2(root_size.x / 2.0 - 200.0, cursor_y)
+		cursor_y += SLOT_H
+	if raid_visible:
+		_raid_alert.position = Vector2(root_size.x / 2.0 - 200.0, cursor_y)
+		cursor_y += SLOT_H
 
 
 func _on_raid_wave_spawned(wave: int, total_waves: int) -> void:
@@ -1040,6 +1051,7 @@ func _on_raid_started(_wave_count: int) -> void:
 	if _raid_alert:
 		_raid_alert.text = "🏴‍☠️ RAID IN PROGRESS! Defeat the pirates!"
 		_raid_alert.visible = true
+		_refresh_alert_positions()
 		# Add pulsing effect
 		var tween := _raid_alert.create_tween()
 		tween.set_loops()
@@ -1051,6 +1063,7 @@ func _on_raid_ended(_victory: bool) -> void:
 	if _raid_alert:
 		_raid_alert.visible = false
 		_raid_alert.modulate = Color.WHITE  # reset alpha
+		_refresh_alert_positions()
 
 
 # --- Blood Moon Alert ---
@@ -1080,18 +1093,14 @@ func _setup_blood_moon_alert() -> void:
 
 
 func _refresh_blood_moon_alert_position() -> void:
-	if _blood_moon_alert:
-		var root_size: Vector2 = $Root.get_rect().size
-		# Position at top-center, above the raid alert but still below the
-		# objective panel (y=132..178 expanded); moves up when minimized.
-		var bm_y: float = 144.0 if _objective_minimized else 190.0
-		_blood_moon_alert.position = Vector2(root_size.x / 2.0 - 200.0, bm_y)
+	_refresh_alert_positions()
 
 
 func _on_blood_moon_started() -> void:
 	if _blood_moon_alert:
 		_blood_moon_alert.text = "🌕 BLOOD MOON ACTIVE! Seek shelter!"
 		_blood_moon_alert.visible = true
+		_refresh_alert_positions()
 		# Pulsing red glow effect
 		var tween := _blood_moon_alert.create_tween()
 		tween.set_loops()
@@ -1103,6 +1112,7 @@ func _on_blood_moon_ended() -> void:
 	if _blood_moon_alert:
 		_blood_moon_alert.visible = false
 		_blood_moon_alert.modulate = Color.WHITE  # reset alpha
+		_refresh_alert_positions()
 
 
 func _on_game_mode_changed(mode: int) -> void:
@@ -1511,8 +1521,7 @@ func _toggle_objective_minimized() -> void:
 	_update_objective_display()
 	# The raid / blood moon alerts sit below the objective panel, so they
 	# slide up when the panel is minimized and drop back down when expanded.
-	_refresh_raid_alert_position()
-	_refresh_blood_moon_alert_position()
+	_refresh_alert_positions()
 
 
 func _on_objective_completed(_id: int, _name_str: String) -> void:

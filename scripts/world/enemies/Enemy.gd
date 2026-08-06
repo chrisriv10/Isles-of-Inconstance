@@ -525,6 +525,10 @@ func _die() -> void:
 	
 	var is_boss := is_in_group("bosses")
 	if is_boss:
+		# This boss is no longer alive — drop it from the "bosses" group before
+		# restoring ambient so AudioManager.resume_ambient_music() doesn't keep
+		# the boss theme playing (it treats a live boss as owning the music).
+		remove_from_group("bosses")
 		AudioManager.play(AudioManager.Sound.BOSS_DIE)
 		AudioManager.resume_ambient_music(1.0)
 		LevelManager.add_xp_source("kill_boss")

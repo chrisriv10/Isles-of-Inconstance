@@ -246,9 +246,23 @@ func resume_ambient_music(fade_seconds: float = 1.0) -> void:
 			and not _is_override_track(_current_music):
 		_base_music = -1
 		return
+	# A boss that is still alive owns the soundtrack — never drop it to ambient
+	# while respawning or leaving a zone during a live boss fight. (The dying
+	# boss is removed from the "bosses" group before this is called on a kill.)
+	if _is_boss_fight_active():
+		play_music(Sound.BOSS_MUSIC, fade_seconds)
+		return
 	var target: int = _base_music if _base_music >= 0 else _derive_ambient_from_phase()
 	_base_music = -1
 	play_music(target, fade_seconds)
+
+## True while at least one boss node is alive in the scene. Used to keep the
+## boss theme playing through respawns / zone exits during a live boss fight.
+func _is_boss_fight_active() -> bool:
+	for b in get_tree().get_nodes_in_group("bosses"):
+		if is_instance_valid(b) and b.is_inside_tree():
+			return true
+	return false
 
 ## Get an available audio player (round-robin).
 func _get_available_player() -> AudioStreamPlayer:
