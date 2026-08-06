@@ -317,14 +317,16 @@ func _on_arrow_hit(body: Node) -> void:
 
 # ── Multiplayer RPC ──────────────────────────────────────────────────────
 
-## Returns true if this node lives under a host-only subtree (expedition
-## island, mine room, or building interior). Such interiors are generated
-## only on the host, so per-node RPC broadcasts from them can never resolve
-## on clients — skip broadcasting to avoid error floods.
+## Returns true if this node lives under a host-only subtree (mine room or
+## building interior). Such interiors are generated only on the host, so per-
+## node RPC broadcasts from them can never resolve on clients — skip
+## broadcasting to avoid error floods. NOTE: expedition islands are generated
+## identically on every peer, so their animals are host-authoritative remote
+## mirrors and MUST be allowed to broadcast through the World relay.
 func _is_in_host_only_subtree() -> bool:
 	var p: Node = get_parent()
 	while p:
-		if p is ExpeditionIsland or p is MineRoom or p is BuildingInterior:
+		if p is MineRoom or p is BuildingInterior:
 			return true
 		p = p.get_parent()
 	return false

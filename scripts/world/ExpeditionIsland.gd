@@ -1109,6 +1109,14 @@ func _scatter_animals() -> void:
 		# Tag with a deterministic island_obj_id (shared counter) so a death on
 		# one peer can be broadcast and applied to every peer's matching copy.
 		_tag_island_obj(animal)
+		# Host-authoritative shared HP/damage: derive a deterministic animal_id
+		# from the island_obj_id so the World relay can match this animal across
+		# peers. On clients the copy becomes a remote mirror that reports damage
+		# to the host instead of processing it locally (host is authoritative
+		# when its player is on the island session).
+		animal.animal_id = int(animal.get_meta("island_obj_id"))
+		if NetworkManager.is_network_active() and not multiplayer.is_server():
+			animal._is_remote = true
 
 
 func _place_return_boat() -> void:
