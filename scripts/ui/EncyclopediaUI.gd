@@ -545,7 +545,7 @@ func _build_animals_tab() -> void:
 	# Animals are procedurally generated from the world seed with unique
 	# species names and visual traits. The actual species roaming your
 	# island are generated at world creation.
-	_add_hint(vbox, "Animals have unique generated names (e.g. 'Frosthoof Bovine') and vary in color, pattern, and behavior. Each animal type has favorite foods for breeding. Animals can be petted daily for drops (fur, eggs, milk, wool, feathers, etc.). Killing animals yields meat and hide. Animals respawn over time if none are nearby.")
+	_add_hint(vbox, "Animals have unique generated names (e.g. 'Frosthoof Bovine') and vary in color, pattern, and behavior. Each animal type has favorite foods for breeding. Animals can be petted for drops (egg, milk, wool, feathers, etc.); shy or wild species give nothing. Killing animals yields fur, leather, meat, and hide. Animals respawn over time if none are nearby.")
 	
 	# Fish added via the fishing system
 	_add_entry(vbox, "🐟 Fishing", "Requires: Fishing Rod (crafted at workbench)",
@@ -555,32 +555,32 @@ func _build_animals_tab() -> void:
 	# Dynamically pull animal types from Animal.gd love foods / behavior
 	var animal_types_list := [
 		{"id": "chicken", "name": "Fowl (Chicken/Bird)", "food": "Berry, Mushroom, Nut", "interaction_drops": "Feather, Egg (daily)", "behavior": "Wander & Graze"},
-		{"id": "cow", "name": "Bovine (Cow)", "food": "Berry, Flower, Mushroom", "interaction_drops": "Milk (daily), Leather (one-time)", "behavior": "Graze & Wander"},
+		{"id": "cow", "name": "Bovine (Cow)", "food": "Berry, Flower, Mushroom", "interaction_drops": "Milk (daily)", "behavior": "Graze & Wander"},
 		{"id": "rabbit", "name": "Burrower (Rabbit)", "food": "Berry, Mushroom", "interaction_drops": "None (shy)", "behavior": "Skittish"},
 		{"id": "deer", "name": "Strider (Deer)", "food": "Berry, Flower, Mushroom", "interaction_drops": "Antlers (one-time)", "behavior": "Skittish & Wander"},
-		{"id": "goat", "name": "Caprine (Goat)", "food": "Berry, Flower, Mushroom", "interaction_drops": "Milk (daily), Wool (every 2 days)", "behavior": "Wander & Graze"},
+		{"id": "goat", "name": "Caprine (Goat)", "food": "Berry, Flower, Mushroom", "interaction_drops": "Milk (daily)", "behavior": "Wander & Graze"},
 		{"id": "pig", "name": "Porcine (Pig)", "food": "Mushroom, Nut, Truffle", "interaction_drops": "Truffle (every 2 days)", "behavior": "Wander & Root"},
 		{"id": "sheep", "name": "Ovine (Sheep)", "food": "Berry, Flower", "interaction_drops": "Wool (daily)", "behavior": "Graze & Idle"},
 		{"id": "squirrel", "name": "Sciurid (Squirrel)", "food": "Nut, Berry", "interaction_drops": "Nut", "behavior": "Skittish"},
 		{"id": "frog", "name": "Anuran (Frog)", "food": "Mushroom, Berry", "interaction_drops": "None (curious)", "behavior": "Idle & Leap"},
 		{"id": "turtle", "name": "Testudine (Turtle)", "food": "Mushroom, Flower", "interaction_drops": "Shell (one-time)", "behavior": "Idle & Slow Wander"},
 		# --- Expedition Island Types ---
-		{"id": "snow_fox", "name": "Snow Fox (Snowland)", "food": "Berry, Ice Crystal", "interaction_drops": "Polar Bear Hide, Snow Flower (daily)", "behavior": "Curious & Fleet"},
-		{"id": "polar_bear", "name": "Polar Bear (Snowland)", "food": "Fish, Berry", "interaction_drops": "Polar Bear Hide (one-time), Snow Flower (daily)", "behavior": "Solitary & Strong"},
-		{"id": "snow_owl", "name": "Snow Owl (Snowland)", "food": "Berry, Mushroom", "interaction_drops": "Feather, Snow Flower (daily)", "behavior": "Nocturnal & Watchful"},
+		{"id": "snow_fox", "name": "Snow Fox (Snowland)", "food": "Berry, Ice Crystal", "interaction_drops": "Fur (daily)", "behavior": "Curious & Fleet"},
+		{"id": "polar_bear", "name": "Polar Bear (Snowland)", "food": "Fish, Berry", "interaction_drops": "Polar Bear Hide (daily)", "behavior": "Solitary & Strong"},
+		{"id": "snow_owl", "name": "Snow Owl (Snowland)", "food": "Berry, Mushroom", "interaction_drops": "Feather", "behavior": "Nocturnal & Watchful"},
 		{"id": "gummy_bear", "name": "Gummy Bear (Ice Cream Land)", "food": "Gumdrop, Sugar Crystal", "interaction_drops": "Gumdrop (daily)", "behavior": "Bouncy & Friendly"},
-		{"id": "marshmallow_puff", "name": "Marshmallow Puff (Ice Cream Land)", "food": "Sugar Crystal, Chocolate Chunk", "interaction_drops": "Sugar Crystal (daily)", "behavior": "Floaty & Sweet"},
-		{"id": "licorice_worm", "name": "Licorice Worm (Ice Cream Land)", "food": "Chocolate Chunk, Gumdrop", "interaction_drops": "Chocolate Chunk (daily)", "behavior": "Wiggly & Burrowing"},
+		{"id": "marshmallow_puff", "name": "Marshmallow Puff (Ice Cream Land)", "food": "Sugar Crystal, Chocolate Chunk", "interaction_drops": "Sugar Crystal", "behavior": "Floaty & Sweet"},
+		{"id": "licorice_worm", "name": "Licorice Worm (Ice Cream Land)", "food": "Chocolate Chunk, Gumdrop", "interaction_drops": "None (wild)", "behavior": "Wiggly & Burrowing"},
 		{"id": "gingerbread_man", "name": "Gingerbread Man (Ice Cream Land)", "food": "Sugar Crystal, Gumdrop", "interaction_drops": "Sugar Crystal (daily)", "behavior": "Sprightly & Sweet-toothed"},
-		{"id": "ice_cream_sandwich_man", "name": "Ice Cream Sandwich Man (Ice Cream Land)", "food": "Gumdrop, Chocolate Chunk", "interaction_drops": "Chocolate Chunk (daily)", "behavior": "Frozen & Easygoing"},
-		{"id": "sand_lizard", "name": "Sand Lizard (Desert)", "food": "Cactus Fruit, Mushroom", "interaction_drops": "Desert Scales (one-time)", "behavior": "Basking & Swift"},
-		{"id": "desert_scorpion", "name": "Desert Scorpion (Desert)", "food": "Cactus Fruit, Berry", "interaction_drops": "Scorpion Stinger (one-time)", "behavior": "Skittish & Poisonous"},
-		{"id": "meerkat", "name": "Meerkat (Desert)", "food": "Cactus Fruit, Nut", "interaction_drops": "Golden Scarab (daily)", "behavior": "Social & Alert"},
-		{"id": "ember_crawler", "name": "Ember Crawler (Volcanic)", "food": "Ember Dust, Sulfur Crystal", "interaction_drops": "Ember Dust (daily), Magma Core (one-time)", "behavior": "Glowing & Slow"},
-		{"id": "ash_moth", "name": "Ash Moth (Volcanic)", "food": "Sulfur Crystal, Ember Dust", "interaction_drops": "Sulfur Crystal (daily)", "behavior": "Fluttering & Heat-seeking"},
-		{"id": "magma_slug", "name": "Magma Slug (Volcanic)", "food": "Ember Dust, Coal", "interaction_drops": "Magma Core (daily)", "behavior": "Slow & Molten"},
-		{"id": "spirit_fox", "name": "Spirit Fox (Ethereal)", "food": "Moon Shard, Starlight Dust", "interaction_drops": "Starlight Dust (daily)", "behavior": "Ethereal & Glowing"},
-		{"id": "glow_jelly", "name": "Glow Jelly (Ethereal)", "food": "Starlight Dust, Moon Shard", "interaction_drops": "Moon Shard (daily)", "behavior": "Floating & Luminous"},
+		{"id": "ice_cream_sandwich_man", "name": "Ice Cream Sandwich Man (Ice Cream Land)", "food": "Gumdrop, Chocolate Chunk", "interaction_drops": "None (wild)", "behavior": "Frozen & Easygoing"},
+		{"id": "sand_lizard", "name": "Sand Lizard (Desert)", "food": "Cactus Fruit, Mushroom", "interaction_drops": "None (wild)", "behavior": "Basking & Swift"},
+		{"id": "desert_scorpion", "name": "Desert Scorpion (Desert)", "food": "Cactus Fruit, Berry", "interaction_drops": "None (wild)", "behavior": "Skittish & Poisonous"},
+		{"id": "meerkat", "name": "Meerkat (Desert)", "food": "Cactus Fruit, Nut", "interaction_drops": "Golden Scarab (every 3 days)", "behavior": "Social & Alert"},
+		{"id": "ember_crawler", "name": "Ember Crawler (Volcanic)", "food": "Ember Dust, Sulfur Crystal", "interaction_drops": "Ember Dust (daily)", "behavior": "Glowing & Slow"},
+		{"id": "ash_moth", "name": "Ash Moth (Volcanic)", "food": "Sulfur Crystal, Ember Dust", "interaction_drops": "Ember Dust", "behavior": "Fluttering & Heat-seeking"},
+		{"id": "magma_slug", "name": "Magma Slug (Volcanic)", "food": "Ember Dust, Coal", "interaction_drops": "Sulfur Crystal (daily)", "behavior": "Slow & Molten"},
+		{"id": "spirit_fox", "name": "Spirit Fox (Ethereal)", "food": "Moon Shard, Starlight Dust", "interaction_drops": "Moon Shard", "behavior": "Ethereal & Glowing"},
+		{"id": "glow_jelly", "name": "Glow Jelly (Ethereal)", "food": "Starlight Dust, Moon Shard", "interaction_drops": "Starlight Dust", "behavior": "Floating & Luminous"},
 		{"id": "lunar_moth", "name": "Lunar Moth (Ethereal)", "food": "Starlight Dust, Berry", "interaction_drops": "Starlight Dust (daily)", "behavior": "Night-dwelling & Graceful"},
 	]
 	
@@ -833,7 +833,7 @@ func _build_farming_tab() -> void:
 		+ "Compost: Speeds up growth (craft at workbench)\n"
 		+ "Fertilizer: Boosts yield quality\n"
 		+ "Soil Quality: Tilling and composting improves soil over time\n"
-		+ "Season: 1.25x speed AND yield in-season; 0.75x out-of-season\n"
+		+ "Season: 1.25x growth AND yield in-season; 0.75x growth out-of-season (yield unaffected)\n"
 		+ "Crop Rotation: Different crop on same tile = +1 soil quality\n"
 		+ "Sprinklers: Auto-water 3x3 area (craft with iron + stone)",
 		water_icon, Color(0.4, 0.7, 1.0))
@@ -935,7 +935,7 @@ func _build_town_tab() -> void:
 		+ "Level 3 — Village: 5+ buildings restored\n"
 		+ "Level 4 — Town: 7+ buildings restored\n"
 		+ "Level 5 — Thriving: All 9+ buildings restored\n\n"
-		+ "Reputation: +50 per building restored. Build trust with the town!",
+		+ "Reputation: earned by completing quests and selling produce. Build trust with the town!",
 		rep_icon, Color(0.9, 0.8, 0.3))
 	
 	var bakery_icon: Texture2D = _lookup_item_icon("bread")
@@ -971,7 +971,7 @@ func _build_town_tab() -> void:
 
 func _build_bosses_tab() -> void:
 	var vbox := _make_scroll_container("Bosses")
-	_add_hint(vbox, "Bosses are powerful spirits summoned by using special bait items from your hotbar. The baits are crafted in the Crafting menu ([b]C[/b]): Soulberry Pie, Golden Hay Bale, and Nectar Brew are in the [b]Consumables[/b] tab; Essence of Inconstance is in the [b]Alchemy[/b] tab. Equip the bait in your hotbar and use it to summon. Bosses must be defeated in order!")
+	_add_hint(vbox, "Bosses are powerful spirits summoned by equipping a special bait item in your hotbar and using it. The baits are crafted in the Crafting menu ([b]C[/b]): Soulberry Pie, Golden Hay Bale, and Nectar Brew are in the [b]Consumables[/b] tab; Essence of Inconstance is in the [b]Alchemy[/b] tab. Each bait summons its own boss, so craft the one you'd like to face. Only one boss can be active at a time.")
 	
 	var warden_icon: Texture2D = _lookup_item_icon("wardens_core")
 	_add_entry(vbox, "Root Warden", "Spirit Harvest I — First Boss",

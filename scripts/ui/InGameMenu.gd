@@ -240,7 +240,8 @@ func _get_controls_text() -> String:
 • [b]3, 4, 5, 6, 7, 8, 9, 0[/b] — Select hotbar slots
 • [b]I[/b] — Open/close inventory
 • [b]Delete[/b] — Discard item (in inventory)
-• [b]Right-click[/b] in inventory — Split stacks / Equip armor
+• [b]Right-click[/b] in inventory — View item description
+• [b]E[/b] on an armor item — Equip it (or drag it onto the armor slot)
 
 [b][color=#7fc97f]Crafting & Building:[/color][/b]
 • [b]C[/b] — Open crafting menu
@@ -264,7 +265,7 @@ func _get_controls_text() -> String:
 
 [b][color=#7fc97f]Mouse:[/color][/b]
 • [b]Left-click[/b] — Use tool / Attack at cursor position
-• [b]Right-click[/b] — Interact / Harvest / Equip armor"""
+• [b]Right-click[/b] — Interact / Harvest / View item details"""
 
 func _create_settings_content(pw: float) -> VBoxContainer:
 	var settings_vbox := VBoxContainer.new()
