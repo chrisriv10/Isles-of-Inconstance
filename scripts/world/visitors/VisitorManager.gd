@@ -365,7 +365,13 @@ func creative_spawn_ship() -> void:
 
 ## Whether there's currently an active ship with visitors ashore.
 func has_active_visitors() -> bool:
-	return _active_ship != null and _active_ship.has_active_visitors()
+	if _active_ship and _active_ship.is_inside_tree():
+		return _active_ship.has_active_visitors()
+	# Client fallback: the host's ship + NPCs are mirrored into the scene via
+	# World._sync_spawn_visitor_ship, but they are NOT linked to this local
+	# VisitorManager._active_ship. Detect them from the mirrored scene groups so
+	# the TownUI recruitment section ("Visitors in town") stays in sync.
+	return not get_tree().get_nodes_in_group("visitor_npcs").is_empty()
 
 func get_active_ship():
 	return _active_ship

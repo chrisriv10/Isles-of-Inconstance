@@ -428,6 +428,12 @@ func _show_persistent_background() -> void:
 
 
 func _start_new_game(p_seed: int) -> void:
+	# Ensure a brand-new world has a real save name. New Game sets "My Island"
+	# before this, but "Host a new world" doesn't, so without this default the
+	# first save stores an empty save_name and the Save Select falls back to
+	# player_name (which defaults to "Farmer").
+	if GameManager.save_name.is_empty():
+		GameManager.save_name = "My Island"
 	# Stop main menu music — game ambience takes over via day/night cycle
 	var am_node: Node = get_node("/root/AudioManager") if has_node("/root/AudioManager") else null
 	if am_node and am_node.has_method("stop_music"):

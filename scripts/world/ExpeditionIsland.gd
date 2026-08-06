@@ -148,7 +148,8 @@ func _island_config(type: int) -> void:
 					"prompt": "Activate the stone circle",
 					"single_use": true,
 					"buff_type": "farming_speed",
-					"buff_duration": 120.0,
+					"buff_strength": 1.5,
+					"buff_duration": 120.0,  # game-minutes -> "Crops grow 50% faster (2h 0m)"
 				},
 			]
 
@@ -196,7 +197,8 @@ func _island_config(type: int) -> void:
 					"prompt": "Channel the glacial shrine",
 					"single_use": true,
 					"buff_type": "cold_resistance",
-					"buff_duration": 180.0,
+					"buff_strength": 0.5,
+					"buff_duration": 180.0,  # game-minutes -> "+50% Cold Defense (3h 0m)"
 				},
 			]
 
@@ -238,7 +240,8 @@ func _island_config(type: int) -> void:
 					"prompt": "Taste the candy altar",
 					"single_use": true,
 					"buff_type": "movement_speed",
-					"buff_duration": 90.0,
+					"buff_strength": 0.5,
+					"buff_duration": 90.0,  # game-minutes -> "+50% Movement Speed (1h 30m)"
 				},
 			]
 
@@ -334,7 +337,8 @@ func _island_config(type: int) -> void:
 					"prompt": "Pledge to the fire shrine",
 					"single_use": true,
 					"buff_type": "fire_resistance",
-					"buff_duration": 120.0,
+					"buff_strength": 0.5,
+					"buff_duration": 120.0,  # game-minutes -> "+50% Fire Defense (2h 0m)"
 				},
 			]
 

@@ -4163,23 +4163,29 @@ func _receive_enter_building(building_type: int, building_cell_x: int, building_
 
 ## Host: a peer wants to exit the building. Remove them from the session.
 ## If the session becomes empty, clean it up.
+## NOTE: town-ruin interiors (restaurant, tavern, blacksmith, ...) enter via
+## the local RuinStructure.enter_building path and never register a session, so
+## _peer_building may be empty here — the exit must still be completed or the
+## peer stays stranded in the freed interior void (the "sky abyss").
 @rpc("any_peer", "reliable")
 func _server_exit_building() -> void:
 	if not multiplayer.is_server():
 		return
 	var sender: int = _sender_id()
 	var cell_key: String = _peer_building.get(sender, "")
-	if cell_key == "":
-		return
-	var session: Dictionary = _building_sessions.get(cell_key, {})
-	if session:
-		session["members"].erase(sender)
-		if session["members"].is_empty():
-			_building_sessions.erase(cell_key)
-	_peer_building.erase(sender)
+	if cell_key != "":
+		var session: Dictionary = _building_sessions.get(cell_key, {})
+		if session:
+			session["members"].erase(sender)
+			if session["members"].is_empty():
+				_building_sessions.erase(cell_key)
+		_peer_building.erase(sender)
 	
 	if sender == _self_id():
-		_on_exit_interior()
+		# Only run the local exit when this peer is actually inside — a stray
+		# call while outside must not yank the host to a stale _outside_player_pos.
+		if current_interior:
+			_on_exit_interior()
 	else:
 		rpc_id(sender, "_receive_exit_building")
 

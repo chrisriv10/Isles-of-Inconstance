@@ -125,20 +125,66 @@ func _try_open_frozen_chest(interactor: Node) -> void:
 
 
 func _activate_buff(_interactor: Node) -> void:
-	var buff_type: String = _config.get("buff_type", "farming_speed")
-	var duration: float = _config.get("buff_duration", 120.0)
+	var buff_type: String = _config.get("buff_type", "growth")
+	var strength: float = _config.get("buff_strength", 1.5)
+	# Duration is expressed in game-minutes (the unit BuffManager ticks & the
+	# HUD displays), so the toast and the active-buff bar always agree.
+	var duration_min: float = _config.get("buff_duration", 120.0)
 	
 	var buff_manager: Node = get_tree().get_first_node_in_group("buff_manager") if get_tree() else null
 	if not buff_manager:
 		buff_manager = get_tree().root.find_child("BuffManager", true, false) if get_tree() else null
 	
-	# BuffManager.apply_potion_effect expects: buff_type, strength, duration_in_minutes, source_name
+	# Shrines use flavour types (farming_speed, cold_resistance, ...) that no
+	# system actually reads — map them onto real buff types so the effect is real.
+	var real_type: String = _map_shrine_buff_type(buff_type)
+	# apply_potion_effect interprets its duration argument as hours and stores
+	# roundi(duration * 60) game-minutes; divide by 60 so exactly `duration_min`
+	# game-minutes are stored (matching the toast and the HUD).
 	if buff_manager and buff_manager.has_method("apply_potion_effect"):
-		var minutes: int = maxi(1, roundi(duration / 60.0))
-		buff_manager.apply_potion_effect(buff_type, 1.0, minutes, "Expedition Shrine")
+		buff_manager.apply_potion_effect(real_type, strength, duration_min / 60.0, "Expedition Shrine")
 	
-	var buff_name: String = buff_type.replace("_", " ").capitalize()
-	ToastNotification.show_toast("Shrine activated! %s for %.0f seconds!" % [buff_name, duration], ToastNotification.ToastType.SUCCESS, 3.0)
+	var effect_str: String = _shrine_effect_text(buff_type, real_type, strength)
+	var mins: int = maxi(1, roundi(duration_min))
+	ToastNotification.show_toast(
+		"Shrine activated! %s (%dh %dm)" % [effect_str, floori(mins / 60.0), mins % 60],
+		ToastNotification.ToastType.SUCCESS, 3.0)
+
+
+## Expedition shrines historically used flavour buff types that no gameplay
+## system consumes (so activating them did nothing). Map them onto the only
+## buff types the game actually reads: speed, growth, energy, luck, health,
+## defense. Unknown types pass through unchanged.
+func _map_shrine_buff_type(buff_type: String) -> String:
+	match buff_type:
+		"farming_speed":   return "growth"   # crops grow faster
+		"movement_speed":  return "speed"    # player movement speed
+		"cold_resistance", "fire_resistance": return "defense"  # damage reduction (same as resist tonics)
+	return buff_type
+
+
+## Human-readable effect text for the shrine toast, built from the real buff
+## type/strength actually applied. Cold/Fire keep their resistance flavour but
+## the mechanic is the "defense" buff (matching how resist tonics are described).
+func _shrine_effect_text(buff_type: String, real_type: String, strength: float) -> String:
+	match real_type:
+		"speed":
+			return "+%d%% Movement Speed" % roundi(strength * 100.0)
+		"defense":
+			if buff_type == "cold_resistance":
+				return "+%d%% Cold Defense" % roundi(strength * 100.0)
+			if buff_type == "fire_resistance":
+				return "+%d%% Fire Defense" % roundi(strength * 100.0)
+			return "+%d%% Defense" % roundi(strength * 100.0)
+		"growth":
+			return "Crops grow %.0f%% faster" % ((strength - 1.0) * 100.0)
+		"luck":
+			return "+%d%% Luck" % roundi(strength * 100.0)
+		"health":
+			return "Health Regeneration"
+		"energy":
+			return "+%d%% Energy Efficiency" % roundi(strength * 100.0)
+	return buff_type.replace("_", " ").capitalize()
 
 
 func _heal_player(_interactor: Node) -> void:
