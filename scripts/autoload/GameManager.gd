@@ -677,40 +677,45 @@ func _advance_minute() -> void:
 	
 	if current_minute_of_day >= minutes_per_day:
 		current_minute_of_day = 0
-		current_day += 1
 
-		# Season/weather are HOST-AUTHORITATIVE in multiplayer: only the host
-		# rolls them and broadcasts the result (via _broadcast_time_state).
-		# Clients receive the true season/weather through _receive_time_state
-		# and must NOT re-roll locally — otherwise weather diverges between
-		# peers (rain on the wrong days) and rain double-waters the shared
-		# soil. Single-player is unaffected (authority = this peer).
+		# DAY ROLLOVER AND ALL WORLD FARM GROWTH ARE HOST-AUTHORITATIVE in
+		# multiplayer. Only the host (or single-player) advances the day, rolls
+		# season/weather/rain, and lets World recompute the farm (_on_day_changed
+		# -> _broadcast_farm_delta). Clients skip day-advance entirely: they
+		# reset their minute clock here and learn of the new day via
+		# _receive_time_state, which re-emits day_changed for per-player effects
+		# and applies the host's farm delta WITHOUT recomputing. This stops every
+		# peer from rolling its own RNG + per-peer pet/buff bonuses (previously
+		# caused divergent growth, mutation and disease across peers).
 		var is_authority: bool = not NetworkManager.is_network_active() or multiplayer.is_server()
+		if is_authority:
+			current_day += 1
 
-		# Advance season too (host / single-player only)
-		if is_authority and season_system:
-			var old_season := season_system.current_season
-			season_system.advance_day()
-			if season_system.current_season != old_season:
-				season_changed.emit(season_system.current_season, season_system.get_season_name())
+			# Advance season too (host / single-player only)
+			if season_system:
+				var old_season := season_system.current_season
+				season_system.advance_day()
+				if season_system.current_season != old_season:
+					season_changed.emit(season_system.current_season, season_system.get_season_name())
 
-		# Advance weather before emitting day_changed (host / SP only), and
-		# apply rain auto-watering to the authoritative farm plots there.
-		if is_authority and weather_system:
-			weather_system.advance_day()
-			var world := get_tree().get_first_node_in_group("world")
-			if world and weather_system.is_raining():
-				weather_system.apply_rain_watering(world)
+			# Advance weather before emitting day_changed (host / SP only), and
+			# apply rain auto-watering to the authoritative farm plots there.
+			if weather_system:
+				weather_system.advance_day()
+				var world := get_tree().get_first_node_in_group("world")
+				if world and weather_system.is_raining():
+					weather_system.apply_rain_watering(world)
 
-		# Apply daily bank interest (per-player wallet — each peer owns its own)
-		_apply_bank_interest()
+			# Apply daily bank interest to THIS peer's wallet. Host applies here;
+			# clients apply in _receive_time_state on day change.
+			_apply_bank_interest()
 
-		day_changed.emit(current_day)
-		# Auto-save on day change (persisted only by host / single-player)
-		SaveManager.save_game()
-		# Host: broadcast day rollover to clients
-	if NetworkManager.is_network_active() and multiplayer.is_server():
-		_broadcast_time_state()
+			day_changed.emit(current_day)
+			# Auto-save on day change (persisted only by host / single-player)
+			SaveManager.save_game()
+			# Host: broadcast day rollover + host farm state to clients
+			if NetworkManager.is_network_active():
+				_broadcast_time_state()
 
 	# Emit per-minute time change so the HUD clock, day/night overlay, and
 	# other time-driven systems update (restored; was lost in the EOS MP commit).
@@ -731,6 +736,11 @@ func _advance_minute() -> void:
 
 # ── Multiplayer time sync ────────────────────────────────────────────────
 
+## True once the client has received its first time state from the host. Used
+## to avoid firing per-player day-change effects on the very first sync (which
+## is not a rollover and would grant a day of bank interest in error).
+var _has_received_client_time: bool = false
+
 func _get_season_state() -> int:
 	return season_system.current_season if season_system else 0
 
@@ -750,6 +760,7 @@ func _broadcast_time_state() -> void:
 func _receive_time_state(day: int, min_of_day: int, phase: int, season: int, weather: int) -> void:
 	if multiplayer.is_server():
 		return  # host already has the real state
+	var prev_day: int = current_day
 	current_day = day
 	current_minute_of_day = min_of_day
 	if day_night:
@@ -764,6 +775,16 @@ func _receive_time_state(day: int, min_of_day: int, phase: int, season: int, wea
 		# client keeps its own stale visuals until a local day rollover.
 		if weather != prev_weather:
 			weather_system.weather_changed.emit(weather as WeatherSystem.WeatherType)
+	
+	# On a host day rollover, run THIS client's per-player day-change effects
+	# exactly once (own wallet interest, own buffs/timers connected to
+	# day_changed). World farm growth does NOT recompute here — World applies
+	# the host's farm delta via _apply_farm_delta. Skip the very first sync so
+	# a mid-day joiner doesn't get an errant interest/fx tick.
+	if _has_received_client_time and day != prev_day:
+		_apply_bank_interest()
+		day_changed.emit(current_day)
+	_has_received_client_time = true
 	
 	var hour := get_hour()
 	var minute := get_minute()

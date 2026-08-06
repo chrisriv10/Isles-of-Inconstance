@@ -1438,6 +1438,14 @@ func _spawn_harvest_particles(pos: Vector2) -> void:
 	EffectSpawner.spawn_particles(pos, Color(1.0, 0.9, 0.4), 3, 8.0)
 
 func _on_day_changed(_day: int) -> void:
+	# World farm/soil/crop growth is HOST-AUTHORITATIVE: only the host (or
+	# single-player) recomputes it. Clients apply the host's daily farm delta
+	# (_apply_farm_delta) instead of running divergent RNG-driven growth,
+	# mutation and disease. Per-player day effects (wallet interest, own buffs)
+	# are handled by the client's own day_changed emission in
+	# GameManager._receive_time_state.
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
 	# Grouped notification counters
 	var newly_mature_count: int = 0
 	var first_mature_name: String = ""
@@ -1621,8 +1629,13 @@ func _on_day_changed(_day: int) -> void:
 	if visitor_manager and visitor_manager.is_inside_tree():
 		visitor_manager.advance_day(_day)
 
+	# Host: after computing today's farm growth, broadcast the resulting soil +
+	# crop state so clients converge without recomputing growth/mutation/disease
+	# themselves (which would diverge from the host RNG + per-peer bonuses).
+	_broadcast_farm_delta()
 
-## Apply a color tint to a tilled soil tile based on its soil quality level.
+
+## Applies a color tint to a tilled soil tile based on its soil quality level.
 ## Higher quality → richer/brighter tint, lower quality → duller/browner tint.
 func _apply_soil_quality_tint(cell: Vector2i, soil: SoilData) -> void:
 	if not ground_layer or not soil or not soil.soil_quality:
@@ -4846,6 +4859,82 @@ func _receive_world_state_snapshot(removed: Array, harvested_bushes: Array, buil
 				animal.name = node_name
 			objects_root.add_child(animal)
 			animal.setup_from_network(animal_data)
+
+
+# ── Daily farm delta sync (host-authoritative growth) ───────────────────
+#
+# During day rollover the HOST recomputes the whole farm once (in
+# _on_day_changed) using THE host's RNG + pet/buff bonuses, then serializes
+# the resulting soil + crop state and broadcasts it. Clients apply this delta
+# verbatim instead of recomputing growth/mutation/disease, so every peer's
+# farm stays identical (no divergence from per-peer RNG / bonuses).
+
+## Host: serialize the full farm (soil + live crops) into a compact delta.
+func _build_farm_delta() -> Dictionary:
+	var soil_delta: Array = []
+	for cell in _soil_data:
+		var sd: SoilData = _soil_data[cell] as SoilData
+		if sd:
+			soil_delta.append([cell.x, cell.y, sd.serialize()])
+	var crop_delta: Array = []
+	for cell in _crop_nodes:
+		var crop: Crop = _crop_nodes[cell] as Crop
+		if crop and is_instance_valid(crop):
+			crop_delta.append({
+				"x": cell.x, "y": cell.y,
+				"id": crop.crop_id, "days": crop.days_grown,
+				"g": crop.genetics.serialize() if crop.genetics else {},
+			})
+	return {"soil": soil_delta, "crops": crop_delta}
+
+
+## Host: broadcast today's farm delta to all clients after day rollover.
+func _broadcast_farm_delta() -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	var delta := _build_farm_delta()
+	rpc("_apply_farm_delta", delta.get("soil", []), delta.get("crops", []))
+
+
+## Client: apply the host's host-computed farm state WITHOUT recomputing
+## growth/mutation/disease (avoids divergence from per-peer RNG + bonuses).
+## This is the day-rollover counterpart to the late-joiner snapshot.
+@rpc("authority", "reliable")
+func _apply_farm_delta(soil_delta: Array = [], crop_delta: Array = []) -> void:
+	if multiplayer.is_server():
+		return
+	# Replace local soil with the host's authoritative state.
+	for entry in soil_delta:
+		var cell := Vector2i(int(entry[0]), int(entry[1]))
+		if _is_in_bounds(cell) and entry.size() >= 3:
+			_soil_data[cell] = SoilData.deserialize(entry[2])
+	# Track which cells the host currently has crops on, and rebuild the local
+	# crop nodes from the delta so growth / mutation / death apply cleanly.
+	var host_crop_cells: Dictionary = {}
+	for entry in crop_delta:
+		var cc := Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+		host_crop_cells[cc] = true
+		if _crop_nodes.has(cc):
+			_crop_nodes[cc].queue_free()
+			_crop_nodes.erase(cc)
+		if _soil_data.has(cc) and _soil_data[cc].crop_id != "":
+			var crop: Crop = CROP_SCENE.instantiate()
+			objects_root.add_child(crop)
+			crop.global_position = cell_to_world(cc)
+			var g: Variant = entry.get("g", {})
+			if g is Dictionary and not (g as Dictionary).is_empty():
+				crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)), CropGenetics.deserialize(g))
+			else:
+				crop.setup(str(entry.get("id", "")), int(entry.get("days", 0)))
+			crop.mutated.connect(_on_crop_mutated.bind(cc))
+			_crop_nodes[cc] = crop
+	# Drop any local crop node whose crop died on the host (crop_id cleared).
+	if not crop_delta.is_empty():
+		for cell in _crop_nodes.keys():
+			if not host_crop_cells.has(cell) and _soil_data.has(cell) \
+					and _soil_data[cell].crop_id == "":
+				_crop_nodes[cell].queue_free()
+				_crop_nodes.erase(cell)
 
 
 # ── Visitor ship sync ───────────────────────────────────────────────────

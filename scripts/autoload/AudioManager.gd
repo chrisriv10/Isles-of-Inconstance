@@ -223,9 +223,15 @@ func _get_ambient_for_phase(phase: int) -> int:
 func _derive_ambient_from_phase() -> int:
 	var phase: int = 0
 	var gm: Node = get_node_or_null("/root/GameManager")
-	var day_night: Node = gm.get("day_night") if gm else null
-	if day_night:
-		phase = int(day_night.get("current_phase"))
+	if gm:
+		# Typed as Variant: during early worldgen "day_night" may not be a
+		# Node yet (or may be a Resource-style object) — a typed Node local
+		# would throw a RefCounted→Node assignment error.
+		var day_night: Variant = gm.get("day_night")
+		if day_night != null:
+			var current_phase: Variant = day_night.get("current_phase")
+			if current_phase != null:
+				phase = int(current_phase)
 	return _get_ambient_for_phase(phase)
 
 ## Return to the ambient day/night theme after a zone override ends. Falls
