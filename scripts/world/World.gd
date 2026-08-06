@@ -3346,26 +3346,38 @@ func _receive_enter_mine(entrance_index: int, depth: int) -> void:
 ## Only the local player is moved (remote players enter on their own peers).
 ## Returns true if the mine was created.
 func _do_enter_mine(entrance_index: int, depth: int) -> bool:
-	if current_mine_room:
-		return false
 	if _mine_exit_cooldown:
 		return false
 	if GameManager.inside_interior:
+		return false
+	# If a room already exists AND this peer's local player is already inside
+	# it, there is nothing to do. But a room may exist while the local player is
+	# NOT inside: the host pre-builds its deterministic copy when a client enters
+	# the mine without the host (so the host's enemy AI can drive combat). In that
+	# case the host's own player entering must still be moved into the existing
+	# room rather than being blocked. (Regression: the old `if current_mine_room:
+	# return false` left the host stranded on the surface forever once it had
+	# pre-built a room for a client.)
+	if current_mine_room and GameManager.inside_mine:
 		return false
 	
 	AudioManager.play_music(AudioManager.Sound.CAVE_MUSIC)
 	AudioManager.play(AudioManager.Sound.CAVE_AMBIENCE)
 	
-	# Create mine room with generator
+	# Create mine room with generator (skip if one already exists — e.g. the
+	# host pre-built it for a client; we just move our own player into it).
 	var world_seed_val: int = world_seed if world_seed > 0 else 0
-	var mine_generator := MineGenerator.create(world_seed_val + depth * 7777, 64, 48)
-	var mine := MineRoom.new()
-	mine.name = "MineRoom"
-	mine.depth_level = depth
-	mine.entrance_index = entrance_index
-	mine.generator = mine_generator
-	current_mine_room = mine
-	_mine_current_depth = depth
+	var mine_generator: MineGenerator = null
+	var mine: MineRoom = null
+	if current_mine_room == null:
+		mine_generator = MineGenerator.create(world_seed_val + depth * 7777, 64, 48)
+		mine = MineRoom.new()
+		mine.name = "MineRoom"
+		mine.depth_level = depth
+		mine.entrance_index = entrance_index
+		mine.generator = mine_generator
+		current_mine_room = mine
+		_mine_current_depth = depth
 	
 	# Notify ObjectiveManager — mine entry and depth reached
 	var om_mine := get_tree().get_first_node_in_group("objective_manager")
@@ -3393,6 +3405,10 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 		if is_instance_valid(player) and _is_local_player(player):
 			local_player = player
 			break
+	# Resolve the generator for the room we are entering — the freshly created
+	# one, or the existing pre-built room's generator when the host enters a
+	# room it already created for a client.
+	var gen: MineGenerator = current_mine_room.generator if current_mine_room else mine_generator
 	if local_player:
 		# Save this peer's own local player's outside position so we can
 		# return it to the surface on exit.
@@ -3400,16 +3416,18 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 		if local_player is CharacterBody2D:
 			local_player.velocity = Vector2.ZERO
 		local_player.z_index = 2
-		var spawn_pos := mine_generator.get_spawn_position(entrance_index)
+		var spawn_pos := gen.get_spawn_position(entrance_index)
 		local_player.global_position = MINE_VOID + spawn_pos
 		local_player.visible = true
 		local_player.set_process(true)
 		local_player.set_physics_process(true)
 		local_player.show_dialogue("in here... I should explore deeper and find valuable ores.", 4.0)
 	
-	# Add the mine room at the void position (deferred so the room builds
-	# after this frame — same pattern as descending to deeper floors).
-	call_deferred("_deferred_setup_mine_room", mine)
+	# Add the mine room at the void position (deferred so the room builds after
+	# this frame). Skip when the room already exists (host entering a room it
+	# pre-built for a client) — it is already set up.
+	if mine:
+		call_deferred("_deferred_setup_mine_room", mine)
 	
 	var hud := get_tree().get_first_node_in_group("hud")
 	if hud and hud.has_method("fade_to_black"):
@@ -3421,7 +3439,7 @@ func _do_enter_mine(entrance_index: int, depth: int) -> bool:
 	
 	# Set camera limits to the mine bounds so the gray viewport background
 	# is not visible when the player is near the edge of the map.
-	_set_mine_camera_limits(mine_generator.grid_width, mine_generator.grid_height)
+	_set_mine_camera_limits(gen.grid_width, gen.grid_height)
 	
 	return true
 
