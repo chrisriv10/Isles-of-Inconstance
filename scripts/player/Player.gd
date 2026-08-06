@@ -3046,6 +3046,15 @@ func _get_full_armor_set() -> String:
 ## Uses separate walk (192x96) and idle (192x96) textures matching the base player format:
 ## 4x2 grid of 48x48 frames, 8 frames per animation.
 func _update_armor_sheet(_defense: int = -1) -> void:
+	# The armor_changed signal and the deferred call in _ready run on EVERY
+	# player node as it spawns — including remote copies of teammates. This
+	# function reads THIS peer's own equipped_armor, so applying it to a remote
+	# copy would make a teammate's sprite "wear" our armor on our screen.
+	# Only the LOCAL player's sprite reflects the local equipped armor; remote
+	# copies get their appearance from the synced per-player armor_set via
+	# _apply_remote_armor (which runs only when not is_multiplayer_authority()).
+	if not is_multiplayer_authority():
+		return
 	var walk_tex: Texture2D
 	var idle_tex: Texture2D
 	var set_type: String = _get_full_armor_set()
