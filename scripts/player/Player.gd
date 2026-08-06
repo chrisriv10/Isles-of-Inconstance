@@ -548,6 +548,7 @@ func _apply_remote_held_item(item_id: String) -> void:
 		return
 	# Texture map matching _update_held_item for hotbar items
 	var tex_map := {
+		"hoe_tool": TEX_HOE, "watering_can_tool": TEX_WATERING_CAN,
 		"axe_tool": TEX_AXE, "copper_axe": TEX_AXE, "iron_axe": TEX_AXE,
 		"gold_axe": TEX_AXE, "diamond_axe": TEX_AXE, "mythril_axe": TEX_AXE, "magma_axe": TEX_AXE,
 		"pickaxe_tool": TEX_PICKAXE,
@@ -972,6 +973,17 @@ func get_active_hotbar_item_id() -> String:
 		var slot_data = InventoryManager.slots[slot_idx] if slot_idx >= 0 and slot_idx < InventoryManager.slots.size() else null
 		if slot_data:
 			return slot_data.get("item_id", "")
+	# Legacy built-in tools (hoe, watering can, scythe, axe, pickaxe, sword)
+	# aren't in a hotbar slot, but they still render a held sprite locally. Send
+	# a canonical id so remote peers can show the matching held item too.
+	match active_tool:
+		Tool.HOE: return "hoe_tool"
+		Tool.WATERING_CAN: return "watering_can_tool"
+		Tool.SCYTHE: return "scythe_tool"
+		Tool.AXE: return "axe_tool"
+		Tool.PICKAXE: return "pickaxe_tool"
+		Tool.SWORD: return "sword_tool"
+		Tool.SPRINKLER: return "sprinkler"
 	return ""
 
 
