@@ -3901,7 +3901,11 @@ func _do_enter_island(seed: int, island_type: int) -> bool:
 		_island_prev_z = player.z_index
 		player.z_index = 2
 		GameManager.inside_interior = true
+		GameManager.inside_island_seed = seed
 		GameManager.near_campfire = false
+		# Push fresh stats so remote peers know we're on this island (the seed
+		# drives whether they render us as a shared visible teammate).
+		GameManager._try_broadcast_player_stats()
 
 	# Move player to island center (island is 50x50 tiles)
 	if player:
@@ -4059,6 +4063,9 @@ func _do_exit_island() -> void:
 	_current_island.queue_free()
 	_current_island = null
 	GameManager.inside_interior = false
+	GameManager.inside_island_seed = 0
+	# Tell peers we've left the island so they stop rendering us here.
+	GameManager._try_broadcast_player_stats()
 
 	# Move the local player back to the overworld
 	var player: Node = null
@@ -5204,6 +5211,36 @@ func notify_visitor_departed() -> void:
 		rpc("_sync_depart_visitor_ship")
 
 
+## Client → host: a freshly joined client asks for the current visitor ship
+## state. The one-shot arrival broadcast is easy to miss (the client joined
+## after the ship arrived, or its dock wasn't ready at broadcast time), so
+## clients pull a snapshot once their world is up. Missing ships/NPCs are
+## then re-spawned via _sync_spawn_visitor_ship, which is idempotent.
+@rpc("any_peer", "reliable")
+func _server_request_visitor_state() -> void:
+	if not multiplayer.is_server():
+		return
+	var vm := get_tree().get_first_node_in_group("visitor_manager")
+	if vm and vm.has_method("current_ship_snapshot"):
+		var snap: Dictionary = vm.current_ship_snapshot()
+		if not snap.is_empty():
+			notify_visitor_arrived(snap.get("roster", []), snap.get("berth", Vector2.ZERO))
+
+
+var _visitor_sync_attempts: int = 0
+
+## Re-ask the host for the visitor snapshot after a short delay. Used when a
+## client received the state before its world/dock was ready to place it.
+func _retry_visitor_sync() -> void:
+	_visitor_sync_attempts += 1
+	if _visitor_sync_attempts > 10 or not NetworkManager.is_network_active() or multiplayer.is_server():
+		return
+	get_tree().create_timer(1.5).timeout.connect(func() -> void:
+		if is_inside_tree():
+			rpc_id(1, "_server_request_visitor_state")
+	)
+
+
 ## Received by clients to spawn a visitor ship with matching NPCs.
 @rpc("authority", "call_local")
 func _sync_spawn_visitor_ship(roster: Array, berth_x: float = 0.0, berth_y: float = 60.0) -> void:
@@ -5211,9 +5248,20 @@ func _sync_spawn_visitor_ship(roster: Array, berth_x: float = 0.0, berth_y: floa
 		return
 	const SHIP_SCENE := preload("res://scenes/world/visitors/VisitorShip.tscn")
 	const NPC_SCENE := preload("res://scenes/world/visitors/VisitorNPC.tscn")
+	# Idempotent: this runs for the original broadcast AND for late-join pulls,
+	# so clear any prior ship/NPCs first instead of stacking duplicates.
+	for old_ship in get_tree().get_nodes_in_group("visitor_ships"):
+		if is_instance_valid(old_ship):
+			old_ship.queue_free()
+	for old_npc in get_tree().get_nodes_in_group("visitor_npcs"):
+		if is_instance_valid(old_npc):
+			old_npc.queue_free()
 	var dock_pos: Vector2 = get_dock_position()
 	var dock_node: Dock = get_dock()
 	if dock_pos == Vector2.ZERO or not dock_node:
+		# World/dock not ready yet (the pull raced with worldgen): re-ask the
+		# host shortly instead of silently dropping the boat forever.
+		_retry_visitor_sync()
 		return
 	var ship: VisitorShip = SHIP_SCENE.instantiate() as VisitorShip
 	ship.dock_position = dock_pos
@@ -5249,6 +5297,7 @@ func _sync_spawn_visitor_ship(roster: Array, berth_x: float = 0.0, berth_y: floa
 			if ResourceLoader.exists(tex_path):
 				npc.sprite.texture = load(tex_path)
 		npc.start_wandering()
+	_visitor_sync_attempts = 0
 
 
 ## Received by clients to remove the visitor ship and all NPCs.

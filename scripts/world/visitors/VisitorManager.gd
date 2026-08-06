@@ -60,6 +60,10 @@ func _ready() -> void:
 	add_to_group("visitor_manager")
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		_is_remote = true
+		# A joining peer may have missed the one-shot visitor-ship broadcast
+		# (connected after the ship arrived, or dock not ready at the time).
+		# Pull the current snapshot from the host once connected.
+		call_deferred("_request_visitor_state_deferred")
 
 ## Called each day from World._on_day_changed.
 func advance_day(_day: int) -> void:
@@ -190,6 +194,26 @@ func _build_roster_data() -> Array[Dictionary]:
 			"tex": npc._npc_texture_variant,
 		})
 	return result
+
+
+## Client → host pull: ask for the current ship + NPC roster snapshot.
+func _request_visitor_state_deferred() -> void:
+	if not NetworkManager.is_network_active() or not _is_remote:
+		return
+	var world := get_tree().get_first_node_in_group("world")
+	if world and world.has_method("_server_request_visitor_state"):
+		world.rpc_id(1, "_server_request_visitor_state")
+
+
+## Host-side snapshot of the current docked visitor ship (roster + berth),
+## sent to a joining client on request. Empty dict = no ship to show.
+func current_ship_snapshot() -> Dictionary:
+	if _is_remote or not _active_ship or not is_instance_valid(_active_ship) or not _active_ship.is_docked:
+		return {}
+	var roster := _build_roster_data()
+	if roster.is_empty():
+		return {}
+	return {"roster": roster, "berth": _active_ship.berth_offset}
 
 
 ## Broadcast ship departure to remote clients.
