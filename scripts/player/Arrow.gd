@@ -11,6 +11,10 @@ var arrow_damage: int = 0
 var shooter: Node2D = null
 ## Whether this arrow is a critical hit (set by Player._fire_bow()).
 var is_critical: bool = false
+## True for visual-only copies spawned on peers that did NOT fire this arrow
+## (via Player._sync_arrow_fired). These never deal damage nor forward attacks;
+## they exist so other players can see the shot.
+var is_visual: bool = false
 
 
 func _ready() -> void:
@@ -35,13 +39,24 @@ func _on_body_entered(body: Node) -> void:
 	if body == shooter:
 		return
 	
+	# Visual copies (spawned on peers that didn't fire) never deal damage —
+	# they just play the impact effect so the shot looks real to onlookers.
+	if is_visual:
+		_on_hit_effect()
+		return
+	
 	# Only the host applies damage (authoritative hit detection)
 	if not multiplayer.is_server():
-		# Remote clients: just play hit effect on any collision
-		if body.has_method("take_damage") and (body.is_in_group("enemies") or body.is_in_group("animals") or body.is_in_group("bosses")):
-			_on_hit_effect()
-		elif body != shooter:
-			_on_hit_effect()
+		# Client's own arrow hit a damageable target. Enemies/bosses expose the
+		# ranged forward RPC (melee's 100px adjacency gate would wrongly reject
+		# long-range bow shots), so the host resolves the hit on its authoritative
+		# same-named copy and broadcasts _sync_enemy_damage back to update ours.
+		# Animals are detected via their own Area2D _on_arrow_hit path (forwarded
+		# through World), so we deliberately don't forward here for them.
+		if not is_visual and body.has_method("_server_receive_enemy_attack") and \
+				(body.is_in_group("enemies") or body.is_in_group("bosses")):
+			body.rpc_id(1, "_server_receive_enemy_attack", body.enemy_id, arrow_damage, is_critical, true)
+		_on_hit_effect()
 		return
 	
 	# Host: apply actual damage

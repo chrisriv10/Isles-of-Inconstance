@@ -714,8 +714,11 @@ func _sync_enemy_died(eid: int, loot: Array = []) -> void:
 
 
 ## Client → host: forward a melee/ranged attack on a remote copy.
+## ranged=true is used by bow arrows: melee gates on adjacency (100px), which
+## would wrongly reject legitimate long-range shots — but the client's physics
+## already verified the projectile physically reached this enemy node.
 @rpc("any_peer", "reliable")
-func _server_receive_enemy_attack(eid: int, amount: int, crit: bool) -> void:
+func _server_receive_enemy_attack(eid: int, amount: int, crit: bool, ranged: bool = false) -> void:
 	if not multiplayer.is_server():
 		return
 	if _is_remote or enemy_id != eid:
@@ -731,9 +734,13 @@ func _server_receive_enemy_attack(eid: int, amount: int, crit: bool) -> void:
 		attacker = get_tree().get_first_node_in_group("player")
 	if attacker == null:
 		return
-	if global_position.distance_to(attacker.global_position) > 100.0:
+	var max_dist: float = 1000.0 if ranged else 100.0
+	if global_position.distance_to(attacker.global_position) > max_dist:
 		return
 	take_damage(amount, attacker, crit)
+	# Arrows grant XP on the host (parity with the host's own arrow hits).
+	if ranged:
+		LevelManager.add_xp_source("hit_enemy")
 
 
 ## Safely normalize a Vector2, returning Vector2.ZERO if the vector is zero or contains NaN/INF.

@@ -2689,6 +2689,14 @@ func _fire_bow(target_pos: Vector2, charge_ratio: float = 0.0) -> void:
 	# Add to the world
 	get_parent().add_child(arrow)
 	
+	# Multiplayer: let every other peer see the shot. The player node is named
+	# Player_<peer_id> and set as authority on every peer, so rpc() routes to
+	# the matching remote copy (same pattern as _sync_tool_swing). Remote
+	# copies spawn a visual-only arrow (is_visual = true) — damage is handled
+	# by the shooter's own arrow, never the display copies.
+	if NetworkManager.is_network_active() and is_multiplayer_authority():
+		rpc("_sync_arrow_fired", arrow.global_position.x, arrow.global_position.y, dir.x, dir.y, charge_speed)
+	
 	# Sound and visual feedback (caller handles the swing animation + cooldown)
 	AudioManager.play(AudioManager.Sound.BOW_SHOOT)
 	EffectSpawner.spawn_dirt_puff(global_position + facing_direction * 12.0)
@@ -3627,3 +3635,23 @@ func _sync_tool_swing() -> void:
 	if is_multiplayer_authority():
 		return
 	_play_tool_swing()
+
+
+## Remote copy of another player's bow shot. Spawns a visual-only arrow so
+## onlookers see the projectile fly; it never deals damage (see Arrow.is_visual).
+@rpc("reliable", "authority")
+func _sync_arrow_fired(ox: float, oy: float, dx: float, dy: float, speed: float) -> void:
+	if is_multiplayer_authority():
+		return
+	_spawn_remote_arrow_visual(Vector2(ox, oy), Vector2(dx, dy), speed)
+
+
+func _spawn_remote_arrow_visual(origin: Vector2, dir: Vector2, speed: float) -> void:
+	var arrow: Arrow = ARROW_SCENE.instantiate()
+	arrow.is_visual = true
+	# Render above mine visual layers (matches the local arrow in _fire_bow)
+	arrow.z_index = 5
+	arrow.global_position = origin
+	arrow.linear_velocity = dir * speed
+	arrow.rotation = dir.angle()
+	get_parent().add_child(arrow)
