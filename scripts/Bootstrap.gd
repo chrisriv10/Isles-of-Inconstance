@@ -474,9 +474,15 @@ func _start_new_game(p_seed: int) -> void:
 			if is_instance_valid(node):
 				node.queue_free()
 	
-	# Clean up any remote player nodes from previous multiplayer sessions
+	# Clean up any remote player nodes from previous multiplayer sessions.
+	# NEVER free the LOCAL player here: in multiplayer it is renamed
+	# Player_<id> by Main._setup_multiplayer, so matching "Player_" would
+	# free our own node and leave Main.player dangling (lost camera + crash
+	# when a peer later joins -> _instantiate_remote_player). Single-player
+	# keeps it named "Player" and my_peer is -1, so nothing is skipped.
+	var my_peer: int = multiplayer.get_unique_id() if NetworkManager.is_network_active() else -1
 	for child in game.get_children():
-		if child.name.begins_with("Player_"):
+		if child.name.begins_with("Player_") and child.name != "Player_%d" % my_peer:
 			child.queue_free()
 
 	# Reset interior/mine static flags that may be stale from a previous
