@@ -328,8 +328,22 @@ func _is_in_host_only_subtree() -> bool:
 		p = p.get_parent()
 	return false
 
-## Host → all clients: sync position for a remote copy.
-@rpc("unreliable", "authority", "call_local")
+
+## Host: broadcast an animal RPC through World instead of this node, so a
+## joining peer (whose matching Animal_N node doesn't exist yet) receives it
+## on World and drops it gracefully instead of flooding "Node not found".
+func _broadcast_animal_rpc(method: String, args: Array, reliable: bool) -> void:
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		return
+	if _is_in_host_only_subtree():
+		return
+	if _world_ref and is_instance_valid(_world_ref) and _world_ref.has_method("_relay_animal_rpc_reliable"):
+		if reliable:
+			_world_ref.rpc("_relay_animal_rpc_reliable", method, args)
+		else:
+			_world_ref.rpc("_relay_animal_rpc_unreliable", method, args)
+
+## Host → all clients: sync position for a remote copy (via World relay).
 func _sync_animal_pos(aid: int, pos: Vector2) -> void:
 	if not _is_remote or animal_id != aid:
 		return
@@ -344,17 +358,15 @@ func _request_animal_tamed(aid: int) -> void:
 	if animal_id != aid:
 		return
 	_tamed = true
-	rpc("_sync_animal_tamed", aid)
+	_broadcast_animal_rpc("_sync_animal_tamed", [aid], true)
 
-## Host → all clients: mark the animal with this id as tamed.
-@rpc("authority", "call_local")
+## Host → all clients: mark the animal with this id as tamed (via World relay).
 func _sync_animal_tamed(aid: int) -> void:
 	if animal_id != aid:
 		return
 	_tamed = true
 
 ## Host → all clients: broadcast damage result so remote copies show effects.
-@rpc("authority", "call_local")
 func _sync_animal_damage(aid: int, hp: int, dmg: int, crit: bool, pos: Vector2, mhp: int) -> void:
 	if not _is_remote or animal_id != aid:
 		return
@@ -366,7 +378,6 @@ func _sync_animal_damage(aid: int, hp: int, dmg: int, crit: bool, pos: Vector2, 
 		EffectSpawner.spawn_particles(pos, Color(1.0, 0.4, 0.0), 6, 10.0)
 
 ## Host → all clients: signal that this animal has died and distribute loot.
-@rpc("authority", "call_local")
 func _sync_animal_died(aid: int, loot: Array[Dictionary] = []) -> void:
 	if not _is_remote or animal_id != aid:
 		return
@@ -423,7 +434,7 @@ func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false
 		_die()
 	# Host: broadcast damage update to all clients
 	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
-		rpc("_sync_animal_damage", animal_id, current_health, amount, _is_critical, global_position, max_health)
+		_broadcast_animal_rpc("_sync_animal_damage", [animal_id, current_health, amount, _is_critical, global_position, max_health], true)
 
 func _die() -> void:
 	# Drop meat and materials
@@ -441,7 +452,7 @@ func _die() -> void:
 	
 	# Host: broadcast death and loot to all clients
 	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
-		rpc("_sync_animal_died", animal_id, _loot_drops)
+		_broadcast_animal_rpc("_sync_animal_died", [animal_id, _loot_drops], true)
 	_loot_drops.clear()
 	
 	# Death effects
@@ -2584,7 +2595,7 @@ func _process(delta: float) -> void:
 		_last_pos_sync_time += delta
 		if _last_pos_sync_time >= POS_SYNC_INTERVAL:
 			_last_pos_sync_time = 0.0
-			rpc("_sync_animal_pos", animal_id, global_position)
+			_broadcast_animal_rpc("_sync_animal_pos", [animal_id, global_position], false)
 
 func _walk_toward(delta: float) -> void:
 	var dir: Vector2 = (_target_pos - global_position).normalized()

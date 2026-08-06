@@ -389,13 +389,15 @@ func _update_remote_health_bar() -> void:
 		_remote_hp_bar_bg.visible = false
 		return
 
-	# Hide remote player when they're inside a PRIVATE interior (building,
-	# expedition) — those are per-peeer instances rendered only on the owner.
-	# The shared co-op mine is deterministic per peer, so remote players inside
-	# it stay visible and co-located at the same void position.
+	# Hide remote player when they're inside a PRIVATE interior (expedition
+	# island) — those are per-peer instances rendered only on the owner.
+	# Building interiors and the co-op mine are deterministic per peer
+	# (same session seed) and co-located at the same void position, so remote
+	# players inside them stay visible and share the room.
 	var interior: bool = stats.get("inside_interior", false)
 	var in_mine: bool = stats.get("inside_mine", false)
-	if interior and not in_mine:
+	var in_building: bool = stats.get("inside_building", false)
+	if interior and not in_mine and not in_building:
 		visible = false
 		if _remote_pet_node:
 			_remote_pet_node.queue_free()

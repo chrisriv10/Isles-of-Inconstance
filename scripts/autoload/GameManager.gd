@@ -71,6 +71,7 @@ var weather_system: WeatherSystem = null
 # Cooking proximity flags
 static var near_campfire: bool = false
 static var inside_interior: bool = false
+static var inside_building: bool = false
 # True only while inside the shared co-op mine (remote players stay visible
 # there), as opposed to private interiors (buildings, expeditions).
 static var inside_mine: bool = false
@@ -842,6 +843,17 @@ func complete_game() -> void:
 	ToastNotification.show_toast("🏆 You have conquered the Isles of Inconstance!", ToastNotification.ToastType.SUCCESS, 8.0)
 	# Also mark the final objective — ObjectiveManager tracks boss kills
 
+## Play the boss defeat cutscene locally and broadcast it so every peer sees
+## it. The boss _die() only runs on the host's authority copy, so the host is
+## the only peer that calls this — it forwards the index out to all clients
+## via the host-authoritative World node (whose RPC path is shared across peers).
+func trigger_boss_defeat_cutscene(boss_index: int) -> void:
+	BossDefeatCutscene.play(boss_index)
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var world: Node = get_tree().get_first_node_in_group("world")
+		if world and world.has_method("_receive_boss_defeat_cutscene"):
+			world.rpc("_receive_boss_defeat_cutscene", boss_index)
+
 func add_money(amount: int) -> void:
 	money = max(0, money + amount)
 	money_changed.emit(money)
@@ -965,6 +977,7 @@ func _try_broadcast_player_stats() -> void:
 		pet_id = str(_pm_val)
 	var interior: int = 1 if inside_interior else 0
 	var in_mine: int = 1 if inside_mine else 0
+	var in_building: int = 1 if inside_building else 0
 	var armor: String = compute_armor_set()
 	var lvl: int = 1
 	if Engine.has_singleton("LevelManager"):
@@ -976,11 +989,11 @@ func _try_broadcast_player_stats() -> void:
 	var local_player := get_tree().get_first_node_in_group("player")
 	if local_player and local_player.has_method("get_active_hotbar_item_id"):
 		held_item_id = local_player.get_active_hotbar_item_id()
-	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id)
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building)
 
 
 @rpc("unreliable", "any_peer")
-func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "") -> void:
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == multiplayer.get_unique_id():
 		return  # ignore our own broadcast
@@ -993,6 +1006,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"pet_id": pet_id,
 		"inside_interior": interior != 0,
 		"inside_mine": in_mine != 0,
+		"inside_building": in_building != 0,
 		"armor_set": armor_set,
 		"level": level,
 		"held_item_id": held_item_id,

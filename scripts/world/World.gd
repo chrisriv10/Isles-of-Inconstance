@@ -284,6 +284,11 @@ func _clear_world() -> void:
 	# and then starts a new game — without this, the camera stays clamped to the
 	# mine void area and the player appears to spawn "in the mine."
 	emergency_exit_mine()
+	# If the player is inside a building, restore them to the overworld too.
+	# A regenerating world would otherwise strand them at the (now empty) void
+	# with a stale current_interior reference — the "blue abyss" trap.
+	if current_interior:
+		_on_exit_interior()
 	# Disconnect town lantern signal to avoid dangling connections
 	if GameManager.phase_changed.is_connected(_update_town_lanterns):
 		GameManager.phase_changed.disconnect(_update_town_lanterns)
@@ -2321,6 +2326,40 @@ func _sync_spawn_animal(data: Dictionary) -> void:
 	animal.setup_from_network(data)
 
 
+## ── Animal RPC relay ──────────────────────────────────────────────────────
+## Per-node animal RPCs (e.g. _sync_animal_pos) used to route to the animal
+## node path, which doesn't exist on a joining peer until its world regen +
+## snapshot apply finish — the engine then floods "Node not found" errors.
+## Instead, host animals broadcast through World (which always exists) and
+## the receiver looks the animal up by its animal_id; missing animals are
+## silently skipped (the snapshot backfill recreates them moments later).
+
+## Host → all clients: relay an unreliable animal RPC (position).
+@rpc("authority", "unreliable")
+func _relay_animal_rpc_unreliable(method: String, args: Array) -> void:
+	_apply_animal_relay(method, args)
+
+
+## Host → all clients: relay a reliable animal RPC (tamed/damage/died).
+@rpc("authority", "reliable")
+func _relay_animal_rpc_reliable(method: String, args: Array) -> void:
+	_apply_animal_relay(method, args)
+
+
+## Routes a relayed animal RPC to the local animal matching the id (args[0]).
+## Runs only on clients (host animals apply their state locally already).
+func _apply_animal_relay(method: String, args: Array) -> void:
+	if multiplayer.is_server():
+		return  # Host's real animals handled their own state already
+	if args.is_empty() or not (args[0] is int):
+		return
+	var aid: int = args[0]
+	for a in get_tree().get_nodes_in_group("animals"):
+		if is_instance_valid(a) and "animal_id" in a and a.animal_id == aid:
+			a.callv(method, args)
+			return
+
+
 ## Spawns a couple of starter animals on walkable land near the player's
 ## starting position so they encounter animals immediately without having
 ## to search the entire island. Spawns 2 of the same type (chickens) so
@@ -2938,6 +2977,7 @@ func enter_building(interior: BuildingInterior) -> void:
 	
 	current_interior = interior
 	GameManager.inside_interior = true
+	GameManager.inside_building = true
 	AudioManager.play_music(AudioManager.Sound.INTERIOR_MUSIC)
 	AudioManager.play(AudioManager.Sound.DOOR_OPEN)
 	# Show interior tutorial hint once
@@ -2985,6 +3025,10 @@ func enter_building(interior: BuildingInterior) -> void:
 
 func _deferred_setup_interior(interior: BuildingInterior) -> void:
 	if not is_instance_valid(interior):
+		# The interior was freed between entry and setup (e.g. the world
+		# regenerated). Pull the local player back out of the void so they
+		# aren't stranded in the blue abyss with no room to stand on.
+		_on_exit_interior()
 		return
 	interior.position = INTERIOR_VOID
 	interior.scale = Vector2(INTERIOR_SCALE, INTERIOR_SCALE)
@@ -2994,6 +3038,7 @@ func _deferred_setup_interior(interior: BuildingInterior) -> void:
 func _on_exit_interior() -> void:
 	current_interior = null
 	GameManager.inside_interior = false
+	GameManager.inside_building = false
 	AudioManager.resume_ambient_music()
 	AudioManager.play(AudioManager.Sound.DOOR_CLOSE)
 	# Brief cooldown so the player doesn't immediately re-enter the building
@@ -4088,6 +4133,16 @@ func _server_exit_building() -> void:
 @rpc("authority", "reliable")
 func _receive_exit_building() -> void:
 	_on_exit_interior()
+
+
+## Host → all clients: play the boss defeat cutscene on every peer so the whole
+## lobby sees the cinematic, not just the host that landed the kill. Called by
+## GameManager.trigger_boss_defeat_cutscene() on the authority after a boss dies.
+@rpc("authority", "reliable")
+func _receive_boss_defeat_cutscene(boss_index: int) -> void:
+	if multiplayer.is_server():
+		return  # host already played it in trigger_boss_defeat_cutscene
+	BossDefeatCutscene.play(boss_index)
 
 
 ## Host: remove a peer from interior session when they disconnect.

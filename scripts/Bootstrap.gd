@@ -433,6 +433,7 @@ func _start_new_game(p_seed: int) -> void:
 	# mine session. These are static vars on GameManager and persist
 	# across the entire Bootstrap lifetime.
 	GameManager.inside_interior = false
+	GameManager.inside_building = false
 	GameManager.inside_mine = false
 	GameManager.near_campfire = false
 	# Reset downed state
