@@ -141,21 +141,36 @@ func _ready() -> void:
 	add_child(_stun_timer)
 
 
-## Picks the closest valid player node from the "player" group, or null.
-## In multiplayer every peer has its own local player plus remote copies,
-## so enemies now aggro the nearest player instead of the first one.
+## Picks the closest valid, standing (not-downed) player node from the
+## "player" group, or null. In multiplayer every peer has its own local
+## player plus remote copies, so enemies aggro the nearest living player.
+## Downed players are skipped (they're waiting for a revive, not fighting)
+## so enemies don't camp a downed teammate; if EVERY player is downed we
+## fall back to the nearest player anyway rather than standing idle.
 func _find_nearest_player() -> CharacterBody2D:
 	var best: CharacterBody2D = null
 	var best_dist_sq: float = INF
+	var downed: CharacterBody2D = null
+	var downed_dist_sq: float = INF
 	for p in get_tree().get_nodes_in_group("player"):
 		if not is_instance_valid(p) or not (p is CharacterBody2D):
 			continue
 		var p_body := p as CharacterBody2D
 		var d_sq: float = global_position.distance_squared_to(p_body.global_position)
-		if d_sq < best_dist_sq:
+		if "_is_downed" in p and p._is_downed:
+			if d_sq < downed_dist_sq:
+				downed_dist_sq = d_sq
+				downed = p_body
+		elif d_sq < best_dist_sq:
 			best_dist_sq = d_sq
 			best = p_body
+	if best == null:
+		best = downed  # everyone is downed — go for the nearest anyway
 	return best
+
+
+func _is_downed(p: Node) -> bool:
+	return "_is_downed" in p and p._is_downed == true
 
 
 ## Re-picks the nearest player each frame with hysteresis, so enemies don't
@@ -166,6 +181,12 @@ func _refresh_target_player() -> void:
 		player_ref = nearest
 		return
 	if nearest == null:
+		return
+	# Current target went down (waiting for a revive) or died — immediately
+	# re-target the nearest standing player. The hysteresis below would
+	# otherwise keep the enemy locked onto the (closer) downed player.
+	if not is_instance_valid(player_ref) or _is_downed(player_ref):
+		player_ref = nearest
 		return
 	var current_dist: float = global_position.distance_to(player_ref.global_position)
 	var nearest_dist: float = global_position.distance_to(nearest.global_position)
