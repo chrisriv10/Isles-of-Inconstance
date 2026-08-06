@@ -5027,6 +5027,10 @@ const WORLD_SYNC_CHUNK_BYTES: int = 800
 var _pending_world_chunks: Array = []
 var _pending_world_chunks_total: int = 0
 
+# Day-rollover farm delta reassembly (mirrors the world-state chunking above).
+var _pending_farm_delta_chunks: Array = []
+var _pending_farm_delta_chunks_total: int = 0
+
 @rpc("any_peer", "reliable")
 func _server_request_world_state() -> void:
 	if not multiplayer.is_server():
@@ -5236,17 +5240,49 @@ func _build_farm_delta() -> Dictionary:
 
 
 ## Host: broadcast today's farm delta to all clients after day rollover.
+## The serialized farm can exceed a single EOS packet (a large farm overflowing
+## the 1170-byte reliable limit throws ERR_UNAVAILABLE), so it is split into
+## sub-800-byte chunks exactly like the world-state snapshot.
 func _broadcast_farm_delta() -> void:
 	if not NetworkManager.is_network_active() or not multiplayer.is_server():
 		return
 	var delta := _build_farm_delta()
-	rpc("_apply_farm_delta", delta.get("soil", []), delta.get("crops", []))
+	var payload := var_to_bytes(delta)
+	var total: int = ceili(float(payload.size()) / float(WORLD_SYNC_CHUNK_BYTES))
+	for i in range(total):
+		var start: int = i * WORLD_SYNC_CHUNK_BYTES
+		var end: int = mini(start + WORLD_SYNC_CHUNK_BYTES, payload.size())
+		rpc("_receive_farm_delta_chunk", i, total, payload.slice(start, end))
 
 
-## Client: apply the host's host-computed farm state WITHOUT recomputing
+## Client: collect one farm-delta chunk, then apply the whole delta once all
+## pieces have arrived. Reliable RPCs preserve order, so reassembly is safe.
+@rpc("authority", "reliable")
+func _receive_farm_delta_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
+	if multiplayer.is_server():
+		return
+	if chunk_index == 0:
+		_pending_farm_delta_chunks = []
+		_pending_farm_delta_chunks_total = total_chunks
+	if _pending_farm_delta_chunks.size() != chunk_index or total_chunks != _pending_farm_delta_chunks_total:
+		_pending_farm_delta_chunks = []  # out-of-order/interleaved transfer — discard
+		return
+	_pending_farm_delta_chunks.append(chunk)
+	if _pending_farm_delta_chunks.size() < _pending_farm_delta_chunks_total:
+		return
+	var payload := PackedByteArray()
+	for c in _pending_farm_delta_chunks:
+		payload.append_array(c)
+	_pending_farm_delta_chunks = []
+	var data: Variant = bytes_to_var(payload)
+	if not (data is Dictionary):
+		return
+	_apply_farm_delta(data.get("soil", []), data.get("crops", []))
+
+
+## Applies the host's host-computed farm state WITHOUT recomputing
 ## growth/mutation/disease (avoids divergence from per-peer RNG + bonuses).
 ## This is the day-rollover counterpart to the late-joiner snapshot.
-@rpc("authority", "reliable")
 func _apply_farm_delta(soil_delta: Array = [], crop_delta: Array = []) -> void:
 	if multiplayer.is_server():
 		return

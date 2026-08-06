@@ -15,24 +15,27 @@ const TRIGGER_HOUR_MAX: int = 2   # Latest hour it can trigger (2 AM, wraps past
 var is_active: bool = false
 var _rng: RandomNumberGenerator
 
-## Whether this is a remote copy (client) — blood moon rolls run on the host
-## only, and remote copies just apply the host's broadcast state.
-var _is_remote: bool = false
-
 
 func _init() -> void:
 	_rng = RandomNumberGenerator.new()
 	_rng.randomize()
 
 
+## True on a non-host peer (client). This is evaluated dynamically rather than
+## cached in _ready(): the World node is a child of the Bootstrap scene, so its
+## _ready() runs at startup BEFORE the player joins a session and the network
+## mode is set. Caching it there left clients with `_is_remote == false`, so they
+## rolled their own independent blood moon (and often desynced from the host).
+func _is_remote() -> bool:
+	return NetworkManager.is_network_active() and not multiplayer.is_server()
+
+
 func _ready() -> void:
-	if NetworkManager.is_network_active() and not multiplayer.is_server():
-		_is_remote = true
 	GameManager.phase_changed.connect(_on_phase_changed)
 
 
 func _on_phase_changed(phase: int) -> void:
-	if _is_remote:
+	if _is_remote():
 		return  # host drives blood moon rolls and broadcasts the result
 	match phase:
 		DayNightCycle.Phase.NIGHT:
@@ -43,7 +46,7 @@ func _on_phase_changed(phase: int) -> void:
 
 ## Roll the dice and start a blood moon if the RNG gods decree it.
 func _try_trigger() -> void:
-	if is_active or _is_remote:
+	if is_active or _is_remote():
 		return
 	
 	if _rng.randf() < BLOOD_MOON_CHANCE:
@@ -102,7 +105,7 @@ func trigger_blood_moon() -> void:
 
 ## Host: broadcast the blood moon state to all clients.
 func _broadcast_state() -> void:
-	if _is_remote or not NetworkManager.is_network_active():
+	if _is_remote() or not NetworkManager.is_network_active():
 		return
 	if not multiplayer.is_server():
 		return

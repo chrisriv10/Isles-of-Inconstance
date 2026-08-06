@@ -29,7 +29,11 @@ var _dock_position: Vector2 = Vector2.ZERO
 var _pirate_ship_sprite: Sprite2D = null
 
 ## Whether this is a remote copy (client) — raid decisions run on the host only.
-var _is_remote: bool = false
+## Evaluated dynamically (not cached in _ready): the World node is a child of the
+## Bootstrap scene, so its _ready() runs at startup before the player joins and
+## the network mode is set. A cached flag left clients rolling their own raids.
+func _is_remote() -> bool:
+	return NetworkManager.is_network_active() and not multiplayer.is_server()
 
 # ── Randomized pirate raid dialogue ──
 const PIRATE_TAUNTS_WAVE_START: Array[String] = [
@@ -86,8 +90,7 @@ func _init() -> void:
 	_rng.randomize()
 
 func _ready() -> void:
-	if NetworkManager.is_network_active() and not multiplayer.is_server():
-		_is_remote = true
+	pass
 
 
 # ── Pirate dialogue helpers ──
@@ -227,7 +230,7 @@ func _stop_taunt_timer() -> void:
 
 ## Called when a new day starts. Checks if raid should trigger.
 func advance_day(_day: int) -> void:
-	if _is_remote:
+	if _is_remote():
 		return
 	match state:
 		RaidState.COOLDOWN:
@@ -530,7 +533,7 @@ func _apply_raid_victory_reward() -> void:
 
 ## Host: broadcast the raid state so clients show the same ship and waves.
 func _broadcast_raid_state(victory: bool = false) -> void:
-	if _is_remote or not NetworkManager.is_network_active() or not multiplayer.is_server():
+	if _is_remote() or not NetworkManager.is_network_active() or not multiplayer.is_server():
 		return
 	rpc("_sync_raid_state", state != RaidState.INACTIVE and state != RaidState.COOLDOWN, current_wave, max_waves, victory)
 
@@ -579,7 +582,7 @@ func _sync_raid_state(active: bool, wave: int, total_waves: int, victory: bool =
 ## raid state (a broadcast may have happened before it was ready).
 @rpc("any_peer", "reliable")
 func _server_request_raid_state() -> void:
-	if _is_remote or not multiplayer.is_server():
+	if _is_remote() or not multiplayer.is_server():
 		return
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == 0:
@@ -624,7 +627,7 @@ func trigger_raid() -> void:
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		rpc_id(1, "_server_request_raid")
 		return
-	if _is_remote:
+	if _is_remote():
 		return
 	if state == RaidState.INACTIVE or state == RaidState.COOLDOWN:
 		_start_raid()
@@ -633,7 +636,7 @@ func trigger_raid() -> void:
 ## Creative-panel trigger forwarded from a client.
 @rpc("any_peer", "reliable")
 func _server_request_raid() -> void:
-	if _is_remote or not multiplayer.is_server():
+	if _is_remote() or not multiplayer.is_server():
 		return
 	if state == RaidState.INACTIVE or state == RaidState.COOLDOWN:
 		_start_raid()
