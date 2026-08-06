@@ -857,7 +857,7 @@ func trigger_boss_defeat_cutscene(boss_index: int) -> void:
 func add_money(amount: int) -> void:
 	money = max(0, money + amount)
 	money_changed.emit(money)
-	if amount > 0 and Engine.has_singleton("ObjectiveManager"):
+	if amount > 0:
 		ObjectiveManager.on_money_earned(amount)
 
 func can_afford(amount: int) -> bool:
@@ -970,20 +970,12 @@ func _try_broadcast_player_stats() -> void:
 	if now - _last_stat_sync_time < _STAT_SYNC_COOLDOWN:
 		return
 	_last_stat_sync_time = now
-	var pet_id: String = ""
-	if Engine.has_singleton("PetManager"):
-		var pm: Node = Engine.get_singleton("PetManager")
-		var _pm_val: Variant = pm.get("active_pet_id")
-		pet_id = str(_pm_val)
+	var pet_id: String = PetManager.active_pet_id
 	var interior: int = 1 if inside_interior else 0
 	var in_mine: int = 1 if inside_mine else 0
 	var in_building: int = 1 if inside_building else 0
 	var armor: String = compute_armor_set()
-	var lvl: int = 1
-	if Engine.has_singleton("LevelManager"):
-		var lm: Node = Engine.get_singleton("LevelManager")
-		if lm.has_method("get_current_level"):
-			lvl = lm.get_current_level()
+	var lvl: int = LevelManager.get_level()
 	# Get the local player's active held item (tool/weapon/seed from hotbar)
 	var held_item_id: String = ""
 	var local_player := get_tree().get_first_node_in_group("player")
@@ -1326,11 +1318,7 @@ func get_roster() -> Array:
 			return false
 		return a < b
 	)
-	var local_level: int = 1
-	if Engine.has_singleton("LevelManager"):
-		var lm: Node = Engine.get_singleton("LevelManager")
-		if lm and lm.has_method("get_current_level"):
-			local_level = lm.get_current_level()
+	var local_level: int = LevelManager.get_level()
 	var out: Array = []
 	for pid: int in peer_ids:
 		var stats: Dictionary = remote_player_stats.get(pid, {})

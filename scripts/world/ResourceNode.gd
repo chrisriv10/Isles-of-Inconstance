@@ -151,11 +151,7 @@ func _complete_gathering() -> void:
 	# ── Original gather logic ──
 	var amount := randi_range(min_amount, max_amount)
 	# Pet gather bonus multiplies yield
-	var gather_bonus: float = 0.0
-	if Engine.has_singleton("PetManager"):
-		var pet_mgr: Node = Engine.get_singleton("PetManager")
-		if pet_mgr and pet_mgr.has_method("get_gather_bonus"):
-			gather_bonus = pet_mgr.get_gather_bonus()
+	var gather_bonus: float = PetManager.get_gather_bonus()
 	if gather_bonus > 0.0:
 		amount = maxi(1, roundi(amount * (1.0 + gather_bonus)))
 	var leftover := InventoryManager.add_item(item_id, amount)

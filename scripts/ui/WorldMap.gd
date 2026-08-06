@@ -103,10 +103,7 @@ func _render_map() -> void:
 
 	# Bird pet scout reveals the full map
 	var full_reveal: bool = false
-	if Engine.has_singleton("PetManager"):
-		var pm = Engine.get_singleton("PetManager")
-		if pm and pm.has_method("get_scout_bonus"):
-			full_reveal = pm.get_scout_bonus() > 0.0
+	full_reveal = PetManager.get_scout_bonus() > 0.0
 
 	# If scout is active, mark every cell as explored immediately
 	if full_reveal:

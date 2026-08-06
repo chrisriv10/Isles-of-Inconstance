@@ -585,11 +585,7 @@ func _summon_spawn_effect() -> void:
 
 func _drop_loot() -> void:
 	var loot := _get_loot_table()
-	var loot_bonus: float = 0.0
-	if Engine.has_singleton("PetManager"):
-		var pet_mgr: Node = Engine.get_singleton("PetManager")
-		if pet_mgr and pet_mgr.has_method("get_loot_bonus"):
-			loot_bonus = pet_mgr.get_loot_bonus()
+	var loot_bonus: float = PetManager.get_loot_bonus()
 	# Mystic Luck upgrade: +40% drop chance per level.
 	loot_bonus += UpgradeManager.get_level(UpgradeManager.Upgrade.LUCK) * 0.4
 

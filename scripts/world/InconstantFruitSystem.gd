@@ -164,10 +164,7 @@ func generate_fruits(world_seed: int, count: int) -> Array[ItemData]:
 static func get_wild_findable_fruits() -> Array[ItemData]:
 	var results: Array[ItemData] = []
 	var soul_unlocked: bool = false
-	if Engine.has_singleton("ObjectiveManager"):
-		var om: Node = Engine.get_singleton("ObjectiveManager")
-		if om and om.has_method("is_objective_completed"):
-			soul_unlocked = om.is_objective_completed(15)  # DEFEAT_INCONSTANT_SOUL
+	soul_unlocked = ObjectiveManager.is_objective_completed(15)  # DEFEAT_INCONSTANT_SOUL
 
 	for item in DataManager.items.values():
 		if item and item.get_meta("inconstant_power", false):

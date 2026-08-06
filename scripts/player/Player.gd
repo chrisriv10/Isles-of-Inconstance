@@ -1708,7 +1708,7 @@ func _get_current_biome_speed_mult() -> float:
 	# Apply speed buff from meals (additive, stacks with biome multiplier)
 	var speed_buff: float = BuffManager.get_strength("speed") if BuffManager else 0.0
 	# Pet speed bonus (gingerbread man) — additive on top of biome + meal buffs
-	var pet_speed: float = PetManager.get_speed_bonus() if Engine.has_singleton("PetManager") else 0.0
+	var pet_speed: float = PetManager.get_speed_bonus()
 	return biome_mult + speed_buff + pet_speed
 
 
@@ -2240,11 +2240,7 @@ func _get_melee_damage() -> int:
 	# Combat Training upgrade adds +3 melee damage per level.
 	upgrade_bonus += UpgradeManager.get_level(UpgradeManager.Upgrade.COMBAT) * 3
 	var level_mult: float = LevelManager.get_damage_multiplier()
-	var pet_bonus: float = 0.0
-	if Engine.has_singleton("PetManager"):
-		var pet_mgr: Node = Engine.get_singleton("PetManager")
-		if pet_mgr and pet_mgr.has_method("get_combat_bonus"):
-			pet_bonus = pet_mgr.get_combat_bonus()
+	var pet_bonus: float = PetManager.get_combat_bonus()
 	
 	# Direct tool enum lookup
 	var base: int = TOOL_BASE_DAMAGE.get(active_tool, -1)
@@ -2674,11 +2670,7 @@ func _finish_bow_charge(target_pos: Vector2) -> void:
 func _get_bow_damage() -> int:
 	var upgrade_bonus: int = UpgradeManager.get_level(UpgradeManager.Upgrade.TOOLS) * 5
 	var level_mult: float = LevelManager.get_damage_multiplier()
-	var pet_bonus: float = 0.0
-	if Engine.has_singleton("PetManager"):
-		var pet_mgr: Node = Engine.get_singleton("PetManager")
-		if pet_mgr and pet_mgr.has_method("get_combat_bonus"):
-			pet_bonus = pet_mgr.get_combat_bonus()
+	var pet_bonus: float = PetManager.get_combat_bonus()
 	# Base bow damage is 15 — between sword (25) and axe (18) so it's viable
 	# but not overpowering, balanced by the ammo cost.
 	return roundi((15 + upgrade_bonus + pet_bonus) * level_mult)
