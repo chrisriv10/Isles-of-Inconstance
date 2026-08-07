@@ -3609,12 +3609,17 @@ func _deferred_setup_mine_room(mine: MineRoom) -> void:
 	# `@Node2D@<instance_id>`, which DIFFERS per peer and silently breaks every
 	# mine-enemy RPC broadcast (the "Node not found / Failed to get path" flood).
 	mine.name = "MineRoom"
-	# On a descent the previous room was queue_free()d (frees at frame end), so a
-	# stale "MineRoom" sibling can still occupy this name right now. Removing it
-	# guarantees the fresh room keeps the stable name (only one mine exists at a
-	# time). Safely ignore if no duplicate is present.
+	# On a descent/re-entry the previous room was queue_free()d, but queued
+	# deletions flush AFTER deferred calls — so the stale "MineRoom" sibling is
+	# still a child of World right now. If we only queue_free() it and then
+	# add_child(mine), Godot collides on the duplicate name and auto-renames the
+	# fresh room to `@Node2D@<id>`, which DIFFERS per peer and silently breaks
+	# every mine-enemy node-path RPC (the "Node not found / Failed to get path"
+	# flood). Remove the stale sibling from the tree synchronously so the fresh
+	# room reliably keeps the stable name. Safely ignores a missing sibling.
 	var existing := get_node_or_null("MineRoom")
 	if existing and existing != mine:
+		remove_child(existing)
 		existing.queue_free()
 	add_child(mine)
 	mine.exited.connect(_on_exit_mine)
