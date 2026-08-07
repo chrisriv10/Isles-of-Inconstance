@@ -2488,3 +2488,102 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_ESCAPE and _chat_open:
 			_close_chat_input()
 			get_viewport().set_input_as_handled()
+
+
+# ---------------------------------------------------------------------------
+# First-time help popup (shown once at the start of a brand-new game)
+# ---------------------------------------------------------------------------
+
+var _first_time_panel: PanelContainer = null
+var _first_time_bg: ColorRect = null
+
+## Shows a modal popup with brief controls and a getting-started recommendation
+## the very first time a brand-new game starts. One-time per app session.
+func show_first_time_help() -> void:
+	if _first_time_panel and _first_time_panel.visible:
+		return
+	_build_first_time_popup()
+	_first_time_bg.visible = true
+	_first_time_panel.visible = true
+
+func _build_first_time_popup() -> void:
+	if _first_time_panel:
+		return
+
+	# Full-screen dim overlay that blocks clicks to the world behind it.
+	_first_time_bg = ColorRect.new()
+	_first_time_bg.name = "FirstTimeHelpBg"
+	_first_time_bg.color = Color(0, 0, 0, 0.6)
+	_first_time_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_first_time_bg.visible = false
+	_first_time_bg.gui_input.connect(func(_e: InputEvent) -> void:
+		# Swallow input so clicks don't fall through to the game.
+		pass
+	)
+	add_child(_first_time_bg)
+
+	_first_time_panel = PanelContainer.new()
+	_first_time_panel.name = "FirstTimeHelpPanel"
+	_first_time_panel.visible = false
+	_first_time_panel.add_theme_stylebox_override("panel", preload("res://resources/ui/dark_wood_panel.tres"))
+	_first_time_panel.custom_minimum_size = Vector2(520, 0)
+	_first_time_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_first_time_bg.add_child(_first_time_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	_first_time_panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Welcome to Isles of Inconstance!"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", Color(0.91, 0.78, 0.29))
+	title.add_theme_font_size_override("font_size", 22)
+	vbox.add_child(title)
+
+	var body := RichTextLabel.new()
+	body.bbcode_enabled = true
+	body.fit_content = true
+	body.scroll_active = false
+	body.custom_minimum_size = Vector2(480, 0)
+	body.add_theme_font_size_override("normal_font_size", 15)
+	body.text = _first_time_help_text()
+	vbox.add_child(body)
+
+	var close_btn := Button.new()
+	close_btn.text = "Got it!"
+	close_btn.custom_minimum_size = Vector2(160, 40)
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.pressed.connect(_close_first_time_popup)
+	vbox.add_child(close_btn)
+
+	# Center the panel over the dim overlay (top-left anchor, compute offset).
+	_first_time_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_first_time_panel.reset_size()
+	_first_time_panel.position = (
+		Vector2(_first_time_bg.size.x / 2.0, _first_time_bg.size.y / 2.0)
+		- _first_time_panel.size / 2.0
+	)
+
+func _close_first_time_popup() -> void:
+	if _first_time_bg:
+		_first_time_bg.visible = false
+	if _first_time_panel:
+		_first_time_panel.visible = false
+	# Let the game take over input again.
+	get_viewport().set_input_as_handled()
+
+func _first_time_help_text() -> String:
+	return """[b][color=#7fc97f]Controls:[/color][/b]
+• [b]W A S D[/b] / Arrow Keys — Move
+• [b]Left-click[/b] — Use tool / Attack
+• [b]Right-click[/b] / [b]E[/b] — Interact / Harvest
+• [b]1, 2[/b] — Hoe / Watering can  •  [b]3-0[/b] — Hotbar slots
+• [b]I[/b] — Inventory  •  [b]C[/b] — Craft  •  [b]V[/b] — Build mode
+• Press [b]Esc[/b] for the in-game menu (full Controls + Tutorial), or [b]H[/b] for the Encyclopedia
+
+[b][color=#7fc97f]Getting Started:[/color][/b]
+• Press [b]C[/b] to open Crafting and craft basic tools
+• Gather [b]wood[/b] from tree stumps/logs and [b]stone[/b] from the [b]small rocks[/b] scattered around the island (no pickaxe needed — just press [b]E[/b])
+• Use that [b]wood + stone[/b] to craft an [b]axe[/b] (chop trees) and a [b]pickaxe[/b] (mine big stone/ore deposits)
+• Check the [b]Starter Chest[/b] near your spawn point"""

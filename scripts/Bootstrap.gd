@@ -15,6 +15,10 @@ var _host_lobby_public: bool = true
 # True when hosting a brand-new world from an empty slot (vs. an existing save).
 var _host_is_new: bool = false
 
+# One-time-per-session flag so the first-time help popup only shows once, at
+# the start of the first brand-new game in this app session.
+var _first_time_help_shown: bool = false
+
 ## URL for the desktop version download. Placeholder — replace with the real
 ## itch.io / hosting link when ready. Used by the web multiplayer warning dialog.
 const DESKTOP_DOWNLOAD_URL: String = "https://example.com/download"
@@ -639,6 +643,16 @@ func _start_new_game(p_seed: int) -> void:
 			var ftween := create_tween()
 			ftween.tween_property(fo, "modulate:a", 0.0, 0.5)
 			ftween.tween_callback(func(): fo.visible = false)
+
+	# First-time help popup: show once per session at the start of the first
+	# brand-new game. Wait for the black fade-in to finish so it appears over
+	# the world rather than the fade screen.
+	if not _first_time_help_shown:
+		_first_time_help_shown = true
+		if hud and hud.has_method("show_first_time_help"):
+			var help_tween := create_tween()
+			help_tween.tween_interval(0.7)
+			help_tween.tween_callback(func(): hud.show_first_time_help())
 
 
 func _load_game() -> void:
