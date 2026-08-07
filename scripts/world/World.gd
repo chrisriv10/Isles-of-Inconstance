@@ -4921,6 +4921,17 @@ func _shuffle_array_with_rng(array: Array, rng: RandomNumberGenerator) -> void:
 func get_shop_position() -> Vector2:
 	return _shop_position
 
+## Returns true if a world position falls inside the dock shop's solid blocker
+## (96x48 rect centered on the shop). Visitor NPCs spawn and wander on the dock,
+## and the shop blocker sits in the middle of the dock walkway, so without this
+## check NPCs would spawn inside/beside the blocker and get permanently stuck
+## (simple wall-slide movement can't free them).
+func is_position_in_shop_blocker(world_pos: Vector2) -> bool:
+	if _shop_position == Vector2.ZERO:
+		return false
+	var d := world_pos - _shop_position
+	return absf(d.x) <= 48.0 and absf(d.y) <= 24.0
+
 func get_boat_position() -> Vector2:
 	return _boat_position
 

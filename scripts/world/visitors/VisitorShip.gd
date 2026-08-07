@@ -195,20 +195,36 @@ func _deploy_npcs() -> void:
 ## still on the walkway (never an exact pixel stack) when nothing passes.
 ## Static so both the host (_deploy_npcs) and clients (_sync_spawn_visitor_ship)
 ## place NPCs identically on the dock instead of ship-relative water offsets.
+## Crucial: candidates must stay clear of the dock shop's solid blocker (which
+## sits mid-dock). An NPC spawned inside that blocker can't move in any
+## direction (simple wall-slide movement) and is stuck on the dock forever.
 static func dock_spawn_position(dock_pos: Vector2, index: int, world: Node = null) -> Vector2:
 	var row: int = index / 4
 	var col: int = index % 4
+	# Spread across the dock's walkable width, alternating to the LEFT and RIGHT
+	# of the shop blocker (which spans x -48..48, y -24..24 relative to dock_pos).
+	# The walkable dock flanks are roughly x -96..-56 and x 56..96 at these rows.
+	var side: float = 1.0 if index % 2 == 0 else -1.0
+	var flank: float = 72.0 + (col % 2) * 20.0  # 72 or 92 px from center
 	var candidates: Array[Vector2] = [
-		dock_pos + Vector2(col * 26.0, 20.0 + row * 18.0),
-		dock_pos + Vector2(-16.0 + col * 26.0, 12.0 + row * 18.0),
-		dock_pos + Vector2(randf_range(-20.0, 20.0), randf_range(0.0, 18.0)),
+		dock_pos + Vector2(side * flank, 20.0 + row * 18.0),
+		dock_pos + Vector2(side * (flank + 16.0), 12.0 + row * 18.0),
+		dock_pos + Vector2(-side * flank, 20.0 + row * 18.0),
+		dock_pos + Vector2(col * 26.0 - 40.0, 20.0 + row * 18.0),
+		dock_pos + Vector2(randf_range(-90.0, 90.0), randf_range(0.0, 18.0)),
 	]
 	for candidate in candidates:
-		if not world or not world.has_method("is_cell_walkable"):
+		if _spawn_spot_clear(candidate, world):
 			return candidate
-		if world.is_cell_walkable(candidate):
-			return candidate
-	return dock_pos + Vector2(randf_range(-20.0, 20.0), randf_range(0.0, 18.0))
+	return dock_pos + Vector2(side * 80.0, 16.0)
+
+## True if a spawn spot is walkable AND not inside the dock shop's solid blocker.
+static func _spawn_spot_clear(spot: Vector2, world: Node) -> bool:
+	if world and world.has_method("is_position_in_shop_blocker") and world.is_position_in_shop_blocker(spot):
+		return false
+	if world and world.has_method("is_cell_walkable"):
+		return world.is_cell_walkable(spot)
+	return true
 
 ## Generate a random roster of 3-5 NPCs for this visit.
 ## Always includes at least one vendor and one explorer.

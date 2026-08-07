@@ -57,6 +57,12 @@ var _is_returning: bool = false
 ## Ship position to return to
 var _return_target: Vector2 = Vector2.ZERO
 
+## Stuck recovery: if the NPC can't make progress toward its target for this
+## many seconds, it re-picks a new target. Safety net for spots the simple
+## wall-slide movement can't reach (e.g. boxed in near the dock shop).
+const STUCK_TIMEOUT: float = 2.5
+var _stuck_time: float = 0.0
+
 ## Dialogue bubble elements
 var _dialogue_bubble: Node2D
 var _dialogue_label: Label
@@ -317,6 +323,10 @@ func _pick_new_target() -> void:
 			continue
 		if not _world.is_cell_walkable(candidate):
 			continue
+		# Never target a spot inside the dock shop's solid blocker — the NPC
+		# would walk into it and get stuck (simple wall-slide can't free it).
+		if _world.has_method("is_position_in_shop_blocker") and _world.is_position_in_shop_blocker(candidate):
+			continue
 		
 		_target_pos = candidate
 		_idle_timer = 0.0
@@ -401,7 +411,17 @@ func _process(delta: float) -> void:
 	if _target_pos != Vector2.ZERO:
 		var dist_sq := global_position.distance_squared_to(_target_pos)
 		if dist_sq > 64.0:
+			var before_pos: Vector2 = global_position
 			_move_toward(_target_pos, delta)
+			# Stuck recovery: if we barely moved while trying to reach the target,
+			# start a timer; once it expires, assume we're blocked and re-pick.
+			if global_position.distance_squared_to(before_pos) < 0.01:
+				_stuck_time += delta
+				if _stuck_time >= STUCK_TIMEOUT:
+					_stuck_time = 0.0
+					_pick_new_target()
+			else:
+				_stuck_time = 0.0
 		elif _idle_timer <= 0.0:
 			# Reached target, idle a moment then find new target
 			_idle_timer = 4.0 + _rng.randf() * 3.0
