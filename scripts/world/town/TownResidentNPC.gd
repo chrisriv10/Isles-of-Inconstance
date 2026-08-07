@@ -509,10 +509,21 @@ func show_dialogue(msg: String, duration: float = 2.0) -> void:
 		return
 	_dialogue_label.text = msg
 	_dialogue_bubble.visible = true
-	get_tree().create_timer(duration).timeout.connect(func():
-		if is_instance_valid(_dialogue_bubble):
-			_dialogue_bubble.visible = false
+	# Use a child Timer so the pending hide callback is discarded if this NPC is
+	# freed before it fires (a SceneTreeTimer lambda capturing _dialogue_bubble
+	# would call a freed node -> "Lambda capture at index 0 was freed").
+	var bubble: Node2D = _dialogue_bubble
+	var hide_timer := Timer.new()
+	hide_timer.name = "DialogueHideTimer"
+	hide_timer.one_shot = true
+	hide_timer.wait_time = duration
+	hide_timer.timeout.connect(func():
+		if is_instance_valid(bubble):
+			bubble.visible = false
 	)
+	hide_timer.timeout.connect(hide_timer.queue_free, CONNECT_ONE_SHOT)
+	add_child(hide_timer)
+	hide_timer.start()
 
 func _get_greeting() -> String:
 	var rng := RandomNumberGenerator.new()

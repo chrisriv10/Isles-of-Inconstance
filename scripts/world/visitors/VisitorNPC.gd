@@ -573,10 +573,23 @@ func show_dialogue(msg: String, duration: float = 2.0) -> void:
 		return
 	_dialogue_label.text = msg
 	_dialogue_bubble.visible = true
-	get_tree().create_timer(duration).timeout.connect(func():
-		if is_instance_valid(_dialogue_bubble):
-			_dialogue_bubble.visible = false
+	# Use a child Timer (not get_tree().create_timer) so the pending callback is
+	# discarded when this NPC is freed (e.g. recruited mid-dialogue). A
+	# SceneTreeTimer's lambda captured _dialogue_bubble, and if the visitor was
+	# queue_free'd before it fired the lambda called a freed node ->
+	# "Lambda capture at index 0 was freed".
+	var bubble: Node2D = _dialogue_bubble
+	var hide_timer := Timer.new()
+	hide_timer.name = "DialogueHideTimer"
+	hide_timer.one_shot = true
+	hide_timer.wait_time = duration
+	hide_timer.timeout.connect(func():
+		if is_instance_valid(bubble):
+			bubble.visible = false
 	)
+	hide_timer.timeout.connect(hide_timer.queue_free, CONNECT_ONE_SHOT)
+	add_child(hide_timer)
+	hide_timer.start()
 
 ## Convert this visitor to a permanent town resident.
 ## In multiplayer, clients forward the request to the host, which performs
