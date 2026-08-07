@@ -1736,7 +1736,11 @@ func _cancel_revive(reshow: bool = true) -> void:
 		# UI (the revive-progress bar was partially filled). On revive COMPLETION
 		# we pass false so we never re-create the DOWNED label/bleedout bar —
 		# the target is being revived and _sync_downed_state(false) clears them.
-		if reshow:
+		# Guard on _is_downed too: if the target already recovered (e.g. it bled
+		# out and auto-respawned, or another peer revived it) while this reviver
+		# was mid-hold, re-showing the UI would leave a ghost DOWNED label + bleedout
+		# bar on a standing player (their tint was already reset by the false sync).
+		if reshow and _revive_target._is_downed:
 			_revive_target._hide_downed_ui()
 			_revive_target._show_downed_ui()
 		_revive_target = null
