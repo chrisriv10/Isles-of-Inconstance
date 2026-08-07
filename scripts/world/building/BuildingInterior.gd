@@ -10,6 +10,12 @@ enum InteriorType { SMALL_HOME, MEDIUM_HOME, LARGE_HOME, BARN, TOWN_HALL, GREENH
 var interior_type: int
 var building_cell: Vector2i
 
+# Unique stable identifier for THIS interior, used for multiplayer remote-player
+# visibility. Regular buildings use the cell key "x,y"; town ruins use their
+# ruin_id (their building_cell is always Vector2i.ZERO, so it can't distinguish
+# two different ruins). Empty for any interior type that doesn't set one.
+var building_key: String = ""
+
 # Room dimensions (set by _generate_interior)
 var _room_width: int = 0
 var _room_height: int = 0
@@ -165,6 +171,14 @@ func setup(type: int, cell: Vector2i, seed: int = 0) -> void:
 	interior_type = _map_building_to_interior(type)
 	building_cell = cell
 	_generate_interior()
+
+## Unique stable identifier for THIS interior used for multiplayer remote-player
+## visibility. Town ruins set building_key to their ruin_id; regular buildings
+## fall back to the cell key.
+func get_building_key() -> String:
+	if not building_key.is_empty():
+		return building_key
+	return "%d,%d" % [building_cell.x, building_cell.y]
 
 ## Map a BuildingSystem.BuildingType value to the matching InteriorType.
 ## Types 0-5 match directly; HOTEL (21) maps to InteriorType.HOTEL (6);

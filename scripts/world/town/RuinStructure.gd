@@ -490,6 +490,10 @@ func _open_npc_interaction() -> void:
 	
 	var interior := BuildingInterior.new()
 	interior.setup(interior_type, Vector2i.ZERO)
+	# Town-ruin interiors share building_cell (0,0), so give this interior a
+	# unique key from its ruin_id — otherwise two peers in DIFFERENT ruins
+	# (both at the same INTERIOR_VOID) would wrongly appear in each other's room.
+	interior.building_key = ruin_id
 	
 	# For the Hotel ruin, pass the Hotel.gd reference so the interior's
 	# front desk interactable can collect gold from visiting NPCs.

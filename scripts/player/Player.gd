@@ -423,6 +423,25 @@ func _update_remote_health_bar() -> void:
 	else:
 		visible = true
 
+	# Building interiors are co-located at the same INTERIOR_VOID position, so a
+	# remote peer in a DIFFERENT building (or outside while we're inside, or
+	# vice-versa) must be hidden — otherwise they'd float through our room.
+	# Peers render their own copy of the same building only when they share the
+	# same building_key (the deterministic session cell / ruin_id broadcast in
+	# stats). Town-ruin interiors share cell (0,0), so the key is required to
+	# tell two different ruins apart.
+	var remote_in_building: bool = stats.get("inside_building", false)
+	var local_in_building: bool = GameManager.inside_building
+	var remote_bkey: String = str(stats.get("building_key", ""))
+	var local_bkey: String = GameManager.current_building_key
+	if remote_in_building != local_in_building \
+			or (remote_in_building and local_in_building and remote_bkey != local_bkey):
+		visible = false
+		if is_instance_valid(_remote_pet_node):
+			_remote_pet_node.queue_free()
+		_remote_pet_node = null
+		return
+
 	_remote_hp_bar_fill.visible = true
 	_remote_hp_bar_bg.visible = true
 	# Hide original name_label for remote players, use _remote_nameplate instead

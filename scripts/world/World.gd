@@ -3124,6 +3124,10 @@ func enter_building(interior: BuildingInterior) -> void:
 	current_interior = interior
 	GameManager.inside_interior = true
 	GameManager.inside_building = true
+	# Broadcast a unique building key so remote peers can hide anyone who is in a
+	# DIFFERENT interior (all building interiors share INTERIOR_VOID). Town-ruin
+	# interiors carry a ruin_id key; regular buildings fall back to their cell.
+	GameManager.current_building_key = interior.get_building_key()
 	AudioManager.play_music(AudioManager.Sound.INTERIOR_MUSIC)
 	AudioManager.play(AudioManager.Sound.DOOR_OPEN)
 	# Show interior tutorial hint once
@@ -3185,6 +3189,7 @@ func _on_exit_interior() -> void:
 	current_interior = null
 	GameManager.inside_interior = false
 	GameManager.inside_building = false
+	GameManager.current_building_key = ""
 	AudioManager.resume_ambient_music()
 	AudioManager.play(AudioManager.Sound.DOOR_CLOSE)
 	# Brief cooldown so the player doesn't immediately re-enter the building

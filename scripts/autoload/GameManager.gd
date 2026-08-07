@@ -72,6 +72,10 @@ var weather_system: WeatherSystem = null
 static var near_campfire: bool = false
 static var inside_interior: bool = false
 static var inside_building: bool = false
+# Unique stable key of the building interior the local player is inside, used
+# for the same remote-visibility purpose. Regular buildings use the cell key
+# "x,y"; town ruins use their ruin_id. Empty while not inside a building.
+static var current_building_key: String = ""
 # True only while inside the shared co-op mine (remote players stay visible
 # there), as opposed to private interiors (buildings, expeditions).
 static var inside_mine: bool = false
@@ -1142,11 +1146,11 @@ func _try_broadcast_player_stats() -> void:
 	var downed_frac := 0.0
 	if _is_downed:
 		downed_frac = clampf(1.0 - _downed_timer / BLEEDOUT_TIME, 0.0, 1.0)
-	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building, inside_island_seed, downed_frac)
+	rpc("_receive_player_stats", health, MAX_HEALTH, hunger, MAX_HUNGER, player_name, pet_id, interior, in_mine, armor, lvl, held_item_id, in_building, inside_island_seed, downed_frac, current_building_key)
 
 
 @rpc("unreliable", "any_peer")
-func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0, island_seed: int = 0, downed_frac: float = 0.0) -> void:
+func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: String, pet_id: String = "", interior: int = 0, in_mine: int = 0, armor_set: String = "", level: int = 1, held_item_id: String = "", in_building: int = 0, island_seed: int = 0, downed_frac: float = 0.0, building_key: String = "") -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if sender == multiplayer.get_unique_id():
 		return  # ignore our own broadcast
@@ -1160,6 +1164,7 @@ func _receive_player_stats(hp: int, max_hp: int, hgr: int, max_hgr: int, name: S
 		"inside_interior": interior != 0,
 		"inside_mine": in_mine != 0,
 		"inside_building": in_building != 0,
+		"building_key": building_key,
 		"island_seed": island_seed,
 		"armor_set": armor_set,
 		"level": level,
