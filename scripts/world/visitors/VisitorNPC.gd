@@ -94,6 +94,10 @@ var _is_remote: bool = false
 ## Seconds between host broadcasts of this NPC's position to clients.
 const POS_SYNC_INTERVAL: float = 0.25
 var _pos_sync_timer: float = 0.0
+## Remote copies: the latest host position we're smoothly moving toward, so the
+## NPC glides between the sparse 4 Hz snaps instead of teleporting (which is
+## what happened when remote copies ALSO ran their own local simulation).
+var _remote_target_pos: Vector2 = Vector2.INF
 
 ## Seeded RNG for deterministic multiplayer sync (position, hotel chance, etc.)
 var _rng: RandomNumberGenerator = null
@@ -381,6 +385,13 @@ func _process(delta: float) -> void:
 			_pos_sync_timer = POS_SYNC_INTERVAL
 			_world.relay_visitor_pos(_synced_index, global_position.x, global_position.y)
 
+	# Remote (client) copies don't simulate — they only glide toward the host's
+	# authoritative position. Running local simulation here (old behavior) made
+	# the NPC fight the host's snaps and appear to teleport/slide every frame.
+	if _is_remote:
+		_interpolate_remote(delta)
+		return
+
 	# Already checked in — do nothing (invisible, waiting for departure)
 	if _checked_in:
 		return
@@ -432,10 +443,36 @@ func _process(delta: float) -> void:
 				_pick_new_target()
 
 ## Mirror the host's authoritative position (called by World._sync_visitor_pos).
+## Stores the target so _process can glide toward it smoothly between the
+## sparse 4 Hz broadcasts instead of hard-teleporting each time.
 func apply_remote_position(pos: Vector2) -> void:
 	if not _is_remote:
 		return
-	global_position = pos
+	_remote_target_pos = pos
+
+## Remote copies: glide toward the latest host position at the NPC's normal
+## speed. This tracks the host's motion continuously; when a snap arrives we
+## may be slightly behind, so the outgoing direction naturally carries us on.
+func _interpolate_remote(delta: float) -> void:
+	if _remote_target_pos == Vector2.INF:
+		return
+	var to_target: Vector2 = _remote_target_pos - global_position
+	var dist := to_target.length()
+	if dist < 0.5:
+		global_position = _remote_target_pos
+		_remote_target_pos = Vector2.INF
+		return
+	var step: Vector2 = to_target.normalized() * speed * delta
+	if step.length() >= dist:
+		global_position = _remote_target_pos
+		_remote_target_pos = Vector2.INF
+	else:
+		global_position += step
+	# Face movement direction
+	if to_target.x < -0.1:
+		sprite.flip_h = true
+	elif to_target.x > 0.1:
+		sprite.flip_h = false
 
 
 func _move_toward(target: Vector2, delta: float) -> void:
