@@ -429,6 +429,15 @@ func _instant_respawn() -> void:
 	# If the player died inside a mine, clean up the mine state first.
 	var world_death := get_tree().get_first_node_in_group("world")
 	if world_death and world_death.has_method("emergency_exit_mine"):
+		# A client dying in the mine frees its own MineRoom copy, so tell the
+		# host to drop it from the shared-mine session — otherwise the host keeps
+		# sending node-path enemy RPCs to a peer whose MineEnemy nodes are gone,
+		# flooding the console with "Node not found: MineRoom/MineEnemy_N".
+		if NetworkManager.is_network_active() \
+				and not multiplayer.is_server() \
+				and world_death.has_method("_server_leave_mine_session") \
+				and world_death.get("current_mine_room") != null:
+			world_death.rpc_id(1, "_server_leave_mine_session")
 		world_death.emergency_exit_mine()
 	
 	# Reset health and hunger to full

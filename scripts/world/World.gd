@@ -3769,6 +3769,30 @@ func _receive_exit_mine() -> void:
 	_do_exit_mine()
 
 
+## Client â†’ host: this peer left the mine (e.g. died/respawned) and its local
+## MineRoom/MineEnemy nodes are being freed. Remove it from the shared-mine
+## session so the host stops sending node-path enemy RPCs to a peer whose
+## MineRoom copy no longer exists (which would otherwise flood the console with
+## "Node not found: MineRoom/MineEnemy_N" errors). Unlike _server_exit_mine, it
+## does NOT move the player â€” the caller already handled local cleanup.
+@rpc("any_peer", "reliable")
+func _server_leave_mine_session() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = _sender_id()
+	_mine_session_members.erase(sender)
+	_mine_session_room_ready.erase(sender)
+	if _mine_session_members.is_empty():
+		_mine_session_active = false
+		_mine_session_entrance = 1
+		_mine_session_depth = 1
+		# Tear down a host-only session room now that nobody is left inside.
+		if current_mine_room and not GameManager.inside_mine:
+			current_mine_room.queue_free()
+			current_mine_room = null
+			_mine_current_depth = 0
+
+
 ## Internal: actually exit the mine for THIS peer (called locally or via RPC).
 ## Only the local player is moved back out.
 func _do_exit_mine() -> void:

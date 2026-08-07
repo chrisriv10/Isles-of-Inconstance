@@ -21,6 +21,24 @@ func _ready() -> void:
 	stump_variant = rng.randi() % 3
 	wood_amount = rng.randi_range(1, 4)
 	_generate_sprite()
+	_add_collision_shape()
+
+
+## Adds the interaction CollisionShape2D. LogStump is spawned as a bare
+## Area2D.new()+set_script (unlike Bush/FlowerPatch/MushroomPatch which come
+## from scenes that already include a CollisionShape2D), so without this the
+## player's PlayerInteractor area never overlaps it and it can't be interacted
+## with at all.
+func _add_collision_shape() -> void:
+	if has_node("CollisionShape2D"):
+		return
+	var shape_node := CollisionShape2D.new()
+	shape_node.name = "CollisionShape2D"
+	var rect := RectangleShape2D.new()
+	# Match the generated sprite footprint (~16x14 px).
+	rect.size = Vector2(16, 14)
+	shape_node.shape = rect
+	add_child(shape_node)
 
 
 func _generate_sprite() -> void:
