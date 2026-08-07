@@ -1486,18 +1486,20 @@ func _show_downed_ui() -> void:
 	downed_label.position = Vector2(-50, -44)
 	add_child(downed_label)
 	
-	# Bleedout bar — drains as the player bleeds out toward auto-respawn
+	# Bleedout bar — drains as the player bleeds out toward auto-respawn.
+	# Positioned just below the revive-progress bar and near the head so it's
+	# clearly visible when knocked (was previously up at y=-62, too high to see).
 	var bo_bg := ColorRect.new()
 	bo_bg.name = "BleedoutBarBG"
 	bo_bg.size = Vector2(80, 6)
-	bo_bg.position = Vector2(-40, -62)
+	bo_bg.position = Vector2(-40, -24)
 	bo_bg.color = Color(0.1, 0.1, 0.1, 0.8)
 	add_child(bo_bg)
 	
 	var bo_fill := ColorRect.new()
 	bo_fill.name = "BleedoutBarFill"
 	bo_fill.size = Vector2(80, 6)
-	bo_fill.position = Vector2(-40, -62)
+	bo_fill.position = Vector2(-40, -24)
 	bo_fill.color = Color(1.0, 0.3, 0.3, 1.0)
 	add_child(bo_fill)
 
@@ -1719,13 +1721,20 @@ func _process_revive(delta: float) -> void:
 		# hit the reviver's remote copy, which is not downed).
 		var reviver_name := name_label.text
 		_revive_target.rpc_id(_revive_target.get_multiplayer_authority(), "_request_revive_rpc", reviver_name)
-		_cancel_revive()
+		# Skip the downed-UI re-show on completion — the target is being revived,
+		# so _sync_downed_state(false) will clear the DOWNED label/bleedout bar.
+		_cancel_revive(false)
 
-func _cancel_revive() -> void:
+func _cancel_revive(reshow: bool = true) -> void:
 	if _revive_target and is_instance_valid(_revive_target):
 		_revive_target._revive_progress = 0.0
-		_revive_target._hide_downed_ui()
-		_revive_target._show_downed_ui()
+		# reshow=true on a genuine cancel: reset + redraw the downed target's
+		# UI (the revive-progress bar was partially filled). On revive COMPLETION
+		# we pass false so we never re-create the DOWNED label/bleedout bar —
+		# the target is being revived and _sync_downed_state(false) clears them.
+		if reshow:
+			_revive_target._hide_downed_ui()
+			_revive_target._show_downed_ui()
 		_revive_target = null
 	_hide_revive_ui()
 	_revive_progress = 0.0
