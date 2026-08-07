@@ -141,9 +141,16 @@ func set_hotel_reference(hotel: Hotel) -> void:
 	# Listen for guest count changes to spawn/clear NPC sprites
 	if hotel and not hotel.guests_changed.is_connected(_on_hotel_guests_changed):
 		hotel.guests_changed.connect(_on_hotel_guests_changed)
-		# If hotel already has guests, spawn immediately
+		# If hotel already has guests, spawn them once the interior is in the
+		# tree. set_hotel_reference() is called from RuinStructure BEFORE the
+		# interior is added to the world, and _add_hotel_guest reads
+		# multiplayer.is_server() — which is null while the node is outside the
+		# tree, crashing 'Cannot call method is_server on a null value'.
 		if hotel.has_guests and hotel.guest_count > 0:
-			_on_hotel_guests_changed(hotel.guest_count)
+			if is_inside_tree():
+				_on_hotel_guests_changed(hotel.guest_count)
+			else:
+				tree_entered.connect(_on_hotel_guests_changed.bind(hotel.guest_count), CONNECT_ONE_SHOT)
 	
 	# Listen for time changes so guest NPCs appear at night and hide during day
 	if not GameManager.time_changed.is_connected(_on_time_changed):
