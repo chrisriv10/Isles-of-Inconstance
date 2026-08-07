@@ -10,6 +10,17 @@ signal health_ratio_changed(ratio: float)
 
 enum State { IDLE, CHASE, ATTACK, STUNNED, DEAD }
 
+## Visual effect types broadcast from the host's boss _die()/attack overrides so
+## clients' remote copies reproduce the flashy special moves that only run on
+## the host. Positions are always absolute world coords (shared across peers).
+enum BossEffect {
+	BURST,          # multi-color particle burst at pos (c1/c2/c3 optional)
+	FLOATING_TEXT,  # floating text at pos (c1 = text color)
+	SHAKE,          # full-screen shake (strength + duration)
+	FLASH,          # full-screen flash overlay (c1 = color, duration)
+	SPARKLE,        # sparkle at pos (c1 = color)
+}
+
 ## Global multiplier applied to all enemy loot drop chances.
 ## 1.0 = original rates; 0.5 = half as frequent; 0.25 = quarter as frequent.
 const DROP_RATE_MULTIPLIER: float = 0.35  # Harder mode — less loot from enemies
@@ -797,6 +808,50 @@ func _sync_boss_death(eid: int, c1: Color, c2: Color, c3: Color) -> void:
 	EffectSpawner.spawn_particles(global_position, c2, 20, 32.0)
 	EffectSpawner.spawn_particles(global_position, c3, 15, 28.0)
 	EffectSpawner.screen_shake(7.0, 0.5)
+
+
+## Broadcast a boss special-move effect to clients' remote copies. The boss AI
+## (attacks, telegraphs, amateur effects) runs ONLY on the host's authority copy
+## — its _physics_process returns early on _is_remote — so clients never see the
+## flashy special moves. This relays the effect (with an absolute world position,
+## shared across peers) so guests see the same burst/text/shake as the host.
+## The host plays its own local effects already; this only adds the client side.
+@rpc("authority", "reliable", "call_local")
+func _sync_boss_effect(eid: int, effect_type: int, pos: Vector2,
+		c1: Color = Color.TRANSPARENT, c2: Color = Color.TRANSPARENT,
+		c3: Color = Color.TRANSPARENT, text: String = "",
+		strength: float = 0.0, duration: float = 0.0) -> void:
+	if not _is_remote or enemy_id != eid:
+		return
+	match effect_type:
+		BossEffect.BURST:
+			if c1.a > 0.0:
+				EffectSpawner.spawn_particles(pos, c1, 30, 40.0)
+			if c2.a > 0.0:
+				EffectSpawner.spawn_particles(pos, c2, 20, 32.0)
+			if c3.a > 0.0:
+				EffectSpawner.spawn_particles(pos, c3, 15, 28.0)
+		BossEffect.FLOATING_TEXT:
+			if not text.is_empty():
+				EffectSpawner.spawn_floating_text(text, pos, c1)
+		BossEffect.SHAKE:
+			EffectSpawner.screen_shake(strength if strength > 0.0 else 4.0,
+				duration if duration > 0.0 else 0.3)
+		BossEffect.FLASH:
+			_trigger_screen_flash(c1, duration if duration > 0.0 else 0.8)
+		BossEffect.SPARKLE:
+			EffectSpawner.spawn_sparkle(pos, c1)
+
+
+## Convenience wrapper: broadcast a boss special-move effect to clients. Only the
+## host relays (the guard lives inside _broadcast_enemy_rpc), so bosses can call
+## this unconditionally from their host-only attack/_die() overrides.
+func _broadcast_boss_effect(effect_type: int, pos: Vector2,
+		c1: Color = Color.TRANSPARENT, c2: Color = Color.TRANSPARENT,
+		c3: Color = Color.TRANSPARENT, text: String = "",
+		strength: float = 0.0, duration: float = 0.0) -> void:
+	_broadcast_enemy_rpc("_sync_boss_effect",
+		[enemy_id, effect_type, pos, c1, c2, c3, text, strength, duration], true)
 
 
 ## Client → host: forward a melee/ranged attack on a remote copy.

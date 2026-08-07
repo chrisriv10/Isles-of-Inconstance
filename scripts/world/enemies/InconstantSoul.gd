@@ -127,6 +127,12 @@ func _set_phase(phase: int) -> void:
 	EffectSpawner.spawn_particles(global_position, color, 20, 24.0)
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 1.0, 1.0), 12, 20.0)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
+	# Mirror the phase-shift burst + flash on clients.
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		color, Color(1.0, 1.0, 1.0), Color.TRANSPARENT)
+	_broadcast_boss_effect(BossEffect.FLASH, global_position,
+		Color(1.0, 1.0, 1.0, 0.3), Color.TRANSPARENT, Color.TRANSPARENT,
+		"", 0.0, 0.8)
 	match phase:
 		HeartPhase.ROOT:
 			ToastNotification.show_toast("🔄 Phase Shift: Root of Inconstance!", ToastNotification.ToastType.WARNING, 2.5)
@@ -179,9 +185,14 @@ func _heart_pulse() -> void:
 			var a := (angle_i / 8.0) * TAU
 			var p := global_position + Vector2(cos(a), sin(a)) * r
 			EffectSpawner.spawn_particles(p, Color(0.5, 0.15, 0.7, 0.6), 3, 5.0)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.5, 0.15, 0.7), Color.TRANSPARENT, Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 60.0:
 		_damage_target(8)
 		EffectSpawner.spawn_floating_text("Heart Pulse!", player_ref.global_position, Color(0.5, 0.15, 0.7))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.5, 0.15, 0.7), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Heart Pulse!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -202,9 +213,14 @@ func _tendril_sweep() -> void:
 			var p := global_position + sweep_dir * d
 			EffectSpawner.spawn_particles(p, Color(0.5, 0.15, 0.7), 4, 5.0)
 			EffectSpawner.spawn_particles(p, Color(0.3, 0.15, 0.05), 2, 4.0)
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(0.5, 0.15, 0.7), Color(0.3, 0.15, 0.05), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 65.0:
 		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Tendril Sweep!", player_ref.global_position, Color(0.5, 0.15, 0.7))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.5, 0.15, 0.7), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Tendril Sweep!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -226,6 +242,11 @@ func _soul_drain() -> void:
 		_update_health_bar()
 		EffectSpawner.spawn_particles(global_position, Color(0.5, 0.15, 0.7), 8, 10.0)
 		EffectSpawner.spawn_floating_text("Soul Drain!", player_ref.global_position, Color(0.8, 0.15, 0.15))
+		_broadcast_boss_effect(BossEffect.BURST, global_position,
+			Color(0.5, 0.15, 0.7), Color(0.8, 0.15, 0.15), Color.TRANSPARENT)
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.8, 0.15, 0.15), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Soul Drain!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -280,9 +301,14 @@ func _sunburst() -> void:
 			var p := global_position + Vector2(cos(a), sin(a)) * r
 			EffectSpawner.spawn_particles(p, Color(1.0, 0.85, 0.3, 0.7), 3, 5.0)
 			EffectSpawner.spawn_particles(p, Color(1.0, 1.0, 1.0, 0.4), 2, 4.0)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(1.0, 0.85, 0.3), Color(1.0, 1.0, 1.0), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 55.0:
 		_damage_target(8)
 		EffectSpawner.spawn_floating_text("Sunburst!", player_ref.global_position, Color(1.0, 0.85, 0.3))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(1.0, 0.85, 0.3), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Sunburst!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -301,9 +327,14 @@ func _light_lances() -> void:
 			var p := global_position + shot_dir * (10.0 + j * 10.0) + Vector2(randf_range(-3.0, 3.0), randf_range(-3.0, 3.0))
 			EffectSpawner.spawn_particles(p, Color(1.0, 0.85, 0.3, 0.8), 2, 5.0)
 			EffectSpawner.spawn_particles(p, Color(1.0, 1.0, 1.0, 0.5), 1, 3.0)
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(1.0, 0.85, 0.3), Color(1.0, 1.0, 1.0), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 110.0:
 		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Light Lance!", player_ref.global_position, Color(1.0, 0.85, 0.3))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(1.0, 0.85, 0.3), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Light Lance!")
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(2.0, 0.1)
 
@@ -315,6 +346,8 @@ func _radiant_shield() -> void:
 	_trigger_screen_flash(Color(1.0, 0.85, 0.3, 0.2), 0.5)
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.85, 0.3), 15, 20.0)
 	ToastNotification.show_toast("🛡️ Inconstant Soul becomes invulnerable!", ToastNotification.ToastType.WARNING, 1.5)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(1.0, 0.85, 0.3), Color.TRANSPARENT, Color.TRANSPARENT)
 
 
 func _shield_explode() -> void:
@@ -327,9 +360,14 @@ func _shield_explode() -> void:
 				var p := global_position + Vector2(cos(a), sin(a)) * r
 				EffectSpawner.spawn_particles(p, Color(1.0, 0.85, 0.3), 3, 5.0)
 				EffectSpawner.spawn_particles(p, Color(1.0, 1.0, 1.0), 2, 4.0)
+		_broadcast_boss_effect(BossEffect.BURST, global_position,
+			Color(1.0, 0.85, 0.3), Color(1.0, 1.0, 1.0), Color.TRANSPARENT)
 		if global_position.distance_to(player_ref.global_position) < 70.0:
 			_damage_target(10)
 			EffectSpawner.spawn_floating_text("Shield Burst!", player_ref.global_position, Color(1.0, 0.85, 0.3))
+			_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+				Color(1.0, 0.85, 0.3), Color.TRANSPARENT, Color.TRANSPARENT,
+				"Shield Burst!")
 		AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -386,10 +424,15 @@ func _chaos_orbs() -> void:
 			var p := global_position + shot_dir * (12.0 + j * 10.0) + Vector2(randf_range(-6.0, 6.0), randf_range(-6.0, 6.0))
 			EffectSpawner.spawn_particles(p, Color(0.85, 0.3, 0.55, 0.8), 4, 6.0)
 			EffectSpawner.spawn_particles(p, Color(0.8, 0.15, 0.15, 0.5), 2, 5.0)
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(0.85, 0.3, 0.55), Color(0.8, 0.15, 0.15), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 90.0:
 		var dmg := 6
 		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Chaos Orb!", player_ref.global_position, Color(0.85, 0.3, 0.55))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.85, 0.3, 0.55), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Chaos Orb!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -403,10 +446,15 @@ func _ground_fissure() -> void:
 		var p := global_position + dir * (10.0 + i * 12.0) + Vector2(randf_range(-8.0, 8.0), randf_range(-8.0, 8.0))
 		EffectSpawner.spawn_particles(p, Color(0.6, 0.4, 0.2), 6, 7.0)
 		EffectSpawner.spawn_particles(p, Color(0.85, 0.3, 0.55, 0.5), 3, 5.0)
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(0.6, 0.4, 0.2), Color(0.85, 0.3, 0.55), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 80.0:
 		var dmg := 8
 		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Ground Fissure!", player_ref.global_position, Color(0.6, 0.4, 0.2))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.6, 0.4, 0.2), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Ground Fissure!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -420,11 +468,16 @@ func _tendril_eruption() -> void:
 			var p := global_position + Vector2(cos(a), sin(a)) * r
 			EffectSpawner.spawn_particles(p, Color(0.5, 0.15, 0.7), 4, 6.0)
 			EffectSpawner.spawn_particles(p, Color(0.3, 0.15, 0.05), 2, 5.0)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.5, 0.15, 0.7), Color(0.3, 0.15, 0.05), Color.TRANSPARENT)
 	# Damage if close
 	if player_ref and global_position.distance_to(player_ref.global_position) < 50.0:
 		var dmg := 7
 		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Tendril Eruption!", player_ref.global_position, Color(0.5, 0.15, 0.7))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.5, 0.15, 0.7), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Tendril Eruption!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 

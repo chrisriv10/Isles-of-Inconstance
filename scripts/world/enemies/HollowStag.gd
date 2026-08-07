@@ -140,6 +140,11 @@ func _handle_charge_state(delta: float) -> void:
 		_trigger_screen_shake(4.0, 0.15)
 		EffectSpawner.spawn_particles(player_ref.global_position, Color(1.0, 0.8, 0.2), 8, 12.0)
 		EffectSpawner.spawn_floating_text("Gore!", player_ref.global_position, Color(1.0, 0.85, 0.3))
+		_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+			Color(1.0, 0.8, 0.2), Color.TRANSPARENT, Color.TRANSPARENT)
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(1.0, 0.85, 0.3), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Gore!")
 		_is_charging = false
 		speed = 80.0
 
@@ -156,6 +161,12 @@ func _handle_phased_state(delta: float) -> void:
 		_trigger_screen_shake(3.0, 0.1)
 		EffectSpawner.spawn_particles(global_position, Color(1.0, 0.85, 0.3), 8, 14.0)
 		EffectSpawner.spawn_floating_text("Surprise!", player_ref.global_position, Color(0.85, 0.85, 1.0))
+		# Mirror the teleport burst on clients.
+		_broadcast_boss_effect(BossEffect.BURST, global_position,
+			Color(1.0, 0.85, 0.3), Color.TRANSPARENT, Color.TRANSPARENT)
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.85, 0.85, 1.0), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Surprise!")
 		# Immediate charge after teleport
 		_is_charging = true
 		_charge_timer = 0.4
@@ -172,6 +183,8 @@ func _start_phase() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.85, 0.3), 10, 16.0)
 	EffectSpawner.spawn_particles(global_position, Color(0.7, 0.7, 1.0), 6, 12.0)
 	ToastNotification.show_toast("💨 Hollow Stag fades into the shadows!", ToastNotification.ToastType.WARNING, 1.5)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(1.0, 0.85, 0.3), Color(0.7, 0.7, 1.0), Color.TRANSPARENT)
 
 
 ## Ethereal Barrage — fires 3 ghostly projectiles in an arc toward the player.
@@ -193,6 +206,11 @@ func _ethereal_barrage() -> void:
 	if global_position.distance_to(player_ref.global_position) < 130.0:
 		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Ghost Barrage!", player_ref.global_position, Color(0.85, 0.85, 1.0))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.85, 0.85, 1.0), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Ghost Barrage!")
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(0.85, 0.85, 1.0), Color(1.0, 0.85, 0.3), Color.TRANSPARENT)
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(2.0, 0.1)
 
@@ -216,6 +234,14 @@ func _spectral_howl() -> void:
 		# Visual-only push effect (no physics knockback)
 		_trigger_screen_shake(6.0, 0.3)
 		EffectSpawner.spawn_floating_text("Spectral Howl!", player_ref.global_position, Color(0.7, 0.7, 1.0))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.7, 0.7, 1.0), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Spectral Howl!")
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.7, 0.7, 1.0), Color.TRANSPARENT, Color.TRANSPARENT)
+	_broadcast_boss_effect(BossEffect.FLASH, global_position,
+		Color(0.85, 0.85, 1.0, 0.15), Color.TRANSPARENT, Color.TRANSPARENT,
+		"", 0.0, 0.5)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
 
 

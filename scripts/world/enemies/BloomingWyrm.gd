@@ -135,6 +135,12 @@ func _enter_enrage() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.85, 0.3, 0.55), 25, 30.0)
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.2, 0.2), 15, 25.0)
 	ToastNotification.show_toast("🔥 Blooming Wyrm enters ENRAGED state!", ToastNotification.ToastType.ERROR, 3.0)
+	# Mirror the enrage burst + flash on clients.
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.85, 0.3, 0.55), Color(1.0, 0.2, 0.2), Color.TRANSPARENT)
+	_broadcast_boss_effect(BossEffect.FLASH, global_position,
+		Color(0.85, 0.3, 0.55, 0.35), Color.TRANSPARENT, Color.TRANSPARENT,
+		"", 0.0, 1.0)
 	# Flashing sprite to indicate enrage
 	var tween := create_tween().set_loops()
 	tween.tween_property(sprite, "modulate", Color(1.0, 0.4, 0.6), 0.15)
@@ -160,6 +166,11 @@ func _petal_storm() -> void:
 			_damage_target(4 if not _is_enraged else 6)
 	AudioManager.play(AudioManager.Sound.HIT)
 	EffectSpawner.spawn_floating_text("Petal Storm!", center, Color(0.85, 0.3, 0.55))
+	_broadcast_boss_effect(BossEffect.BURST, center,
+		Color(0.85, 0.3, 0.55), Color(0.3, 0.9, 0.2), Color.TRANSPARENT)
+	_broadcast_boss_effect(BossEffect.FLOATING_TEXT, center,
+		Color(0.85, 0.3, 0.55), Color.TRANSPARENT, Color.TRANSPARENT,
+		"Petal Storm!")
 
 
 ## Vine Lash — vines burst from the ground at the player's position.
@@ -174,11 +185,17 @@ func _vine_lash() -> void:
 		var pos := target + offset
 		EffectSpawner.spawn_particles(pos, Color(0.6, 0.4, 0.2), 6, 7.0)
 		EffectSpawner.spawn_particles(pos, Color(0.3, 0.9, 0.2), 4, 6.0)
+	# Mirror the eruptions on clients' remote copies.
+	_broadcast_boss_effect(BossEffect.BURST, target,
+		Color(0.6, 0.4, 0.2), Color(0.3, 0.9, 0.2), Color.TRANSPARENT)
 	# Damage check
 	if global_position.distance_to(player_ref.global_position) < 50.0:
 		var dmg := 5 if not _is_enraged else 8
 		_damage_target(dmg)
 		EffectSpawner.spawn_floating_text("Vine Lash!", player_ref.global_position, Color(0.3, 0.9, 0.2))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.3, 0.9, 0.2), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Vine Lash!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -191,6 +208,11 @@ func _spit_poison_pool() -> void:
 	EffectSpawner.spawn_particles(pool_pos, Color(0.5, 0.9, 0.2), 5, 8.0)
 	AudioManager.play(AudioManager.Sound.HIT)
 	EffectSpawner.spawn_floating_text("Poison Pool!", pool_pos, Color(0.3, 0.8, 0.2))
+	_broadcast_boss_effect(BossEffect.BURST, pool_pos,
+		Color(0.5, 0.9, 0.2), Color(0.3, 0.8, 0.2), Color.TRANSPARENT)
+	_broadcast_boss_effect(BossEffect.FLOATING_TEXT, pool_pos,
+		Color(0.3, 0.8, 0.2), Color.TRANSPARENT, Color.TRANSPARENT,
+		"Poison Pool!")
 
 
 func _tick_poison_pools(delta: float) -> void:
@@ -222,6 +244,8 @@ func _start_burrow() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.85, 0.3, 0.55), 6, 10.0)
 	ToastNotification.show_toast("🐛 Blooming Wyrm burrows underground!", ToastNotification.ToastType.WARNING, 1.5)
 	_trigger_screen_shake(3.0, 0.2)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.6, 0.4, 0.2), Color(0.85, 0.3, 0.55), Color.TRANSPARENT)
 
 
 func _emerge() -> void:
@@ -239,6 +263,8 @@ func _emerge() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.6, 0.4, 0.2), 10, 16.0)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
 	ToastNotification.show_toast("🌺 Blooming Wyrm erupts from below!", ToastNotification.ToastType.WARNING, 1.5)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.85, 0.3, 0.55), Color(0.6, 0.4, 0.2), Color.TRANSPARENT)
 
 
 func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false) -> void:

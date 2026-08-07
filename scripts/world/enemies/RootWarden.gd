@@ -110,9 +110,14 @@ func _root_grasp() -> void:
 		var offset := Vector2(randf_range(-8.0, 8.0), randf_range(-8.0, 8.0))
 		var spawn_pos := global_position + dir * (10.0 + i * 6.0) + offset
 		EffectSpawner.spawn_particles(spawn_pos, Color(0.4, 0.2, 0.05), 3, 4.0)
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(0.4, 0.2, 0.05), Color.TRANSPARENT, Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 90.0:
 		_damage_target(5)
 		EffectSpawner.spawn_floating_text("Roots Grab You!", player_ref.global_position, Color(0.6, 0.3, 0.1))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.6, 0.3, 0.1), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Roots Grab You!")
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(2.0, 0.1)
 
@@ -127,9 +132,14 @@ func _earth_spike() -> void:
 		var spike_pos := target + Vector2(randf_range(-12.0, 12.0), randf_range(-12.0, 12.0))
 		EffectSpawner.spawn_particles(spike_pos, Color(0.5, 0.3, 0.1), 8, 6.0)
 		EffectSpawner.spawn_particles(spike_pos, Color(0.55, 0.2, 0.7), 4, 5.0)
+	_broadcast_boss_effect(BossEffect.BURST, target,
+		Color(0.5, 0.3, 0.1), Color(0.55, 0.2, 0.7), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 60.0:
 		_damage_target(7)
 		EffectSpawner.spawn_floating_text("Earth Spike!", player_ref.global_position, Color(0.8, 0.5, 0.1))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.8, 0.5, 0.1), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Earth Spike!")
 	AudioManager.play(AudioManager.Sound.HIT)
 
 
@@ -144,9 +154,14 @@ func _vine_whip() -> void:
 		var sweep_pos := global_position + dir * 40.0 + perp * t * 25.0
 		EffectSpawner.spawn_particles(sweep_pos, Color(0.3, 0.6, 0.15), 4, 5.0)
 		EffectSpawner.spawn_particles(sweep_pos, Color(0.55, 0.2, 0.7), 2, 4.0)
+	_broadcast_boss_effect(BossEffect.BURST, player_ref.global_position,
+		Color(0.3, 0.6, 0.15), Color(0.55, 0.2, 0.7), Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) < 90.0:
 		_damage_target(8)
 		EffectSpawner.spawn_floating_text("Vine Whip!", player_ref.global_position, Color(0.3, 0.7, 0.2))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.3, 0.7, 0.2), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Vine Whip!")
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(3.0, 0.1)
 
@@ -157,9 +172,14 @@ func _aoe_slam() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.5, 0.25, 0.1), 10, 14.0)
 	AudioManager.play(AudioManager.Sound.HIT)
 	_trigger_screen_shake(4.0, 0.15)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.5, 0.25, 0.1), Color.TRANSPARENT, Color.TRANSPARENT)
 	if global_position.distance_to(player_ref.global_position) <= AOE_RANGE:
 		_damage_target(AOE_DAMAGE)
 		EffectSpawner.spawn_floating_text("Slam!", player_ref.global_position, Color(0.8, 0.4, 0.1))
+		_broadcast_boss_effect(BossEffect.FLOATING_TEXT, player_ref.global_position,
+			Color(0.8, 0.4, 0.1), Color.TRANSPARENT, Color.TRANSPARENT,
+			"Slam!")
 
 
 func _summon_minions() -> void:
@@ -168,6 +188,8 @@ func _summon_minions() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.3, 0.15, 0.05), 12, 20.0)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
 	ToastNotification.show_toast("🌱 The Root Warden summons Sporelings!", ToastNotification.ToastType.WARNING, 2.5)
+	_broadcast_boss_effect(BossEffect.BURST, global_position,
+		Color(0.5, 0.0, 0.5), Color(0.3, 0.15, 0.05), Color.TRANSPARENT)
 	
 	# Broadcast minion spawns via EnemySpawner so all peers get them
 	var spawner := get_tree().get_first_node_in_group("enemy_spawner")
