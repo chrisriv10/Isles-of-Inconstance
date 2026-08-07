@@ -76,7 +76,23 @@ var _feedback_label: Label
 # Animal scene for instantiation
 const ANIMAL_SCENE := preload("res://scenes/world/Animal.tscn")
 
-## Item IDs that are building kits — grouped in their own section
+### Convert a BBCode-formatted string (e.g. an item description containing
+## [color=#...] / [b] tags) into plain text for tooltips. Godot's built-in
+## tooltip_text does NOT parse BBCode, so without this the raw [color=...]
+## tags would show literally in the creative panel hover tooltip. The
+## inventory panel shows the same descriptions correctly because it assigns
+## them to a Label's bbcode_text, which parses BBCode.
+func _bbcode_to_plain(text: String) -> String:
+	if text.is_empty():
+		return text
+	var parser := Label.new()
+	parser.bbcode_enabled = true
+	parser.text = text
+	var parsed: String = parser.get_parsed_text()
+	parser.free()
+	return parsed
+
+# Item IDs that are building kits — grouped in their own section
 ## rather than appearing under "Miscellaneous".
 const BUILDING_KIT_IDS: Array[String] = [
 	"small_home_kit", "medium_home_kit", "large_home_kit",
@@ -508,7 +524,7 @@ func _rebuild_grid() -> void:
 			btn.custom_minimum_size = Vector2(140, 28)
 			btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			btn.text = item_data.display_name
-			btn.tooltip_text = item_data.description
+			btn.tooltip_text = _bbcode_to_plain(item_data.description)
 			btn.pressed.connect(_on_item_pressed.bind(item_id))
 
 			var cat_color: Color = CATEGORY_COLORS.get(item_data.category, Color.WHITE)
@@ -552,7 +568,7 @@ func _rebuild_grid() -> void:
 			btn.custom_minimum_size = Vector2(140, 28)
 			btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			btn.text = item_data.display_name
-			btn.tooltip_text = item_data.description
+			btn.tooltip_text = _bbcode_to_plain(item_data.description)
 			btn.pressed.connect(_on_item_pressed.bind(item_id))
 			btn.add_theme_color_override("font_color", Color(0.8, 0.65, 0.35))
 			b_grid.add_child(btn)
@@ -585,7 +601,7 @@ func _rebuild_grid() -> void:
 			btn.custom_minimum_size = Vector2(140, 28)
 			btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			btn.text = item_data.display_name
-			btn.tooltip_text = item_data.description
+			btn.tooltip_text = _bbcode_to_plain(item_data.description)
 			btn.pressed.connect(_on_item_pressed.bind(item_id))
 			btn.add_theme_color_override("font_color", Color(1.0, 0.6, 0.0))
 			lf_grid.add_child(btn)
