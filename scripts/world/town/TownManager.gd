@@ -491,9 +491,13 @@ func creative_restore_all(is_host_called: bool = false) -> void:
 	# sync_restored_town_buildings(), but the HOST skips applying its own
 	# broadcast (see _sync_town_state_chunk), so without this direct call the
 	# host would never earn the "restore N town buildings" objective credit.
+	# Use sync_restored_town_buildings (which sets the REAL restored count)
+	# rather than on_building_restored (which only does +1), so restoring ALL
+	# ruins at once credits the full count — otherwise the host ends up stuck at
+	# 1/14 and diverges from clients.
 	var om := get_tree().get_first_node_in_group("objective_manager")
-	if om and om.has_method("on_building_restored"):
-		om.on_building_restored()
+	if om and om.has_method("sync_restored_town_buildings"):
+		om.sync_restored_town_buildings(get_restored_count())
 	
 	# Recalculate town level
 	calculate_town_level()
