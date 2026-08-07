@@ -1,6 +1,6 @@
 ## RestaurantSystem — crop selling hub at the restaurant.
 ## Pays premium prices for crops (especially high-quality ones).
-## Has a daily special request for bonus gold.
+## Has a daily special request for bonus coins.
 ## Also handles recipe discovery when bringing rare ingredients.
 
 extends Node
@@ -125,7 +125,7 @@ func calculate_price(item_id: String, count: int, quality: int = 0) -> int:
 	
 	return maxi(1, int(price))
 
-## Sell crops. Returns gold earned.
+## Sell crops. Returns coins earned.
 func sell_crops(item_id: String, count: int, quality: int = 0) -> int:
 	var item_data := DataManager.get_item(item_id)
 	if not item_data:

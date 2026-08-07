@@ -1593,7 +1593,7 @@ func _add_hotel_bed(pos: Vector2) -> Interactable:
 	self.bed = bed
 	return bed
 
-## Create the hotel front desk — an Interactable that collects gold from Hotel.gd.
+## Create the hotel front desk — an Interactable that collects coins from Hotel.gd.
 func _add_hotel_front_desk(pos: Vector2) -> void:
 	var desk := Interactable.new()
 	desk.collision_layer = 4
@@ -2061,18 +2061,18 @@ func _add_bakery_counter(pos: Vector2) -> Interactable:
 
 func _start_bakery_minigame() -> void:
 	## Show a payment choice popup, then launch the minigame.
-	## Player can pay with $10 gold OR 1 dough + 1 wood.
+	## Player can pay with $10 coins OR 1 dough + 1 wood.
 	_show_bake_cost_choice()
 
 ## Show a small popup letting the player choose how to pay for baking.
 func _show_bake_cost_choice() -> void:
 	var has_dough: bool = InventoryManager.get_count("dough") >= 1
 	var has_wood: bool = InventoryManager.get_count("wood") >= 1
-	var has_gold: bool = GameManager.money >= 10
+	var has_coins: bool = GameManager.money >= 10
 	var has_ingredients: bool = has_dough and has_wood
 	
-	if not has_gold and not has_ingredients:
-		var msg: String = "Can't afford to bake! Need $10 gold, or 1 Dough + 1 Wood."
+	if not has_coins and not has_ingredients:
+		var msg: String = "Can't afford to bake! Need $10 coins, or 1 Dough + 1 Wood."
 		ToastNotification.show_toast(msg, ToastNotification.ToastType.ERROR, 3.0)
 		return
 	
@@ -2109,9 +2109,9 @@ func _show_bake_cost_choice() -> void:
 		if is_instance_valid(popup):
 			popup.queue_free()
 	
-	var launch := func(pay_with_gold: bool) -> void:
+	var launch := func(pay_with_coins: bool) -> void:
 		close_popup.call()
-		if pay_with_gold:
+		if pay_with_coins:
 			GameManager.add_money(-10)
 		else:
 			InventoryManager.remove_item("dough", 1)
@@ -2119,8 +2119,8 @@ func _show_bake_cost_choice() -> void:
 		_launch_bakery_minigame()
 	
 	var gold_btn := Button.new()
-	gold_btn.text = "Pay $10 gold" if has_gold else "Pay $10 gold [need more]"
-	gold_btn.disabled = not has_gold
+	gold_btn.text = "Pay $10 coins" if has_coins else "Pay $10 coins [need more]"
+	gold_btn.disabled = not has_coins
 	gold_btn.add_theme_font_size_override("font_size", 11)
 	gold_btn.pressed.connect(func() -> void: launch.call(true))
 	layout.add_child(gold_btn)
@@ -3495,7 +3495,7 @@ func _generate_bank() -> void:
 	# 🧑‍💼 Bank teller NPC behind the counter
 	_add_interior_npc(Vector2(48, 46), preload("res://assets/generated/teller.png"), "Teller Tom", Color(0.85, 0.82, 0.75), 1.0, [
 		"Safe and sound — that's the Tidehaven Bank way!",
-		"Interest accrues daily. Your gold is working for you!",
+		"Interest accrues daily. Your coins are working for you!",
 		"Need to make a deposit or withdrawal? I'm your man.",
 		"We keep your coins safer than a dragon's hoard.",
 	])

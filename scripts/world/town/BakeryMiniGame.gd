@@ -40,7 +40,7 @@ const ZONE_SILVER_FRAC: float = 0.75   # inner 75% = Silver
 const ZONE_GOLD_FRAC: float = 0.45     # inner 45% = Gold
 const ZONE_IRIDIUM_FRAC: float = 0.15  # inner 15% = Iridium
 
-## Cost in gold to attempt a bake (cost now charged in resources — dough + wood — by BuildingInterior)
+## Cost in coins to attempt a bake (cost now charged in resources — dough + wood — by BuildingInterior)
 const BAKE_COST: int = 0
 
 ## Zone width as fraction of bar width (0.0 - 1.0)

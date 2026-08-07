@@ -109,7 +109,7 @@ func _sync_locked_tabs() -> void:
 	else:
 		_locked_tabs = DEFAULT_LOCKED_TABS.duplicate()
 
-## Called by LibraryResearch when the player pays gold to unlock a tab.
+## Called by LibraryResearch when the player pays coins to unlock a tab.
 ## Removes the tab from the locked set and refreshes so it becomes visible.
 func unlock_tab(tab_name: String) -> void:
 	_locked_tabs.erase(tab_name)
@@ -151,10 +151,10 @@ func _build_all_tabs() -> void:
 ## Show a placeholder tab with a lock icon and instructions for locked tabs.
 func _build_locked_tab_placeholder(tab_title: String) -> void:
 	var vbox := _make_scroll_container(tab_title)
-	_add_hint(vbox, "🔒 This section is locked. Visit the Library in Tidehaven and pay gold to unlock it.")
+	_add_hint(vbox, "🔒 This section is locked. Visit the Library in Tidehaven and pay coins to unlock it.")
 	_add_entry(vbox, tab_title, "Locked — Research Required",
 		"This encyclopedia section can be unlocked by researching at the Library.\n"
-		+ "Cost: $50 per section.\n"
+		+ "Cost: 50 coins per section.\n"
 		+ "Find the Library in Tidehaven and speak with the scholar.",
 		null, Color(0.5, 0.5, 0.5))
 
@@ -939,11 +939,11 @@ func _build_town_tab() -> void:
 		rep_icon, Color(0.9, 0.8, 0.3))
 	
 	var bakery_icon: Texture2D = _lookup_item_icon("bread")
-	_add_entry(vbox, "Bakery Mini-Game", "Bake goods for gold and buffs",
+	_add_entry(vbox, "Bakery Mini-Game", "Bake goods for coins and buffs",
 		"Talk to the baker in the restored Bakery to start a baking session.\n"
 		+ "Press [b]Space[/b] at the right moment to flip items\n"
 		+ "Timing determines quality: Burnt, Normal, Silver, Gold, Iridium\n"
-		+ "Higher quality = more gold and better buffs\n"
+		+ "Higher quality = more coins and better buffs\n"
 		+ "Iridium quality items provide powerful temporary buffs!",
 		bakery_icon, Color(0.9, 0.7, 0.3))
 	
@@ -960,7 +960,7 @@ func _build_town_tab() -> void:
 	var library_icon: Texture2D = _lookup_item_icon("ancient_coin")
 	_add_entry(vbox, "Library Research", "Unlock secrets through research",
 		"Talk to the scholar in the restored Library to research topics.\n"
-		+ "Pay gold to unlock new encyclopedia entries\n"
+		+ "Pay coins to unlock new encyclopedia entries\n"
 		+ "Research grants permanent bonuses\n"
 		+ "Unlock crop mutation knowledge\n"
 		+ "Reveal hidden areas on the world map\n"

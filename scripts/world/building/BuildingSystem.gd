@@ -221,7 +221,7 @@ const BUILDING_DATA: Dictionary = {
 		"has_interior": true,
 		"interior_scene": "",
 		"ingredients": {"wood": 60, "stone": 30, "wooden_planks": 20, "gold_nugget": 5},
-		"description": "A grand two-story hotel with a comfortable lobby and private guest rooms. Earns gold from visitor NPCs."
+		"description": "A grand two-story hotel with a comfortable lobby and private guest rooms. Earns coins from visitor NPCs."
 	},
 	BuildingType.SCARECROW: {
 		"name": "Scarecrow",

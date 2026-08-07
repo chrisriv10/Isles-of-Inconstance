@@ -1,5 +1,5 @@
 ## LibraryResearch — research system at the library.
-## Player can pay gold to unlock encyclopedia entries, reveal map fog,
+## Player can pay coins to unlock encyclopedia entries, reveal map fog,
 ## or research crop mutation paths.
 
 extends Node
@@ -167,7 +167,7 @@ func is_completed(topic_type: String, topic_id: String) -> bool:
 	return false  # Placeholder — track in serialization if needed
 
 ## Open the library research UI — shows available research topics the player
-## can pay gold to unlock (encyclopedia tabs, map fog, crop mutations).
+## can pay coins to unlock (encyclopedia tabs, map fog, crop mutations).
 func open_ui() -> void:
 	# Find a CanvasLayer to parent the popup (HUD is ideal)
 	var hud: CanvasLayer = get_tree().get_first_node_in_group("hud") as CanvasLayer

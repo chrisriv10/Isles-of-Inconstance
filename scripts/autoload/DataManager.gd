@@ -4269,7 +4269,7 @@ func generate_procedural_crops(seed: int) -> void:
 
 
 ## Generates 3 unique Inconstant Fruits and registers them as buyable items.
-## Sets the buy_price to an astronomical 100,000 gold so only the most
+## Sets the buy_price to an astronomical 10,000 coins so only the most
 ## dedicated players can afford one.
 func _generate_inconstant_fruits(rng: RandomNumberGenerator) -> void:
 	var system := InconstantFruitSystem.new()
@@ -4277,5 +4277,5 @@ func _generate_inconstant_fruits(rng: RandomNumberGenerator) -> void:
 	for fruit in fruits:
 		if fruit.get_meta("is_soul_fruit", false):
 			continue  # Soul Fruit is never buyable/sellable
-		fruit.buy_price = 10000  # High price — 10K gold
+		fruit.buy_price = 10000  # High price — 10K coins
 		fruit.sell_price = 50000  # Can still sell for a fortune

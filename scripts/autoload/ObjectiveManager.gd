@@ -565,7 +565,7 @@ func on_crop_discovered() -> void:
 	track_progress(ObjectiveType.DISCOVER_5_CROPS)
 
 ## Called when hotel earnings are collected from any hotel building.
-## Total accumulated hotel gold is tracked as progress.
+## Total accumulated hotel coins are tracked as progress.
 func on_hotel_earned(amount: int) -> void:
 	if _completed.has(ObjectiveType.INNKEEPER_100_GOLD):
 		return
