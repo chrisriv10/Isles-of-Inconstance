@@ -781,6 +781,24 @@ func _sync_enemy_died(eid: int, loot: Array = []) -> void:
 	)
 
 
+## Host → all clients: play the dramatic boss death burst on the remote copy.
+## The boss _die() override runs ONLY on the host's authority copy — its
+## particles / screen flash / shake never reach clients. The base _die() only
+## broadcasts _sync_enemy_died, which just fades the sprite out. So without
+## this, a client sees the boss silently vanish instead of the kill explosion.
+## Each boss passes its signature theme colors so the remote burst matches the
+## host's local one. Runs on the calling peer (call_local) AND routes to the
+## client's matching remote copy via _broadcast_enemy_rpc.
+@rpc("authority", "reliable", "call_local")
+func _sync_boss_death(eid: int, c1: Color, c2: Color, c3: Color) -> void:
+	if not _is_remote or enemy_id != eid:
+		return
+	EffectSpawner.spawn_particles(global_position, c1, 30, 40.0)
+	EffectSpawner.spawn_particles(global_position, c2, 20, 32.0)
+	EffectSpawner.spawn_particles(global_position, c3, 15, 28.0)
+	EffectSpawner.screen_shake(7.0, 0.5)
+
+
 ## Client → host: forward a melee/ranged attack on a remote copy.
 ## ranged=true is used by bow arrows: melee gates on adjacency (100px), which
 ## would wrongly reject legitimate long-range shots — but the client's physics

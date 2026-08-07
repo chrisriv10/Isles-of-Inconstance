@@ -440,6 +440,9 @@ func _die() -> void:
 	_trigger_screen_shake(12.0, 1.5)
 	EffectSpawner.spawn_particles(global_position, Color(0.8, 0.15, 0.15), 50, 60.0)
 	AudioManager.play(AudioManager.Sound.BOSS_DIE)
+	# Mirror the death explosion on clients' remote copies (the multi-phase
+	# _die() override above runs only on the host's authority copy).
+	_broadcast_enemy_rpc("_sync_boss_death", [enemy_id, Color(0.8, 0.15, 0.15), Color(0.5, 0.15, 0.7), Color(1.0, 0.85, 0.3)], true)
 	
 	# ── Phase 1: Expanding purple shockwave ring ──
 	await get_tree().create_timer(0.4).timeout

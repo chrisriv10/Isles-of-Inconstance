@@ -261,6 +261,8 @@ func _die() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.3, 0.9, 0.2), 20, 32.0)
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 0.8, 0.6), 15, 28.0)
 	AudioManager.play(AudioManager.Sound.BOSS_DIE)
+	# Mirror the death explosion on clients' remote copies.
+	_broadcast_enemy_rpc("_sync_boss_death", [enemy_id, Color(0.85, 0.3, 0.55), Color(0.3, 0.9, 0.2), Color(1.0, 0.8, 0.6)], true)
 	ToastNotification.show_toast("The Blooming Wyrm wilts away!", ToastNotification.ToastType.SUCCESS, 3.0)
 	ToastNotification.show_toast("💀 " + display_name + " defeated! +500 XP", ToastNotification.ToastType.SUCCESS, 4.0)
 	

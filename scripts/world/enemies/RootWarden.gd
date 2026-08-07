@@ -192,6 +192,9 @@ func _die() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.5, 0.25, 0.1), 20, 35.0)
 	EffectSpawner.spawn_particles(global_position, Color(0.2, 0.8, 0.2), 12, 25.0)
 	AudioManager.play(AudioManager.Sound.BOSS_DIE)
+	# Mirror the death explosion on clients' remote copies (the host-only _die()
+	# override plays this locally but never reaches guests).
+	_broadcast_enemy_rpc("_sync_boss_death", [enemy_id, Color(0.55, 0.2, 0.7), Color(0.5, 0.25, 0.1), Color(0.2, 0.8, 0.2)], true)
 	ToastNotification.show_toast("The Root Warden crumbles into dust!", ToastNotification.ToastType.SUCCESS, 3.0)
 	ToastNotification.show_toast("💀 " + display_name + " defeated! +500 XP", ToastNotification.ToastType.SUCCESS, 4.0)
 	

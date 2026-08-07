@@ -233,6 +233,8 @@ func _die() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.7, 0.7, 1.0), 20, 32.0)
 	EffectSpawner.spawn_particles(global_position, Color(1.0, 1.0, 1.0), 15, 28.0)
 	AudioManager.play(AudioManager.Sound.BOSS_DIE)
+	# Mirror the death explosion on clients' remote copies.
+	_broadcast_enemy_rpc("_sync_boss_death", [enemy_id, Color(1.0, 0.85, 0.3), Color(0.7, 0.7, 1.0), Color(1.0, 1.0, 1.0)], true)
 	ToastNotification.show_toast("The Hollow Stag fades into pure light!", ToastNotification.ToastType.SUCCESS, 3.0)
 	ToastNotification.show_toast("💀 " + display_name + " defeated! +500 XP", ToastNotification.ToastType.SUCCESS, 4.0)
 	
