@@ -3013,6 +3013,12 @@ func try_place_building(cell: Vector2i) -> bool:
 	AudioManager.play(AudioManager.Sound.BUILD)
 	LevelManager.add_xp_source("build")
 
+	# Grab the placed type BEFORE exit_build_mode() resets build_type to
+	# BuildingType.NONE — otherwise the sync RPC below sends 0 (NONE) and the
+	# host's _sync_place_building() no-ops (BUILDING_DATA.has(0) is false), so a
+	# non-keep-mode building (barn, home, silo, well…) placed by a client never
+	# appears on other peers.
+	var placed_type: int = build_type
 	if not keep_mode:
 		exit_build_mode()
 
@@ -3021,7 +3027,7 @@ func try_place_building(cell: Vector2i) -> bool:
 
 	# Sync to remote peers
 	if NetworkManager.is_network_active():
-		rpc("_sync_place_building", build_type, cell)
+		rpc("_sync_place_building", placed_type, cell)
 
 	return true
 

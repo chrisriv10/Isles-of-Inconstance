@@ -1445,6 +1445,11 @@ func remove_downed_state() -> void:
 		rpc("_sync_downed_state", false)
 
 func _show_downed_ui() -> void:
+	# Idempotent: clear any existing downed-UI stack first so repeat calls
+	# (e.g. _cancel_revive re-showing right before revive completes) never stack
+	# a second DownedLabel. Otherwise _hide_downed_ui only frees the first of
+	# several labels, leaving a ghost "DOWNED" text after a revive.
+	_hide_downed_ui()
 	# Create a "DOWNED" label above player
 	var downed_label := Label.new()
 	downed_label.name = "DownedLabel"
