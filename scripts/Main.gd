@@ -42,6 +42,13 @@ func _ready() -> void:
 	world_map_node.name = "WorldMap"
 	add_child(world_map_node)
 	
+	# Create mine minimap overlay programmatically (same reason: scene file
+	# persistence). Purely local, read-only UI shown only while inside a mine.
+	var mm_scene := preload("res://scenes/ui/MineMinimap.tscn")
+	var mine_minimap: CanvasLayer = mm_scene.instantiate()
+	mine_minimap.name = "MineMinimap"
+	add_child(mine_minimap)
+
 	# Create objectives panel programmatically (same reason: scene file persistence)
 	var op_scene := preload("res://scenes/ui/ObjectivesPanel.tscn")
 	var op_node: CanvasLayer = op_scene.instantiate()
