@@ -964,6 +964,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				if event.pressed:
 					if _is_build_mode_active():
 						_try_build_placement_at_pos(get_global_mouse_position())
+					elif _try_start_mine_hold_interaction():
+						# Holding left-click near a mine entrance/exit/descent shaft
+						# fills a progress bar and performs the mine action.
+						pass
 					elif _try_start_building_enter():
 						# Holding left-click on an enterable building fills a
 						# progress bar and enters it (alt to pressing E).
@@ -980,6 +984,8 @@ func _unhandled_input(event: InputEvent) -> void:
 						_finish_bow_charge(get_global_mouse_position())
 					if _is_entering_building:
 						_cancel_building_entry()
+					elif _is_mine_interacting:
+						_cancel_mine_interaction()
 				get_viewport().set_input_as_handled()
 				return
 			MOUSE_BUTTON_RIGHT:
