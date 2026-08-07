@@ -57,9 +57,6 @@ func _is_local_player(player: Node) -> bool:
 	return player.get_multiplayer_authority() == multiplayer.get_unique_id()
 
 
-# Preloaded animal scene for barn interiors
-const ANIMAL_SCENE := preload("res://scenes/world/Animal.tscn")
-
 # Preloaded pixel art textures for furniture
 const FURNITURE_BED := preload("res://assets/generated/furniture_bed_frame_0.png")
 const FURNITURE_CRAFTING := preload("res://assets/generated/furniture_crafting_frame_0.png")
@@ -958,11 +955,6 @@ func _generate_barn() -> void:
 	
 	# ── Decorations ──
 	_add_decorative(Vector2(160, 98), Color(0.4, 0.3, 0.2), 28, 20)  # Hay bales
-	
-	# ══════════════════════════════════════════════
-	#  🐄  LIVING ANIMALS (wander near their stalls)
-	# ══════════════════════════════════════════════
-	_populate_barn_animals()
 
 func _generate_town_hall() -> void:
 	_room_width = 320
@@ -1333,43 +1325,6 @@ func _add_feed_trough(pos: Vector2) -> void:
 	
 	add_child(interactable)
 
-
-## Create live Animal nodes in the barn that wander near their stalls.
-## Each stall type gets 2-3 animals with a small move radius to keep them
-## inside the room bounds (200×120 px). Animals are regenerated each time
-## the player enters the barn, giving fresh random colors and patterns.
-func _populate_barn_animals() -> void:
-	# Spawn definitions: which animal types go where in the barn
-	var animal_spawns: Array[Dictionary] = [
-		# Chickens around the chicken coop (stall at x=50, y=50)
-		{"type": "chicken", "home": Vector2(38, 56), "radius": 22.0},
-		{"type": "chicken", "home": Vector2(50, 42), "radius": 22.0},
-		{"type": "chicken", "home": Vector2(62, 52), "radius": 20.0},
-		# Cows near the cow stall (stall at x=105, y=50)
-		{"type": "cow",    "home": Vector2(98, 56), "radius": 26.0},
-		{"type": "cow",    "home": Vector2(112, 44), "radius": 24.0},
-		# Sheep near the sheep pen (stall at x=160, y=50)
-		{"type": "sheep",  "home": Vector2(148, 56), "radius": 22.0},
-		{"type": "sheep",  "home": Vector2(160, 42), "radius": 22.0},
-		{"type": "sheep",  "home": Vector2(172, 50), "radius": 20.0},
-	]
-	
-	for spawn in animal_spawns:
-		var animal := ANIMAL_SCENE.instantiate() as Animal
-		if not animal:
-			continue
-		# Must add as child BEFORE setup() so _ready() can find groups properly
-		add_child(animal)
-		# Hide species labels inside the barn (too cluttered with 3-4 animals)
-		if animal.label:
-			animal.label.visible = false
-		# Setup the animal with its type and home position
-		animal.setup(spawn["type"], spawn["home"])
-		# Override move radius AFTER _ready() and setup() since _ready()
-		# sets _move_radius = randf_range(32, 80) which is too wide for the barn
-		animal._move_radius = spawn["radius"]
-		# Re-pick target so the animal immediately wanders within our smaller radius
-		animal._pick_new_target()
 
 # ──────────────────────────────────────────────
 #  🏨  HOTEL INTERIOR — lobby + 3 guest rooms
