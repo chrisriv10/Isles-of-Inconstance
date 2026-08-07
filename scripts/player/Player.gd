@@ -1480,14 +1480,14 @@ func _show_downed_ui() -> void:
 	downed_label.name = "DownedLabel"
 	downed_label.text = "DOWNED"
 	downed_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	downed_label.add_theme_font_size_override("font_size", 14)
+	downed_label.add_theme_font_size_override("font_size", 10)
 	downed_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
 	downed_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1))
 	downed_label.add_theme_constant_override("shadow_offset_x", 2)
 	downed_label.add_theme_constant_override("shadow_offset_y", 2)
 	# Give the label an explicit centered size so the text sits directly above
 	# the player's head rather than anchoring to the left edge of position (0,0).
-	downed_label.size = Vector2(100, 14)
+	downed_label.size = Vector2(100, 12)
 	# Slightly lower than the bleedout bar so it sits a touch closer to the head.
 	downed_label.position = Vector2(-50, -44)
 	add_child(downed_label)
@@ -1525,35 +1525,33 @@ func _show_downed_ui() -> void:
 	add_child(fill)
 
 func _hide_downed_ui() -> void:
-	var downed_label := get_node_or_null("DownedLabel")
-	if downed_label:
-		downed_label.queue_free()
-	var bg := get_node_or_null("ReviveProgressBG")
-	if bg:
-		bg.queue_free()
-	var fill := get_node_or_null("ReviveProgressFill")
-	if fill:
-		fill.queue_free()
-	var bo_bg := get_node_or_null("BleedoutBarBG")
-	if bo_bg:
-		bo_bg.queue_free()
-	var bo_fill := get_node_or_null("BleedoutBarFill")
-	if bo_fill:
-		bo_fill.queue_free()
+	# Free EVERY downed-UI child (not just the first). Godot's queue_free() is
+	# deferred, so a label queued for removal is still in the tree for the rest
+	# of the frame — get_node_or_null("DownedLabel") would return that stale one
+	# and leave any newer duplicate behind, causing a ghost "DOWNED" text after
+	# a revive. Iterating all children frees every stacked copy.
+	const DOWNED_UI_NAMES := ["DownedLabel", "ReviveProgressBG", "ReviveProgressFill", "BleedoutBarBG", "BleedoutBarFill"]
+	for child in get_children():
+		if child.name in DOWNED_UI_NAMES:
+			child.queue_free()
 
 ## Received on remote copies when the owning peer enters/leaves the downed
 ## state. Mirrors the downed visuals and toggles the downed flag so the copy
 ## can be detected and revived by nearby teammates.
 @rpc("authority", "reliable")
 func _sync_downed_state(is_downed: bool) -> void:
-	if _is_downed == is_downed:
-		return
-	_is_downed = is_downed
 	if is_downed:
+		# Already downed — skip so we don't re-create/stack the UI.
+		if _is_downed:
+			return
+		_is_downed = true
 		modulate = Color(1.0, 1.0, 1.0, 0.6)
 		sprite.modulate = Color(1.0, 0.3, 0.3, 1.0)
 		_show_downed_ui()
 	else:
+		# Always clear the UI on a false sync, even if _is_downed was already
+		# false (e.g. a stale cancel re-show), so no ghost DOWNED label survives.
+		_is_downed = false
 		modulate = Color(1.0, 1.0, 1.0, 1.0)
 		sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
 		_hide_downed_ui()
