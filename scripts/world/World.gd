@@ -3576,6 +3576,19 @@ func _deferred_setup_mine_room(mine: MineRoom) -> void:
 		return
 	mine.position = MINE_VOID
 	mine.scale = Vector2(1.0, 1.0)
+	# Ensure a stable node name so node-path enemy RPCs (World/MineRoom/MineEnemy_N)
+	# resolve identically on every peer. If the name is ever left empty (or the
+	# room is added while a same-named sibling still exists), Godot auto-names it
+	# `@Node2D@<instance_id>`, which DIFFERS per peer and silently breaks every
+	# mine-enemy RPC broadcast (the "Node not found / Failed to get path" flood).
+	mine.name = "MineRoom"
+	# On a descent the previous room was queue_free()d (frees at frame end), so a
+	# stale "MineRoom" sibling can still occupy this name right now. Removing it
+	# guarantees the fresh room keeps the stable name (only one mine exists at a
+	# time). Safely ignore if no duplicate is present.
+	var existing := get_node_or_null("MineRoom")
+	if existing and existing != mine:
+		existing.queue_free()
 	add_child(mine)
 	mine.exited.connect(_on_exit_mine)
 	mine.descended.connect(_on_mine_descended)
@@ -3607,6 +3620,9 @@ func _notify_mine_room_ready() -> void:
 ## Client → host: this peer just built its local mine room and wants the
 ## host's current ore-depletion for every deposit, so deposits that were
 ## mined (or regenerating) before it built its copy match exactly.
+## The serialized snapshot (deposits + enemy HP) can exceed a single EOS
+## reliable packet (~1170 bytes) on a large floor, so it is streamed in
+## byte-chunks exactly like the world-state / farm-delta snapshots.
 @rpc("any_peer", "reliable")
 func _server_request_mine_deposit_state() -> void:
 	if not multiplayer.is_server():
@@ -3633,7 +3649,38 @@ func _server_request_mine_deposit_state() -> void:
 				"h": child.current_health,
 				"m": child.max_health,
 			})
-	rpc_id(sender, "_receive_mine_deposit_state", entries, enemy_entries)
+	var payload := var_to_bytes({"entries": entries, "enemy_entries": enemy_entries})
+	var total: int = ceili(float(payload.size()) / float(WORLD_SYNC_CHUNK_BYTES))
+	for i in range(total):
+		var start: int = i * WORLD_SYNC_CHUNK_BYTES
+		var end: int = mini(start + WORLD_SYNC_CHUNK_BYTES, payload.size())
+		rpc_id(sender, "_receive_mine_deposit_state_chunk", i, total, payload.slice(start, end))
+
+
+## Client: collect one mine-deposit-state chunk, then apply the whole snapshot
+## once every piece has arrived. Reliable RPCs preserve order, so reassembly is
+## safe (mirrors _receive_world_state_snapshot_chunk).
+@rpc("authority", "reliable")
+func _receive_mine_deposit_state_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
+	if multiplayer.is_server():
+		return
+	if chunk_index == 0:
+		_pending_mine_state_chunks = []
+		_pending_mine_state_chunks_total = total_chunks
+	if _pending_mine_state_chunks.size() != chunk_index or total_chunks != _pending_mine_state_chunks_total:
+		_pending_mine_state_chunks = []  # out-of-order/interleaved transfer — discard
+		return
+	_pending_mine_state_chunks.append(chunk)
+	if _pending_mine_state_chunks.size() < _pending_mine_state_chunks_total:
+		return
+	var payload := PackedByteArray()
+	for c in _pending_mine_state_chunks:
+		payload.append_array(c)
+	_pending_mine_state_chunks = []
+	var data: Variant = bytes_to_var(payload)
+	if not (data is Dictionary):
+		return
+	_receive_mine_deposit_state(data.get("entries", []), data.get("enemy_entries", []))
 
 
 ## Host → client: apply the host's ore-depletion snapshot to the matching
@@ -3960,6 +4007,7 @@ func _do_mine_descended(new_depth: int) -> void:
 	mine.depth_level = new_depth
 	mine.entrance_index = 0  # reset entrance for deeper levels
 	mine.generator = mine_generator
+	mine.name = "MineRoom"
 	current_mine_room = mine
 	
 	_mine_current_depth = new_depth
@@ -5341,6 +5389,11 @@ var _pending_farm_delta_chunks_total: int = 0
 # single EOS reliable packet).
 var _pending_island_rem_chunks: Array = []
 var _pending_island_rem_chunks_total: int = 0
+
+# Mine-deposit/enemy-HP snapshot reassembly (a large mine floor's deposit +
+# enemy roster can overflow a single EOS reliable packet).
+var _pending_mine_state_chunks: Array = []
+var _pending_mine_state_chunks_total: int = 0
 
 @rpc("any_peer", "reliable")
 func _server_request_world_state() -> void:
