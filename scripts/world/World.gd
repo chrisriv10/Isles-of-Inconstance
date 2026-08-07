@@ -1977,6 +1977,7 @@ func _scatter_trees() -> void:
 				tree.name = "Tree_%d" % tree_idx
 				tree_idx += 1
 				tree.set_cherry()
+				tree.sprite_seed = world_seed + tree_idx
 				objects_root.add_child(tree)
 				tree.global_position = cell_to_world(cell)
 				# Cherry trees are NOT rotated — a rotated 16×16 collision shape's
@@ -2002,6 +2003,7 @@ func _scatter_trees() -> void:
 				var tree: Area2D = TREE_SCENE.instantiate()
 				tree.name = "Tree_%d" % tree_idx
 				tree_idx += 1
+				tree.sprite_seed = world_seed + tree_idx
 				objects_root.add_child(tree)
 				tree.global_position = cell_to_world(cell)
 				tree.rotation = rng.randf_range(-0.15, 0.15)

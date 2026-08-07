@@ -57,6 +57,13 @@ const CHERRY_SPRITES: Array[String] = [
 ## Set this before _ready() (e.g. from ExpeditionIsland before add_child).
 var sprite_pool_override: Array[String] = []
 
+## Deterministic per-tree seed used to pick a sprite variant, so every peer
+## renders the SAME sprite for the same tree. Must be set BEFORE add_child by
+## the spawner (it is derived from the world/island seed). If left at its
+## default (0) it falls back to a hash of the node name so the choice is still
+## stable for that node's lifetime.
+var sprite_seed: int = 0
+
 var _is_cherry: bool = false
 
 # Chopping-progress state
@@ -231,8 +238,14 @@ func _pick_random_sprite() -> void:
 		pool = sprite_pool_override
 	else:
 		pool = TREE_SPRITES
-	
-	var path: String = pool[randi() % pool.size()]
+
+	# Deterministically pick a variant so every peer shows the same sprite.
+	# Use sprite_seed when the spawner set it (world/island seed derived);
+	# otherwise fall back to the node name so the pick is still stable.
+	var seed_val: int = sprite_seed
+	if seed_val == 0:
+		seed_val = hash(name)
+	var path: String = pool[absi(seed_val) % pool.size()]
 	if ResourceLoader.exists(path):
 		sprite_node.texture = load(path)
 	# If the file doesn't exist, the sprite stays blank rather than crashing.

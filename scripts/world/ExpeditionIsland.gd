@@ -903,6 +903,10 @@ func _scatter_trees() -> void:
 			tree.sprite_pool_override = tree_sprites
 
 		_tag_island_obj(tree)
+		# Deterministic sprite variant (matches the island_obj_id) so every peer
+		# renders the same sprite for the same tree.
+		if tree is TreeObject:
+			tree.sprite_seed = int(tree.get_meta("island_obj_id"))
 		objects_root.add_child(tree)
 		tree.position = _cell_to_world(cell)
 
