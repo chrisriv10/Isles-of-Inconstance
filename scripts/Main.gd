@@ -432,6 +432,22 @@ func _setup_multiplayer() -> void:
 			var rejoin_cam := player.get_node_or_null("Camera2D") as Camera2D
 			if rejoin_cam and not rejoin_cam.is_current():
 				rejoin_cam.make_current()
+			# A peer that left while (or after being) on an expedition island can
+			# carry stale interior/island flags into the rejoin (exiting to menu
+			# doesn't clear them). On rejoin we always land in the overworld, so
+			# clear that state or the player can be left frozen/at the void.
+			GameManager.inside_interior = false
+			GameManager.inside_building = false
+			GameManager.inside_mine = false
+			GameManager.inside_island_seed = 0
+			GameManager.near_campfire = false
+			GameManager.current_building_key = ""
+			# Ensure the player is functional regardless of any prior state.
+			player.set_process(true)
+			player.set_physics_process(true)
+			player.visible = true
+			if world and world.has_method("get_default_spawn_position"):
+				player.global_position = world.get_default_spawn_position()
 		return
 	if not NetworkManager.is_network_active():
 		return

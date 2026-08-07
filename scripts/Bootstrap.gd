@@ -851,6 +851,18 @@ func _on_exit_to_menu() -> void:
 		if player:
 			player.global_position = world_boot.get_default_spawn_position()
 
+	# Clear any stale expedition-island / interior state so a later multiplayer
+	# REJOIN lands cleanly in the overworld instead of inheriting old flags
+	# (which freeze the player at spawn). Exiting to menu from an island or a
+	# building leaves these static flags set; the rejoin path relies on them
+	# being clear.
+	GameManager.inside_interior = false
+	GameManager.inside_building = false
+	GameManager.inside_mine = false
+	GameManager.inside_island_seed = 0
+	GameManager.near_campfire = false
+	GameManager.current_building_key = ""
+
 	# Save current game state before exiting
 	SaveManager.save_game()
 
