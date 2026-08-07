@@ -471,12 +471,27 @@ func broadcast_pirate_spawn(enemy: Enemy) -> void:
 			enemy.enemy_id, enemy.current_health, enemy.max_health)
 
 
-## Host: broadcast a sporeling minion spawn so clients create a matching remote copy.
+## Host: spawn an authoritative sporeling minion on the host AND broadcast a
+## matching remote copy to clients (mirrors _spawn_enemy). Without the host-
+## side spawn, the host never created a sporeling, so it never relayed its
+## position — clients saw a frozen remote copy and the host saw nothing at all.
 func broadcast_sporeling_spawn(pos_x: float, pos_y: float) -> void:
+	var spawn_pos := Vector2(pos_x, pos_y)
+	var eid: int = _next_enemy_id
+	_next_enemy_id += 1
+	# Always spawn an authoritative sporeling locally (singleplayer OR host),
+	# matching _spawn_enemy. Scale synchronously so a broadcast sends the final
+	# (already-scaled) HP.
+	var enemy := SporelingEnemy.new()
+	enemy.global_position = spawn_pos
+	enemy.enemy_id = eid
+	enemy.name = "Enemy_%d" % eid
+	add_child(enemy)
+	enemy.apply_difficulty_scaling()
+	var hp: int = enemy.current_health
+	var max_hp: int = enemy.max_health
 	if NetworkManager.is_network_active() and multiplayer.is_server():
-		var eid: int = _next_enemy_id
-		_next_enemy_id += 1
-		rpc("_receive_spawn_sporeling", pos_x, pos_y, eid, 25, 25)  # Sporeling base HP = 25
+		rpc("_receive_spawn_sporeling", pos_x, pos_y, eid, hp, max_hp)
 
 
 ## Client: create a remote sporeling minion copy.
