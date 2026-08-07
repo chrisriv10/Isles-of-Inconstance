@@ -4269,17 +4269,50 @@ func _server_request_island_removals(seed: int) -> void:
 					"mhp": a.max_health,
 					"tamed": a._tamed,
 				})
-	rpc_id(sender, "_receive_island_removals", seed, ids, animal_states)
+	# A gathered island session can have many removed objects plus many animals,
+	# which overflows a single EOS reliable packet. Stream it in byte-chunks
+	# exactly like the world-state snapshot.
+	var payload := var_to_bytes({ "seed": seed, "ids": ids, "animal_states": animal_states })
+	var total: int = ceili(float(payload.size()) / float(WORLD_SYNC_CHUNK_BYTES))
+	for i in range(total):
+		var start: int = i * WORLD_SYNC_CHUNK_BYTES
+		var end: int = mini(start + WORLD_SYNC_CHUNK_BYTES, payload.size())
+		rpc_id(sender, "_receive_island_removals_chunk", i, total, payload.slice(start, end))
 
 
-## Host → client: apply the session's already-removed objects plus live animal
-## states to this peer so it matches the host's gathered/damaged island state
-## (removals recorded regardless of island presence are still applied when the
-## seed matches, and matching-copy animals adopt the host's HP/tamed status).
+## Client: collect one chunk of the host's island-removals payload, then apply
+## it once every piece has arrived (mirrors the world-state chunk reassembly).
 @rpc("authority", "reliable")
-func _receive_island_removals(seed: int, ids: Array, animal_states: Array = []) -> void:
+func _receive_island_removals_chunk(chunk_index: int, total_chunks: int, chunk: PackedByteArray) -> void:
 	if multiplayer.is_server():
 		return
+	if chunk_index == 0:
+		_pending_island_rem_chunks = []
+		_pending_island_rem_chunks_total = total_chunks
+	if _pending_island_rem_chunks.size() != chunk_index or total_chunks != _pending_island_rem_chunks_total:
+		_pending_island_rem_chunks = []  # out-of-order/interleaved — discard
+		return
+	_pending_island_rem_chunks.append(chunk)
+	if _pending_island_rem_chunks.size() < _pending_island_rem_chunks_total:
+		return
+	var payload := PackedByteArray()
+	for c in _pending_island_rem_chunks:
+		payload.append_array(c)
+	_pending_island_rem_chunks = []
+	var data: Variant = bytes_to_var(payload)
+	if not (data is Dictionary):
+		return
+	var seed: int = int(data.get("seed", 0))
+	var ids: Array = data.get("ids", [])
+	var animal_states: Array = data.get("animal_states", [])
+	_apply_island_removals(seed, ids, animal_states)
+
+
+## Applies the already-removed objects plus live animal states to this peer so
+## it matches the host's gathered/damaged island state (removals recorded
+## regardless of island presence are still applied when the seed matches, and
+## matching-copy animals adopt the host's HP/tamed status).
+func _apply_island_removals(seed: int, ids: Array, animal_states: Array) -> void:
 	if not _island_removed.has(seed):
 		_island_removed[seed] = {}
 	for obj_id: Variant in ids:
@@ -5302,6 +5335,12 @@ var _pending_world_chunks_total: int = 0
 # Day-rollover farm delta reassembly (mirrors the world-state chunking above).
 var _pending_farm_delta_chunks: Array = []
 var _pending_farm_delta_chunks_total: int = 0
+
+# Island-removals reassembly (same chunked pattern — a well-gathered island
+# session can carry many removed object ids plus animal states that overflow a
+# single EOS reliable packet).
+var _pending_island_rem_chunks: Array = []
+var _pending_island_rem_chunks_total: int = 0
 
 @rpc("any_peer", "reliable")
 func _server_request_world_state() -> void:
