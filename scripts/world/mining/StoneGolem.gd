@@ -78,6 +78,14 @@ func set_hp_multiplier(mult: float) -> void:
 ## group, or null. In multiplayer every peer has its own local player plus
 ## remote copies, so the enemy targets the nearest LIVING player and skips
 ## downed ones (they're waiting for a revive, not fighting).
+##
+## Mine enemies only fight players who are actually INSIDE this peer's mine
+## room. This matters in multiplayer when the host stays on the surface while
+## a client explores the mine: without the room filter the host's enemy would
+## lock onto the host's own far-away player (outside chase_range) and just
+## idle forever, so the client's copy never moves. Restricting to in-room
+## players makes the enemy watch the room and immediately chase the client's
+## remote copy once it is inside (fixes "enemies appear but do not move").
 func _find_nearest_player() -> Node2D:
 	var best: Node2D = null
 	var best_dist_sq: float = INF
@@ -87,11 +95,33 @@ func _find_nearest_player() -> Node2D:
 		if "_is_downed" in p and p._is_downed:
 			continue
 		var p_node: Node2D = p as Node2D
+		if not _player_in_my_room(p_node):
+			continue
 		var d_sq: float = global_position.distance_squared_to(p_node.global_position)
 		if d_sq < best_dist_sq:
 			best_dist_sq = d_sq
 			best = p_node
 	return best
+
+
+## True when `player` is inside this enemy's mine room (the parent MineRoom).
+## A mine is a self-contained cave placed at a void coordinate; anyone outside
+## it (overworld, other interiors, the host sitting at home) is not a valid
+## target for this room's enemies.
+func _player_in_my_room(player: Node2D) -> bool:
+	var room := get_parent()
+	if not room:
+		return true  # Unknown room — fall back to old closest-player behavior.
+	var gen: RefCounted = room.get("generator") as RefCounted
+	if gen == null:
+		return true
+	var w: int = gen.get("grid_width") if "grid_width" in gen else 64
+	var h: int = gen.get("grid_height") if "grid_height" in gen else 48
+	var origin: Vector2 = room.global_position
+	var pw: float = w * 16.0
+	var ph: float = h * 16.0
+	return player.global_position.x >= origin.x and player.global_position.x <= origin.x + pw \
+		and player.global_position.y >= origin.y and player.global_position.y <= origin.y + ph
 
 
 ## Re-picks the nearest player each frame with hysteresis so the enemy does
@@ -114,6 +144,17 @@ func _refresh_target_player() -> void:
 	var nearest_dist: float = global_position.distance_to(nearest.global_position)
 	if current_dist - nearest_dist > 40.0:
 		_player_ref = nearest
+
+
+## Called by the host when a client enters the mine: point this enemy at that
+## client's remote player RNOW so it starts chasing immediately instead of
+## waiting for the client's position to sync within chase_range (which made
+## remote copies look frozen for the first second or two).
+func retarget_to_player(player: Node2D) -> void:
+	if _is_remote:
+		return
+	if is_instance_valid(player):
+		_player_ref = player
 
 
 func _ensure_health_bar() -> void:

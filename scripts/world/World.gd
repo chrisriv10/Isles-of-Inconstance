@@ -3389,6 +3389,12 @@ func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
 	# exists and can drive combat for everyone inside the mine.
 	if current_mine_room == null and not GameManager.inside_mine:
 		_server_build_mine_room(target_e, target_d)
+		# Point the host's mine enemies at the entering client's remote copy
+		# right away. Otherwise they wait for the client's position to sync
+		# within chase_range before engaging, so the client's remote copies
+		# appear frozen for the first second or two. The build is deferred, so
+		# defer this until the room (and its enemies) actually exist.
+		call_deferred("_retarget_mine_enemies_to_client", sender)
 	rpc_id(sender, "_receive_enter_mine", target_e, target_d)
 	return true
 
@@ -3398,6 +3404,27 @@ func _server_try_enter_mine(entrance_index: int, depth: int) -> bool:
 @rpc("authority", "reliable")
 func _receive_enter_mine(entrance_index: int, depth: int) -> void:
 	_do_enter_mine(entrance_index, depth)
+
+
+## Host: after a client enters the mine, aim every enemy in the host's
+## authoritative mine room at that client's remote player copy so they start
+## moving/attacking immediately instead of idling until the client's position
+## syncs within chase_range. Fixes "client's mine enemies appear but do not move".
+func _retarget_mine_enemies_to_client(client_peer: int) -> void:
+	if not current_mine_room or not is_instance_valid(current_mine_room):
+		return
+	# Find the client's remote player copy on this host.
+	var target: Node2D = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and (p is Node2D) \
+				and p.get_multiplayer_authority() == client_peer:
+			target = p as Node2D
+			break
+	if not target:
+		return
+	for child in current_mine_room.get_children():
+		if is_instance_valid(child) and child.has_method("retarget_to_player"):
+			child.retarget_to_player(target)
 
 
 ## Internal: actually create the mine room so THIS peer's player enters.
