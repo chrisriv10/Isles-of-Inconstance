@@ -39,7 +39,7 @@ enum ObjectiveType {
 	SLAY_25_ENEMIES,      # 27
 	COOK_5_MEALS,         # 28
 	DISCOVER_5_CROPS,     # 29
-	INNKEEPER_100_GOLD,   # 30
+	INNKEEPER_100_COINS,   # 30
 	REACH_LEVEL_25,       # 31
 	REACH_LEVEL_50,       # 32
 	# === Town objectives (v3) ===
@@ -115,7 +115,7 @@ const OBJECTIVE_DEFS := {
 	ObjectiveType.SLAY_25_ENEMIES: {"name": "Vanquisher", "desc": "Defeat 25 enemies", "icon": "⚔️", "threshold": 25},
 	ObjectiveType.COOK_5_MEALS: {"name": "Home Cook", "desc": "Cook 5 meals at a campfire", "icon": "🍲", "threshold": 5},
 	ObjectiveType.DISCOVER_5_CROPS: {"name": "Botanist", "desc": "Discover 5 different crop types", "icon": "🔬", "threshold": 5},
-	ObjectiveType.INNKEEPER_100_GOLD: {"name": "Innkeeper", "desc": "Earn 100 coins from hotel guests", "icon": "🏨", "threshold": 100},
+	ObjectiveType.INNKEEPER_100_COINS: {"name": "Innkeeper", "desc": "Earn 100 coins from hotel guests", "icon": "🏨", "threshold": 100},
 	ObjectiveType.REACH_LEVEL_25: {"name": "Journeyman", "desc": "Reach Farmer Level 25", "icon": "🌟", "threshold": 25},
 	ObjectiveType.REACH_LEVEL_50: {"name": "Master Farmer", "desc": "Reach Farmer Level 50", "icon": "👑", "threshold": 50},
 	# === Town objectives (v3) ===
@@ -211,7 +211,7 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.BUY_UPGRADE,
 			ObjectiveType.EARN_1000_GOLD,
 			ObjectiveType.EARN_5000_GOLD,
-			ObjectiveType.INNKEEPER_100_GOLD,
+			ObjectiveType.INNKEEPER_100_COINS,
 		],
 	},
 	"combat": {
@@ -355,7 +355,7 @@ func get_active_objective() -> Dictionary:
 			# Mid game
 			ObjectiveType.HARVEST_50_CROPS, ObjectiveType.REACH_LEVEL_25,
 			ObjectiveType.REACH_LEVEL_50, ObjectiveType.EARN_5000_GOLD,
-			ObjectiveType.INNKEEPER_100_GOLD,
+			ObjectiveType.INNKEEPER_100_COINS,
 			# Expedition objectives
 			ObjectiveType.VISIT_PLAIN_ISLAND, ObjectiveType.VISIT_SNOWLAND_ISLAND,
 			ObjectiveType.VISIT_ICE_CREAM_ISLAND, ObjectiveType.VISIT_DESERT_ISLAND,
@@ -567,12 +567,12 @@ func on_crop_discovered() -> void:
 ## Called when hotel earnings are collected from any hotel building.
 ## Total accumulated hotel coins are tracked as progress.
 func on_hotel_earned(amount: int) -> void:
-	if _completed.has(ObjectiveType.INNKEEPER_100_GOLD):
+	if _completed.has(ObjectiveType.INNKEEPER_100_COINS):
 		return
-	var current: int = _progress.get(ObjectiveType.INNKEEPER_100_GOLD, 0)
+	var current: int = _progress.get(ObjectiveType.INNKEEPER_100_COINS, 0)
 	current += amount
-	_progress[ObjectiveType.INNKEEPER_100_GOLD] = current
-	_check_completion(ObjectiveType.INNKEEPER_100_GOLD)
+	_progress[ObjectiveType.INNKEEPER_100_COINS] = current
+	_check_completion(ObjectiveType.INNKEEPER_100_COINS)
 
 ## Called when a building is restored in the ruined town.
 func on_building_restored() -> void:
