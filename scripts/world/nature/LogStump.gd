@@ -8,6 +8,13 @@ class_name LogStump
 @export var wood_amount: int = 2
 func _ready() -> void:
 	interaction_prompt = "Gather Wood"
+	# The PlayerInteractor's collision_mask is 4, and the working interactables
+	# (Bush/FlowerPatch/MushroomPatch) sit on collision_layer 4. LogStump is
+	# spawned as a bare Area2D.new()+set_script whose default layer is 1, so it
+	# never overlaps the interactor -> no prompt, no interaction. Put it on
+	# layer 4 so the player can detect it.
+	collision_layer = 4
+	collision_mask = 0
 	
 # Initialize seeded RNG for deterministic multiplayer visuals
 	var world := get_tree().get_first_node_in_group("world")
