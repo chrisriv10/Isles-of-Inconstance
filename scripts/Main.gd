@@ -410,6 +410,7 @@ func _try_open_restoration_panel() -> void:
 # ── Multiplayer ────────────────────────────────────────────────────────
 
 func _setup_multiplayer() -> void:
+	var my_id := multiplayer.get_unique_id()
 	if _mp_setup_done:
 		# Rejoin: the game scene persists across a leave→rejoin (it's only hidden,
 		# not freed), so Main._ready doesn't re-run and the client never
@@ -418,13 +419,24 @@ func _setup_multiplayer() -> void:
 		# and without re-pulled host state (game mode, difficulty, blood moon,
 		# raid, town). Re-register so the host re-sends that state.
 		if NetworkManager.is_network_active() and not multiplayer.is_server():
-			rpc_id(1, "_register_me_to_remote", multiplayer.get_unique_id())
+			rpc_id(1, "_register_me_to_remote", my_id)
+		# The local player node persists across a leave→rejoin (the scene is
+		# only hidden, not freed), so its multiplayer_authority can be stale
+		# if the relay assigned a NEW peer id on rejoin. is_multiplayer_authority()
+		# then reads false and Player._physics_process bails, freezing movement.
+		# Re-assert our authority + name + camera so we can move again.
+		if NetworkManager.is_network_active():
+			player.set_multiplayer_authority(my_id)
+			player.name = "Player_%d" % my_id
+			_remote_players[my_id] = player
+			var rejoin_cam := player.get_node_or_null("Camera2D") as Camera2D
+			if rejoin_cam and not rejoin_cam.is_current():
+				rejoin_cam.make_current()
 		return
 	if not NetworkManager.is_network_active():
 		return
 	_mp_setup_done = true
 
-	var my_id := multiplayer.get_unique_id()
 	player.set_multiplayer_authority(my_id)
 	# Name the local player like remote copies so path-based RPC routing
 	# (e.g. _sync_remote_state, _sync_tool_swing) resolves to the same
