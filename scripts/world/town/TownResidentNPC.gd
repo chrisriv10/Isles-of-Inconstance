@@ -82,6 +82,15 @@ var _is_remote: bool = false
 const POS_SYNC_INTERVAL: float = 0.25
 var _pos_sync_timer: float = 0.0
 
+## Latest host position to glide toward (set by apply_remote_position).
+## Vector2.INF means no target yet.
+var _remote_target_pos: Vector2 = Vector2.INF
+
+## How long (seconds) a resident may fail to make progress toward a wander
+## target before we assume it's blocked and re-pick a new one.
+const STUCK_TIMEOUT: float = 2.5
+var _stuck_time: float = 0.0
+
 func _ready() -> void:
 	add_to_group("town_residents")
 	_world = get_tree().get_first_node_in_group("world")
@@ -232,6 +241,15 @@ func _process(delta: float) -> void:
 		if _pos_sync_timer <= 0.0:
 			_pos_sync_timer = POS_SYNC_INTERVAL
 			_world.relay_resident_pos(npc_id, global_position.x, global_position.y)
+
+	# Remote (client) copies don't simulate their own movement — they glide
+	# toward the host's authoritative position. Running local movement here
+	# made residents fight the host's 4 Hz snaps and appear to slide/teleport
+	# in place. _update_schedule() above still runs so visibility (inside vs
+	# outside) mirrors the host.
+	if _is_remote:
+		_interpolate_remote(delta)
+		return
 	
 	match _current_schedule:
 		"inside":
@@ -319,10 +337,41 @@ func _update_schedule() -> void:
 
 
 ## Mirror the host's authoritative position (called by World._sync_resident_pos).
+## Stores the target so _process can glide toward it smoothly between the
+## sparse 4 Hz broadcasts instead of hard-teleporting each time.
 func apply_remote_position(pos: Vector2) -> void:
 	if not _is_remote:
 		return
-	global_position = pos
+	# If the resident switched inside/outside (host teleports it home), snap
+	# directly so visibility + position stay authoritative; otherwise glide.
+	if _remote_target_pos == Vector2.INF:
+		global_position = pos
+	_remote_target_pos = pos
+
+## Remote copies: glide toward the latest host position at the resident's
+## normal speed. Tracks the host's motion continuously; when a snap arrives we
+## may be slightly behind, so the outgoing direction naturally carries us on.
+func _interpolate_remote(delta: float) -> void:
+	if _remote_target_pos == Vector2.INF:
+		return
+	var to_target: Vector2 = _remote_target_pos - global_position
+	var dist := to_target.length()
+	if dist < 0.5:
+		global_position = _remote_target_pos
+		_remote_target_pos = Vector2.INF
+		return
+	var step: Vector2 = to_target.normalized() * speed * delta
+	if step.length() >= dist:
+		global_position = _remote_target_pos
+		_remote_target_pos = Vector2.INF
+	else:
+		global_position += step
+	# Face movement direction
+	if _sprite:
+		if to_target.x < -0.1:
+			_sprite.flip_h = true
+		elif to_target.x > 0.1:
+			_sprite.flip_h = false
 
 
 ## Switch schedule and handle visibility transitions.
@@ -409,7 +458,18 @@ func _wander_update(delta: float) -> void:
 	
 	var dist_sq := global_position.distance_squared_to(_target_pos)
 	if dist_sq > 64.0:
+		var before_pos: Vector2 = global_position
 		_move_toward(_target_pos, delta)
+		# Stuck recovery: if we barely moved while trying to reach the target,
+		# assume we're boxed in (e.g. against the home building blocker) and
+		# re-pick a walkable target instead of standing still forever.
+		if global_position.distance_squared_to(before_pos) < 0.01:
+			_stuck_time += delta
+			if _stuck_time >= STUCK_TIMEOUT:
+				_stuck_time = 0.0
+				_pick_wander_target()
+		else:
+			_stuck_time = 0.0
 	else:
 		_wander_timer -= delta
 		if _wander_timer <= 0.0:
