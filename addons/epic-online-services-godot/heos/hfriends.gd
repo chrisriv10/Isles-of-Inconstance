@@ -35,7 +35,7 @@ func get_friends_async() -> Array:
 	var query_opts = EOS.Friends.QueryFriendsOptions.new()
 	EOS.Friends.FriendsInterface.query_friends(query_opts)
 
-	var ret = await IEOS.friends_interface_query_friends_callback
+	var ret = await Engine.get_singleton("IEOS").friends_interface_query_friends_callback
 
 	if not EOS.is_success(ret):
 		_log.error("Failed to query friends: result_code=%s" % EOS.result_str(ret))

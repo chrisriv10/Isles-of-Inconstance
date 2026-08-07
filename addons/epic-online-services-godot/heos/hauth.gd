@@ -90,7 +90,10 @@ var _last_connect_login_opts: EOS.Connect.LoginOptions
 #region Built-in methods
 
 func _ready() -> void:
-	IEOS.connect_interface_auth_expiration.connect(_on_connect_interface_auth_expiration)
+	# No-op on web (EOS GDExtension has no web build). Desktop unaffected.
+	if not Engine.has_singleton("IEOS"):
+		return
+	Engine.get_singleton("IEOS").connect_interface_auth_expiration.connect(_on_connect_interface_auth_expiration)
 
 #endregion
 
@@ -153,7 +156,7 @@ func login_async(opts: EOS.Auth.LoginOptions) -> bool:
 	_log.debug("Logging into Epic Account Services (AuthInterface)...")
 	EOS.Auth.AuthInterface.login(opts)
 
-	var auth_login_ret: Dictionary = await IEOS.auth_interface_login_callback
+	var auth_login_ret: Dictionary = await Engine.get_singleton("IEOS").auth_interface_login_callback
 	var auth_res: EOS.Result = auth_login_ret.result_code
 	
 	if auth_res == EOS.Result.AuthMFARequired:
@@ -206,7 +209,7 @@ func logout_async() -> EOS.Result:
 		_log.debug("Logging out from EOS Connect")
 		var logout_connect_opts = EOS.Connect.LogoutOptions.new()
 		EOS.Connect.ConnectInterface.logout(logout_connect_opts)
-		var logout_connect_ret = await IEOS.connect_interface_logout_callback
+		var logout_connect_ret = await Engine.get_singleton("IEOS").connect_interface_logout_callback
 		ret = logout_connect_ret.result_code
 
 		if not EOS.is_success(ret):
@@ -223,7 +226,7 @@ func logout_async() -> EOS.Result:
 		_log.debug("Logging out from EOS Auth")
 		var logout_auth_opts = EOS.Auth.LogoutOptions.new()
 		EOS.Auth.AuthInterface.logout(logout_auth_opts)
-		var logout_auth_ret = await IEOS.auth_interface_logout_callback
+		var logout_auth_ret = await Engine.get_singleton("IEOS").auth_interface_logout_callback
 		ret = logout_auth_ret.result_code
 	
 		if not EOS.is_success(ret):
@@ -251,7 +254,7 @@ func login_game_services_async(opts: EOS.Connect.LoginOptions) -> bool:
 	_last_connect_login_opts = opts
 	EOS.Connect.ConnectInterface.login(opts)
 
-	var login_ret: Dictionary = await IEOS.connect_interface_login_callback
+	var login_ret: Dictionary = await Engine.get_singleton("IEOS").connect_interface_login_callback
 	var login_res: EOS.Result = login_ret.result_code
 	
 	if login_res == EOS.Result.InvalidUser:
@@ -297,7 +300,7 @@ func delete_persistent_auth_async(refresh_token := "") -> bool:
 	opts.refresh_token = refresh_token
 	EOS.Auth.AuthInterface.delete_persistent_auth(opts)
 
-	var ret = await IEOS.auth_interface_delete_persistent_auth_callback
+	var ret = await Engine.get_singleton("IEOS").auth_interface_delete_persistent_auth_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to delete persistent auth: result_code=%s" % EOS.result_str(ret))
 		return false
@@ -315,7 +318,7 @@ func login_anonymous_async(p_user_display_name: String) -> bool:
 	_log.debug("Logging in anonymously...")
 
 	EOS.Connect.ConnectInterface.delete_device_id(EOS.Connect.DeleteDeviceIdOptions.new())
-	var delete_ret = await IEOS.connect_interface_delete_device_id_callback
+	var delete_ret = await Engine.get_singleton("IEOS").connect_interface_delete_device_id_callback
 	if not EOS.is_success(delete_ret):
 		_log.debug("Failed to delete device id: result_code=%s" % EOS.result_str(delete_ret))
 	
@@ -323,7 +326,7 @@ func login_anonymous_async(p_user_display_name: String) -> bool:
 	opts.device_model = " ".join(PackedStringArray([OS.get_name(), OS.get_model_name()]))
 	EOS.Connect.ConnectInterface.create_device_id(opts)
 
-	var create_ret = await IEOS.connect_interface_create_device_id_callback
+	var create_ret = await Engine.get_singleton("IEOS").connect_interface_create_device_id_callback
 	if not EOS.is_success(create_ret):
 		_log.error("Failed to create device id: result_code=%s" % EOS.result_str(create_ret))
 		return false
@@ -356,7 +359,7 @@ func get_user_info_async(p_epic_account_id := epic_account_id) -> Dictionary:
 	query_opts.target_user_id = p_epic_account_id
 	EOS.UserInfo.UserInfoInterface.query_user_info(query_opts)
 
-	var ret: Dictionary = await IEOS.user_info_interface_query_user_info_callback
+	var ret: Dictionary = await Engine.get_singleton("IEOS").user_info_interface_query_user_info_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query user info: result_code=%s" % EOS.result_str(ret))
 		return {}
@@ -387,7 +390,7 @@ func get_external_account_by_type_async(p_external_account_type: EOS.ExternalAcc
 	var opts = EOS.Connect.QueryProductUserIdMappingsOptions.new()
 	opts.product_user_ids = [p_product_user_id]
 	EOS.Connect.ConnectInterface.query_product_user_id_mappings(opts)
-	var ret = await IEOS.connect_interface_query_product_user_id_mappings_callback
+	var ret = await Engine.get_singleton("IEOS").connect_interface_query_product_user_id_mappings_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query product user id mappings: result_code=%s" % EOS.result_str(ret))
 		return {}
@@ -418,7 +421,7 @@ func get_external_accounts_async(p_product_user_id := product_user_id) -> Array:
 	var opts = EOS.Connect.QueryProductUserIdMappingsOptions.new()
 	opts.product_user_ids = [p_product_user_id]
 	EOS.Connect.ConnectInterface.query_product_user_id_mappings(opts)
-	var ret = await IEOS.connect_interface_query_product_user_id_mappings_callback
+	var ret = await Engine.get_singleton("IEOS").connect_interface_query_product_user_id_mappings_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query product user id mappings: result_code=%s" % EOS.result_str(ret))
 		return []
@@ -452,7 +455,7 @@ func get_product_user_info_async(p_product_user_id := product_user_id):
 	var opts = EOS.Connect.QueryProductUserIdMappingsOptions.new()
 	opts.product_user_ids = [p_product_user_id]
 	EOS.Connect.ConnectInterface.query_product_user_id_mappings(opts)
-	var ret = await IEOS.connect_interface_query_product_user_id_mappings_callback
+	var ret = await Engine.get_singleton("IEOS").connect_interface_query_product_user_id_mappings_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query product user id mappings: result_code=%s" % EOS.result_str(ret))
 		return {}
@@ -518,13 +521,13 @@ func _connect_account_async() -> bool:
 	return await login_game_services_async(login_options)
 
 
-func _continue_login_async(continuance_token: EOSGContinuanceToken) -> bool:
+func _continue_login_async(continuance_token) -> bool:
 	_log.debug("Continuing login...")
 	var link_opts = EOS.Auth.LinkAccountOptions.new()
 	link_opts.continuance_token = continuance_token
 	EOS.Auth.AuthInterface.link_account(link_opts)
 
-	var link_ret: Dictionary = await IEOS.auth_interface_link_account_callback
+	var link_ret: Dictionary = await Engine.get_singleton("IEOS").auth_interface_link_account_callback
 	if not EOS.is_success(link_ret):
 		_log.error("Failed to link account: result_code=%s" % EOS.result_str(link_ret))
 		_emit_login_auth_error(link_ret.result_code)
@@ -536,13 +539,13 @@ func _continue_login_async(continuance_token: EOSGContinuanceToken) -> bool:
 	return true
 	
 
-func _create_user_async(continuance_token: EOSGContinuanceToken) -> bool:
+func _create_user_async(continuance_token) -> bool:
 	_log.debug("Creating user...")
 	var create_opts = EOS.Connect.CreateUserOptions.new()
 	create_opts.continuance_token = continuance_token
 	EOS.Connect.ConnectInterface.create_user(create_opts)
 
-	var create_ret: Dictionary = await IEOS.connect_interface_create_user_callback
+	var create_ret: Dictionary = await Engine.get_singleton("IEOS").connect_interface_create_user_callback
 
 	if not EOS.is_success(create_ret):
 		_log.error("Failed to create user: result_code=%s" % EOS.result_str(create_ret))

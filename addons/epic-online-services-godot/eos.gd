@@ -6,8 +6,16 @@
 class_name EOS
 extends RefCounted
 
+## Returns the native EOS singleton, or null when the EOS GDExtension is not
+## loaded (e.g. on an HTML5/web export, which has no EOS WebAssembly build).
+## On desktop this returns the same object the old `IEOS` global referred to,
+## so behavior is unchanged. Referencing `IEOS` directly would make every EOS
+## script fail to compile on web, so all addon code uses this accessor instead.
+static func _ieos():
+	return Engine.get_singleton("IEOS")
+
 static func get_instance():
-	return IEOS
+	return _ieos()
 
 
 ## Pretty prints the [enum Result] code and its string representation.[br]
@@ -30,7 +38,7 @@ static func result_str(p_result) -> String:
 static func is_operation_complete(p_result) -> bool:
 	if typeof(p_result) == TYPE_DICTIONARY:
 		p_result = p_result["result_code"]
-	return IEOS.is_operation_complete(p_result)
+	return Engine.get_singleton("IEOS").is_operation_complete(p_result)
 
 
 ## Returns whether the operation was successful.[br]
@@ -111,39 +119,39 @@ class Achievements:
 
 	class AchievementsInterface:
 		static func query_definitions(options: QueryDefinitionsOptions) -> void:
-			IEOS.achievements_interface_query_definitions(options)
+			Engine.get_singleton("IEOS").achievements_interface_query_definitions(options)
 
 		static func get_achievement_definition_count(options: GetAchievementDefinitionCountOptions) -> int:
-			return IEOS.achievements_interface_get_achievement_definition_count(options)
+			return Engine.get_singleton("IEOS").achievements_interface_get_achievement_definition_count(options)
 
 		static func copy_achievement_definition_v2_by_achievement_id(
 			options: CopyAchievementDefinitionV2ByAchievementIdOptions
 		) -> Dictionary:
-			return IEOS.achievements_interface_copy_achievement_definition_v2_by_achievement_id(
+			return Engine.get_singleton("IEOS").achievements_interface_copy_achievement_definition_v2_by_achievement_id(
 				options
 			)
 
 		static func copy_achievement_definition_v2_by_index(
 			options: CopyAchievementDefinitionV2ByIndexOptions
 		) -> Dictionary:
-			return IEOS.achievements_interface_copy_achievement_definition_v2_by_index(options)
+			return Engine.get_singleton("IEOS").achievements_interface_copy_achievement_definition_v2_by_index(options)
 
 		static func query_player_achievements(options: QueryPlayerAchievementsOptions) -> void:
-			IEOS.achievements_interface_query_player_achievements(options)
+			Engine.get_singleton("IEOS").achievements_interface_query_player_achievements(options)
 
 		static func get_player_achievement_count(options: GetPlayerAchievementCountOptions) -> int:
-			return IEOS.achievements_interface_get_player_achievement_count(options)
+			return Engine.get_singleton("IEOS").achievements_interface_get_player_achievement_count(options)
 
 		static func copy_player_achievement_by_achievement_id(
 			options: CopyPlayerAchievementByAchievementIdOptions
 		) -> Dictionary:
-			return IEOS.achievements_interface_copy_player_achievement_by_achievement_id(options)
+			return Engine.get_singleton("IEOS").achievements_interface_copy_player_achievement_by_achievement_id(options)
 
 		static func copy_player_achievement_by_index(options: CopyPlayerAchievementByIndexOptions) -> Dictionary:
-			return IEOS.achievements_interface_copy_player_achievement_by_index(options)
+			return Engine.get_singleton("IEOS").achievements_interface_copy_player_achievement_by_index(options)
 
 		static func unlock_achievements(options: UnlockAchievementsOptions) -> void:
-			IEOS.achievements_interface_unlock_achievements(options)
+			Engine.get_singleton("IEOS").achievements_interface_unlock_achievements(options)
 
 
 
@@ -232,7 +240,7 @@ class Connect:
 		func _init():
 			super._init("CreateUserOptions")
 
-		var continuance_token: EOSGContinuanceToken
+		var continuance_token
 
 		var client_data = null
 
@@ -317,70 +325,70 @@ class Connect:
 
 	class ConnectInterface:
 		static func login(options: LoginOptions) -> void:
-			IEOS.connect_interface_login(options)
+			Engine.get_singleton("IEOS").connect_interface_login(options)
 
 		static func logout(options: LogoutOptions) -> void:
-			IEOS.connect_interface_logout(options)
+			Engine.get_singleton("IEOS").connect_interface_logout(options)
 
 		static func copy_id_token(options: CopyIdTokenOptions) -> Dictionary:
-			return IEOS.connect_interface_copy_id_token(options)
+			return Engine.get_singleton("IEOS").connect_interface_copy_id_token(options)
 
 		static func copy_product_user_external_account_by_account_id(options: CopyProductUserExternalAccountByAccountIdOptions) -> Dictionary:
-			return IEOS.connect_interface_copy_product_user_external_account_by_account_id(options)
+			return Engine.get_singleton("IEOS").connect_interface_copy_product_user_external_account_by_account_id(options)
 
 		static func copy_product_user_external_account_by_account_type(options: CopyProductUserExternalAccountByAccountTypeOptions) -> Dictionary:
-			return IEOS.connect_interface_copy_product_user_external_account_by_account_type(options)
+			return Engine.get_singleton("IEOS").connect_interface_copy_product_user_external_account_by_account_type(options)
 
 		static func copy_product_user_external_account_by_index(options: CopyProductUserExternalAccountByIndexOptions) -> Dictionary:
-			return IEOS.connect_interface_copy_product_user_external_account_by_index(options)
+			return Engine.get_singleton("IEOS").connect_interface_copy_product_user_external_account_by_index(options)
 
 		static func copy_product_user_info(options: CopyProductUserInfoOptions) -> Dictionary:
-			return IEOS.connect_interface_copy_product_user_info(options)
+			return Engine.get_singleton("IEOS").connect_interface_copy_product_user_info(options)
 
 		static func create_device_id(options: CreateDeviceIdOptions) -> void:
-			IEOS.connect_interface_create_device_id(options)
+			Engine.get_singleton("IEOS").connect_interface_create_device_id(options)
 
 		static func create_user(options: CreateUserOptions) -> void:
-			IEOS.connect_interface_create_user(options)
+			Engine.get_singleton("IEOS").connect_interface_create_user(options)
 
 		static func delete_device_id(options: DeleteDeviceIdOptions) -> void:
-			IEOS.connect_interface_delete_device_id(options)
+			Engine.get_singleton("IEOS").connect_interface_delete_device_id(options)
 
 		static func query_external_account_mappings(options: QueryExternalAccountMappingsOptions) -> void:
-			IEOS.connect_interface_query_external_account_mappings(options)
+			Engine.get_singleton("IEOS").connect_interface_query_external_account_mappings(options)
 
 		static func get_external_account_mapping(options: GetExternalAccountMappingsOptions) -> String:
-			return IEOS.connect_interface_get_external_account_mapping(options)
+			return Engine.get_singleton("IEOS").connect_interface_get_external_account_mapping(options)
 
 		static func get_logged_in_user_by_index(index: int) -> String:
-			return IEOS.connect_interface_get_logged_in_user_by_index(index)
+			return Engine.get_singleton("IEOS").connect_interface_get_logged_in_user_by_index(index)
 
 		static func get_logged_in_users_count() -> int:
-			return IEOS.connect_interface_get_logged_in_users_count()
+			return Engine.get_singleton("IEOS").connect_interface_get_logged_in_users_count()
 
 		static func get_login_status(local_user_id := EOSGRuntime.local_product_user_id) -> LoginStatus:
-			return IEOS.connect_interface_get_login_status(local_user_id)
+			return Engine.get_singleton("IEOS").connect_interface_get_login_status(local_user_id)
 
 		static func get_product_user_external_account_count(options: GetProductUserExternalAccountCountOptions = GetProductUserExternalAccountCountOptions.new()) -> int:
-			return IEOS.connect_interface_get_product_user_external_account_count(options)
+			return Engine.get_singleton("IEOS").connect_interface_get_product_user_external_account_count(options)
 
 		static func query_product_user_id_mappings(options: QueryProductUserIdMappingsOptions) -> void:
-			IEOS.connect_interface_query_product_user_id_mappings(options)
+			Engine.get_singleton("IEOS").connect_interface_query_product_user_id_mappings(options)
 
 		static func get_product_user_id_mapping(options: GetProductUserIdMappingOptions) -> Dictionary:
-			return IEOS.connect_interface_get_product_user_id_mapping(options)
+			return Engine.get_singleton("IEOS").connect_interface_get_product_user_id_mapping(options)
 
 		static func link_account(options: LinkAccountOptions) -> void:
-			IEOS.connect_interface_link_account(options)
+			Engine.get_singleton("IEOS").connect_interface_link_account(options)
 
 		static func verify_id_token(options: VerifyIdTokenOptions) -> void:
-			IEOS.connect_interface_verify_id_token(options)
+			Engine.get_singleton("IEOS").connect_interface_verify_id_token(options)
 
 		static func transfer_device_id_account(options: TransferDeviceIdAccountOptions) -> void:
-			IEOS.connect_interface_transfer_device_id_account(options)
+			Engine.get_singleton("IEOS").connect_interface_transfer_device_id_account(options)
 
 		static func unlink_account(options: UnlinkAccountOptions) -> void:
-			IEOS.connect_interface_unlink_account(options)
+			Engine.get_singleton("IEOS").connect_interface_unlink_account(options)
 
 
 
@@ -465,7 +473,7 @@ class Auth:
 		func _init():
 			super._init("LinkAccountOptions")
 
-		var continuance_token: EOSGContinuanceToken
+		var continuance_token
 		var link_account_flags: LinkAccountFlags = LinkAccountFlags.NoFlags
 		var local_user_id = EOSGRuntime.local_epic_account_id
 
@@ -520,16 +528,16 @@ class Auth:
 
 	class AuthInterface:
 		static func login(options: LoginOptions) -> void:
-			IEOS.auth_interface_login(options)
+			Engine.get_singleton("IEOS").auth_interface_login(options)
 
 		static func logout(options: LogoutOptions) -> void:
-			IEOS.auth_interface_logout(options)
+			Engine.get_singleton("IEOS").auth_interface_logout(options)
 
 		static func copy_id_token(options: CopyIdTokenOptions) -> Dictionary:
-			return IEOS.auth_interface_copy_id_token(options)
+			return Engine.get_singleton("IEOS").auth_interface_copy_id_token(options)
 
 		static func copy_user_auth_token(options: CopyUserAuthTokenOptions, local_user_id := EOSGRuntime.local_epic_account_id) -> Dictionary:
-			var func_result: Dictionary = IEOS.auth_interface_copy_user_auth_token(
+			var func_result: Dictionary = Engine.get_singleton("IEOS").auth_interface_copy_user_auth_token(
 				options, local_user_id
 			)
 			var token: Token = Token.new()
@@ -549,37 +557,37 @@ class Auth:
 			return {result_code = func_result.result_code, token = token}
 
 		static func delete_persistent_auth(options: DeletePersistentAuthOptions) -> void:
-			IEOS.auth_interface_delete_persistent_auth(options)
+			Engine.get_singleton("IEOS").auth_interface_delete_persistent_auth(options)
 
 		static func get_logged_in_account_by_index(index: int) -> String:
-			return IEOS.auth_interface_get_logged_in_account_by_index(index)
+			return Engine.get_singleton("IEOS").auth_interface_get_logged_in_account_by_index(index)
 
 		static func get_logged_in_accounts_count() -> int:
-			return IEOS.auth_interface_get_logged_in_accounts_count()
+			return Engine.get_singleton("IEOS").auth_interface_get_logged_in_accounts_count()
 
 		static func get_login_status(local_user_id := EOSGRuntime.local_epic_account_id) -> LoginStatus:
-			return IEOS.auth_interface_get_login_status(local_user_id)
+			return Engine.get_singleton("IEOS").auth_interface_get_login_status(local_user_id)
 
 		static func get_merged_account_by_index(local_user_id: String, index: int) -> String:
-			return IEOS.auth_interface_get_merged_account_by_index(local_user_id, index)
+			return Engine.get_singleton("IEOS").auth_interface_get_merged_account_by_index(local_user_id, index)
 
 		static func get_merged_accounts_count(local_user_id := EOSGRuntime.local_epic_account_id) -> int:
-			return IEOS.auth_interface_get_merged_accounts_count(local_user_id)
+			return Engine.get_singleton("IEOS").auth_interface_get_merged_accounts_count(local_user_id)
 
 		static func get_selected_account_id(local_user_id := EOSGRuntime.local_epic_account_id) -> Dictionary:
-			return IEOS.auth_interface_get_selected_account_id(local_user_id)
+			return Engine.get_singleton("IEOS").auth_interface_get_selected_account_id(local_user_id)
 
 		static func link_account(options: LinkAccountOptions) -> void:
-			IEOS.auth_interface_link_account(options)
+			Engine.get_singleton("IEOS").auth_interface_link_account(options)
 
 		static func query_id_token(options: QueryIdTokenOptions) -> void:
-			IEOS.auth_interface_query_id_token(options)
+			Engine.get_singleton("IEOS").auth_interface_query_id_token(options)
 
 		static func verify_id_token(options: VerifyIdTokenOptions) -> void:
-			IEOS.auth_interface_verify_id_token(options)
+			Engine.get_singleton("IEOS").auth_interface_verify_id_token(options)
 
 		static func verify_user_auth(options: VerifyUserAuthOptions) -> void:
-			IEOS.auth_interface_verify_user_auth(options)
+			Engine.get_singleton("IEOS").auth_interface_verify_user_auth(options)
 
 
 
@@ -652,25 +660,25 @@ class CustomInvites:
 
 	class CustomInvitesInterface:
 		static func set_custom_invite(options: SetCustomInviteOptions) -> Result:
-			return IEOS.custom_invites_interface_set_custom_invite(options)
+			return Engine.get_singleton("IEOS").custom_invites_interface_set_custom_invite(options)
 
 		static func send_custom_invite(options: SendCustomInviteOptions) -> void:
-			IEOS.custom_invites_interface_send_custom_invite(options)
+			Engine.get_singleton("IEOS").custom_invites_interface_send_custom_invite(options)
 
 		static func finalize_invite(options: FinalizeInviteOptions) -> Result:
-			return IEOS.custom_invites_interface_finalize_invite(options)
+			return Engine.get_singleton("IEOS").custom_invites_interface_finalize_invite(options)
 
 		static func send_request_to_join(options: SendRequestToJoinOptions) -> void:
-			IEOS.custom_invites_interface_send_request_to_join(options)
+			Engine.get_singleton("IEOS").custom_invites_interface_send_request_to_join(options)
 
 		static func accept_request_to_join(options: SendRequestToJoinOptions) -> void:
-			IEOS.custom_invites_interface_accept_request_to_join(options)
+			Engine.get_singleton("IEOS").custom_invites_interface_accept_request_to_join(options)
 
 		static func reject_request_to_join(options: SendRequestToJoinOptions) -> void:
-			IEOS.custom_invites_interface_reject_request_to_join(options)
+			Engine.get_singleton("IEOS").custom_invites_interface_reject_request_to_join(options)
 
 		static func disable_request_to_join(options: DisableRequestToJoinOptions) -> Result:
-			return IEOS.custom_invites_interface_disable_request_to_join(options)
+			return Engine.get_singleton("IEOS").custom_invites_interface_disable_request_to_join(options)
 
 
 
@@ -721,19 +729,19 @@ class Stats:
 
 	class StatsInterface:
 		static func copy_stat_by_index(options: CopyStatByIndexOptions) -> Dictionary:
-			return IEOS.stats_interface_copy_stat_by_index(options)
+			return Engine.get_singleton("IEOS").stats_interface_copy_stat_by_index(options)
 
 		static func copy_stat_by_name(options: CopyStatByNameOptions) -> Dictionary:
-			return IEOS.stats_interface_copy_stat_by_name(options)
+			return Engine.get_singleton("IEOS").stats_interface_copy_stat_by_name(options)
 
 		static func get_stats_count(options: GetStatsCountOptions) -> int:
-			return IEOS.stats_interface_get_stats_count(options)
+			return Engine.get_singleton("IEOS").stats_interface_get_stats_count(options)
 
 		static func ingest_stat(options: IngestStatOptions) -> void:
-			IEOS.stats_interface_ingest_stat(options)
+			Engine.get_singleton("IEOS").stats_interface_ingest_stat(options)
 
 		static func query_stats(options: QueryStatsOptions) -> void:
-			IEOS.stats_interface_query_stats(options)
+			Engine.get_singleton("IEOS").stats_interface_query_stats(options)
 
 
 
@@ -817,52 +825,52 @@ class Platform:
 
 	class PlatformInterface:
 		static func create(options: CreateOptions) -> bool:
-			return IEOS.platform_interface_create(options)
+			return Engine.get_singleton("IEOS").platform_interface_create(options)
 
 		static func get_active_country_code(user_id: String) -> Dictionary:
-			return IEOS.platform_interface_get_active_country_code(user_id)
+			return Engine.get_singleton("IEOS").platform_interface_get_active_country_code(user_id)
 
 		static func get_active_locale_code(user_id: String) -> Dictionary:
-			return IEOS.platform_interface_get_active_locale_code(user_id)
+			return Engine.get_singleton("IEOS").platform_interface_get_active_locale_code(user_id)
 
 		static func get_override_country_code() -> Dictionary:
-			return IEOS.platform_interface_get_override_country_code()
+			return Engine.get_singleton("IEOS").platform_interface_get_override_country_code()
 
 		static func get_override_locale_code() -> Dictionary:
-			return IEOS.platform_interface_get_override_locale_code()
+			return Engine.get_singleton("IEOS").platform_interface_get_override_locale_code()
 
 		static func set_override_country_code(country_code: String) -> Result:
-			return IEOS.platform_interface_set_override_country_code(country_code)
+			return Engine.get_singleton("IEOS").platform_interface_set_override_country_code(country_code)
 
 		static func set_override_locale_code(locale_code: String) -> Result:
-			return IEOS.platform_interface_set_override_locale_code(locale_code)
+			return Engine.get_singleton("IEOS").platform_interface_set_override_locale_code(locale_code)
 
 		static func check_for_launcher_and_restart() -> Result:
-			return IEOS.platform_interface_check_for_launcher_and_restart()
+			return Engine.get_singleton("IEOS").platform_interface_check_for_launcher_and_restart()
 
 		static func initialize(options: InitializeOptions) -> Result:
-			return IEOS.platform_interface_initialize(options)
+			return Engine.get_singleton("IEOS").platform_interface_initialize(options)
 
 		static func get_desktop_crossplay_status_info() -> Dictionary:
-			return IEOS.platform_interface_get_desktop_crossplay_status_info()
+			return Engine.get_singleton("IEOS").platform_interface_get_desktop_crossplay_status_info()
 
 		static func set_application_status(status: ApplicationStatus) -> Result:
-			return IEOS.platform_interface_set_application_status(status)
+			return Engine.get_singleton("IEOS").platform_interface_set_application_status(status)
 
 		static func get_application_status() -> ApplicationStatus:
-			return IEOS.platform_interface_get_application_status()
+			return Engine.get_singleton("IEOS").platform_interface_get_application_status()
 
 		static func set_network_status(status: NetworkStatus) -> Result:
-			return IEOS.platform_interface_set_network_status(status)
+			return Engine.get_singleton("IEOS").platform_interface_set_network_status(status)
 
 		static func get_network_status() -> NetworkStatus:
-			return IEOS.platform_interface_get_network_status()
+			return Engine.get_singleton("IEOS").platform_interface_get_network_status()
 
 		static func release() -> void:
-			IEOS.platform_interface_release()
+			Engine.get_singleton("IEOS").platform_interface_release()
 
 		static func shutdown() -> Result:
-			return IEOS.platform_interface_shutdown()
+			return Engine.get_singleton("IEOS").platform_interface_shutdown()
 
 
 
@@ -1126,94 +1134,94 @@ class Ecom:
 
 	class EcomInterface:
 		static func checkout(options: CheckoutOptions) -> void:
-			IEOS.ecom_interface_checkout(options)
+			Engine.get_singleton("IEOS").ecom_interface_checkout(options)
 
 		static func copy_entitlement_by_id(options: CopyEntitlementByIdOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_entitlement_by_id(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_entitlement_by_id(options)
 
 		static func copy_entitlement_by_index(options: CopyEntitlementByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_entitlement_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_entitlement_by_index(options)
 
 		static func copy_entitlement_by_name_and_index(options: CopyEntitlementByNameAndIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_entitlement_by_name_and_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_entitlement_by_name_and_index(options)
 
 		static func copy_item_by_id(options: CopyItemByIdOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_item_by_id(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_item_by_id(options)
 
 		static func copy_item_image_info_by_index(options: CopyItemImageInfoByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_item_image_info_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_item_image_info_by_index(options)
 
 		static func copy_item_release_by_index(options: CopyItemReleaseByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_item_release_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_item_release_by_index(options)
 
 		static func copy_offer_by_id(options: CopyOfferByIdOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_offer_by_id(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_offer_by_id(options)
 
 		static func copy_offer_by_index(options: CopyOfferByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_offer_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_offer_by_index(options)
 
 		static func copy_offer_image_info_by_index(options: CopyOfferImageInfoByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_offer_image_info_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_offer_image_info_by_index(options)
 
 		static func copy_offer_item_by_index(options: CopyOfferItemByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_offer_item_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_offer_item_by_index(options)
 
 		static func copy_transaction_by_id(options: CopyTransactionByIdOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_transaction_by_id(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_transaction_by_id(options)
 
 		static func copy_transaction_by_index(options: CopyTransactionByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_transaction_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_transaction_by_index(options)
 
 		static func get_entitlements_by_name_count(options: GetEntitlementsByNameCountOptions) -> int:
-			return IEOS.ecom_interface_get_entitlements_by_name_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_entitlements_by_name_count(options)
 
 		static func get_entitlements_count(options: GetEntitlementsCountOptions) -> int:
-			return IEOS.ecom_interface_get_entitlements_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_entitlements_count(options)
 
 		static func get_item_image_info_count(options: GetItemImageInfoCountOptions) -> int:
-			return IEOS.ecom_interface_get_item_image_info_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_item_image_info_count(options)
 
 		static func get_item_release_count(options: GetItemReleaseCountOptions) -> int:
-			return IEOS.ecom_interface_get_item_release_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_item_release_count(options)
 
 		static func get_offer_count(options: GetOfferCountOptions) -> int:
-			return IEOS.ecom_interface_get_offer_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_offer_count(options)
 
 		static func get_offer_image_info_count(options: GetOfferImageInfoCountOptions) -> int:
-			return IEOS.ecom_interface_get_offer_image_info_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_offer_image_info_count(options)
 
 		static func get_offer_item_count(options: GetOfferItemCountOptions) -> int:
-			return IEOS.ecom_interface_get_offer_item_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_offer_item_count(options)
 
 		static func get_transaction_count(options: GetTransactionCountOptions) -> int:
-			return IEOS.ecom_interface_get_transaction_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_transaction_count(options)
 
 		static func query_entitlements(options: QueryEntitlementsOptions) -> void:
-			IEOS.ecom_interface_query_entitlements(options)
+			Engine.get_singleton("IEOS").ecom_interface_query_entitlements(options)
 
 		static func query_offers(options: QueryOffersOptions) -> void:
-			IEOS.ecom_interface_query_offers(options)
+			Engine.get_singleton("IEOS").ecom_interface_query_offers(options)
 
 		static func query_ownership(options: QueryOwnershipOptions) -> void:
-			IEOS.ecom_interface_query_ownership(options)
+			Engine.get_singleton("IEOS").ecom_interface_query_ownership(options)
 
 		static func query_ownership_token(options: QueryOwnershipTokenOptions) -> void:
-			IEOS.ecom_interface_query_ownership_token(options)
+			Engine.get_singleton("IEOS").ecom_interface_query_ownership_token(options)
 
 		static func redeem_entitlements(options: RedeemEntitlementsOptions) -> void:
-			IEOS.ecom_interface_redeem_entitlements(options)
+			Engine.get_singleton("IEOS").ecom_interface_redeem_entitlements(options)
 
 		static func get_last_redeemed_entitlements_count(options: GetLastRedeemedEntitlementsCountOptions) -> int:
-			return IEOS.ecom_interface_get_last_redeemed_entitlements_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_last_redeemed_entitlements_count(options)
 
 		static func copy_last_redeemed_entitlement_by_index(options: CopyLastRedeemedEntitlementByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_last_redeemed_entitlement_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_last_redeemed_entitlement_by_index(options)
 
 		static func get_last_redeem_entitlements_result_count(options: GetLastRedeemEntitlementsResultCountOptions) -> Dictionary:
-			return IEOS.ecom_interface_get_last_redeem_entitlements_result_count(options)
+			return Engine.get_singleton("IEOS").ecom_interface_get_last_redeem_entitlements_result_count(options)
 
 		static func copy_last_redeem_entitlements_result_by_index(options: CopyLastRedeemEntitlementsResultByIndexOptions) -> Dictionary:
-			return IEOS.ecom_interface_copy_last_redeem_entitlements_result_by_index(options)
+			return Engine.get_singleton("IEOS").ecom_interface_copy_last_redeem_entitlements_result_by_index(options)
 
 
 
@@ -1277,25 +1285,25 @@ class Friends:
 
 	class FriendsInterface:
 		static func accept_invite(options: AcceptInviteOptions) -> void:
-			IEOS.friends_interface_accept_invite(options)
+			Engine.get_singleton("IEOS").friends_interface_accept_invite(options)
 
 		static func get_friend_at_index(options: GetFriendAtIndexOptions) -> String:
-			return IEOS.friends_interface_get_friend_at_index(options)
+			return Engine.get_singleton("IEOS").friends_interface_get_friend_at_index(options)
 
 		static func get_friends_count(options: GetFriendsCountOptions) -> int:
-			return IEOS.friends_interface_get_friends_count(options)
+			return Engine.get_singleton("IEOS").friends_interface_get_friends_count(options)
 
 		static func get_status(options: GetStatusOptions) -> EOS.Friends.FriendsStatus:
-			return IEOS.friends_interface_get_status(options)
+			return Engine.get_singleton("IEOS").friends_interface_get_status(options)
 
 		static func query_friends(options: QueryFriendsOptions) -> void:
-			IEOS.friends_interface_query_friends(options)
+			Engine.get_singleton("IEOS").friends_interface_query_friends(options)
 
 		static func reject_invite(options: RejectInviteOptions) -> void:
-			IEOS.friends_interface_reject_invite(options)
+			Engine.get_singleton("IEOS").friends_interface_reject_invite(options)
 
 		static func send_invite(options: SendInviteOptions) -> void:
-			IEOS.friends_interface_send_invite(options)
+			Engine.get_singleton("IEOS").friends_interface_send_invite(options)
 
 
 
@@ -1357,28 +1365,28 @@ class KWS:
 
 	class KWSInterface:
 		static func copy_permission_by_index(options: CopyPermissionByIndexOptions) -> Dictionary:
-			return IEOS.kws_interface_copy_permission_by_index(options)
+			return Engine.get_singleton("IEOS").kws_interface_copy_permission_by_index(options)
 
 		static func create_user(options: CreateUserOptions) -> void:
-			IEOS.kws_interface_create_user(options)
+			Engine.get_singleton("IEOS").kws_interface_create_user(options)
 
 		static func get_permission_by_key(options: GetPermissionByKeyOptions) -> Dictionary:
-			return IEOS.kws_interface_get_permission_by_key(options)
+			return Engine.get_singleton("IEOS").kws_interface_get_permission_by_key(options)
 
 		static func get_permissions_count(options: GetPermissionsCountOptions) -> int:
-			return IEOS.kws_interface_get_permissions_count(options)
+			return Engine.get_singleton("IEOS").kws_interface_get_permissions_count(options)
 
 		static func query_age_gate(options: QueryAgeGateOptions) -> void:
-			IEOS.kws_interface_query_age_gate(options)
+			Engine.get_singleton("IEOS").kws_interface_query_age_gate(options)
 
 		static func query_permissions(options: QueryPermissionsOptions) -> void:
-			IEOS.kws_interface_query_permissions(options)
+			Engine.get_singleton("IEOS").kws_interface_query_permissions(options)
 
 		static func request_permissions(options: RequestPermissionsOptions) -> void:
-			IEOS.kws_interface_request_permissions(options)
+			Engine.get_singleton("IEOS").kws_interface_request_permissions(options)
 
 		static func update_parent_email(options: UpdateParentEmailOptions) -> void:
-			IEOS.kws_interface_update_parent_email(options)
+			Engine.get_singleton("IEOS").kws_interface_update_parent_email(options)
 
 
 
@@ -1472,40 +1480,40 @@ class Leaderboards:
 
 	class LeaderboardsInterface:
 		static func copy_leaderboard_definition_by_index(options: CopyLeaderboardDefinitionByIndexOptions) -> Dictionary:
-			return IEOS.leaderboards_interface_copy_leaderboard_definition_by_index(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_copy_leaderboard_definition_by_index(options)
 
 		static func copy_leaderboard_definition_by_leaderboard_id(options: CopyLeaderboardDefinitionByLeaderboardId) -> Dictionary:
-			return IEOS.leaderboards_interface_copy_leaderboard_definition_by_leaderboard_id(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_copy_leaderboard_definition_by_leaderboard_id(options)
 
 		static func copy_leaderboard_record_by_index(options: CopyLeaderboardRecordByIndexOptions) -> Dictionary:
-			return IEOS.leaderboards_interface_copy_leaderboard_record_by_index(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_copy_leaderboard_record_by_index(options)
 
 		static func copy_leaderboard_record_by_user_id(options: CopyLeaderboardRecordByUserIdOptions) -> Dictionary:
-			return IEOS.leaderboards_interface_copy_leaderboard_record_by_user_id(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_copy_leaderboard_record_by_user_id(options)
 
 		static func copy_leaderboard_user_score_by_index(options: CopyLeaderboardUserScoreByIndexOptions) -> Dictionary:
-			return IEOS.leaderboards_interface_copy_leaderboard_user_score_by_index(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_copy_leaderboard_user_score_by_index(options)
 
 		static func copy_leaderboard_user_score_by_user_id(options: CopyLeaderboardUserScoreByUserIdOptions) -> Dictionary:
-			return IEOS.leaderboards_interface_copy_leaderboard_user_score_by_user_id(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_copy_leaderboard_user_score_by_user_id(options)
 
 		static func get_leaderboard_definition_count(options: GetLeaderboardDefinitionCountOptions) -> int:
-			return IEOS.leaderboards_interface_get_leaderboard_definition_count(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_get_leaderboard_definition_count(options)
 
 		static func get_leaderboard_record_count(options: GetLeaderboardRecordCountOptions) -> int:
-			return IEOS.leaderboards_interface_get_leaderboard_record_count(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_get_leaderboard_record_count(options)
 
 		static func get_leaderboard_user_score_count(options: GetLeaderboardUserScoreCountOptions) -> int:
-			return IEOS.leaderboards_interface_get_leaderboard_user_score_count(options)
+			return Engine.get_singleton("IEOS").leaderboards_interface_get_leaderboard_user_score_count(options)
 
 		static func query_leaderboard_definitions(options: QueryLeaderboardDefinitionsOptions) -> void:
-			IEOS.leaderboards_interface_query_leaderboard_definitions(options)
+			Engine.get_singleton("IEOS").leaderboards_interface_query_leaderboard_definitions(options)
 
 		static func query_leaderboard_ranks(options: QueryLeaderboardRanksOptions) -> void:
-			IEOS.leaderboards_interface_query_leaderboard_ranks(options)
+			Engine.get_singleton("IEOS").leaderboards_interface_query_leaderboard_ranks(options)
 
 		static func query_leaderboard_user_scores(options: QueryLeaderboardUserScoresOptions) -> void:
-			IEOS.leaderboards_interface_query_leaderboard_user_scores(options)
+			Engine.get_singleton("IEOS").leaderboards_interface_query_leaderboard_user_scores(options)
 
 
 
@@ -1577,7 +1585,7 @@ class Lobby:
 			super._init("JoinLobbyOptions")
 
 		var local_user_id = EOSGRuntime.local_product_user_id
-		var lobby_details: EOSGLobbyDetails
+		var lobby_details
 		var presence_enabled: bool
 		## (Optional) Allows the local application to set local audio options for the RTC Room if it is enabled. Set this to a [Dictionary] to override the defaults.[br]
 		## A [Dictionary] with keys: [br]
@@ -1630,7 +1638,7 @@ class Lobby:
 		func _init():
 			super._init("UpdateLobbyOptions")
 
-		var lobby_modification: EOSGLobbyModification
+		var lobby_modification
 
 		var client_data = null
 
@@ -1768,67 +1776,67 @@ class Lobby:
 		
 	class LobbyInterface:
 		static func create_lobby(options: CreateLobbyOptions) -> void:
-			IEOS.lobby_interface_create_lobby(options)
+			Engine.get_singleton("IEOS").lobby_interface_create_lobby(options)
 
 		static func destroy_lobby(options: DestroyLobbyOptions) -> void:
-			IEOS.lobby_interface_destroy_lobby(options)
+			Engine.get_singleton("IEOS").lobby_interface_destroy_lobby(options)
 
 		static func join_lobby(options: JoinLobbyOptions) -> void:
-			IEOS.lobby_interface_join_lobby(options)
+			Engine.get_singleton("IEOS").lobby_interface_join_lobby(options)
 
 		static func join_lobby_by_id(options: JoinLobbyByIdOptions) -> void:
-			IEOS.lobby_interface_join_lobby_by_id(options)
+			Engine.get_singleton("IEOS").lobby_interface_join_lobby_by_id(options)
 
 		static func leave_lobby(options: LeaveLobbyOptions) -> void:
-			IEOS.lobby_interface_leave_lobby(options)
+			Engine.get_singleton("IEOS").lobby_interface_leave_lobby(options)
 
 		static func update_lobby_modification(options: UpdateLobbyModificationOptions) -> Dictionary:
-			return IEOS.lobby_interface_update_lobby_modification(options)
+			return Engine.get_singleton("IEOS").lobby_interface_update_lobby_modification(options)
 
 		static func update_lobby(options: UpdateLobbyOptions) -> void:
-			IEOS.lobby_interface_update_lobby(options)
+			Engine.get_singleton("IEOS").lobby_interface_update_lobby(options)
 
 		static func promote_member(options: PromoteMemberOptions) -> void:
-			IEOS.lobby_interface_promote_member(options)
+			Engine.get_singleton("IEOS").lobby_interface_promote_member(options)
 
 		static func kick_member(options: KickMemberOptions) -> void:
-			IEOS.lobby_interface_kick_member(options)
+			Engine.get_singleton("IEOS").lobby_interface_kick_member(options)
 
 		static func hard_mute_member(options: HardMuteMemberOptions) -> void:
-			IEOS.lobby_interface_hard_mute_member(options)
+			Engine.get_singleton("IEOS").lobby_interface_hard_mute_member(options)
 
 		static func send_invite(options: SendInviteOptions) -> void:
-			IEOS.lobby_interface_send_invite(options)
+			Engine.get_singleton("IEOS").lobby_interface_send_invite(options)
 
 		static func reject_invite(options: RejectInviteOptions) -> void:
-			IEOS.lobby_interface_reject_invite(options)
+			Engine.get_singleton("IEOS").lobby_interface_reject_invite(options)
 
 		static func query_invites(options: QueryInvitesOptions) -> void:
-			IEOS.lobby_interface_query_invites(options)
+			Engine.get_singleton("IEOS").lobby_interface_query_invites(options)
 
 		static func get_invite_count(options: GetInviteCountOptions) -> int:
-			return IEOS.lobby_interface_get_invite_count(options)
+			return Engine.get_singleton("IEOS").lobby_interface_get_invite_count(options)
 
 		static func get_invite_id_by_index(options: GetInviteIdByIndexOptions) -> Dictionary:
-			return IEOS.lobby_interface_get_invite_id_by_index(options)
+			return Engine.get_singleton("IEOS").lobby_interface_get_invite_id_by_index(options)
 
 		static func create_lobby_search(options: CreateLobbySearchOptions) -> Dictionary:
-			return IEOS.lobby_interface_create_lobby_search(options)
+			return Engine.get_singleton("IEOS").lobby_interface_create_lobby_search(options)
 
 		static func copy_lobby_details_by_invite_id(options: CopyLobbyDetailsByInviteIdOptions) -> Dictionary:
-			return IEOS.lobby_interface_copy_lobby_details_by_invite_id(options)
+			return Engine.get_singleton("IEOS").lobby_interface_copy_lobby_details_by_invite_id(options)
 
 		static func copy_lobby_details_by_ui_event_id(options: CopyLobbyDetailsByUiEventIdOptions) -> Dictionary:
-			return IEOS.lobby_interface_copy_lobby_details_by_ui_event_id(options)
+			return Engine.get_singleton("IEOS").lobby_interface_copy_lobby_details_by_ui_event_id(options)
 
 		static func copy_lobby_details(options: CopyLobbyDetailsOptions) -> Dictionary:
-			return IEOS.lobby_interface_copy_lobby_details(options)
+			return Engine.get_singleton("IEOS").lobby_interface_copy_lobby_details(options)
 
 		static func get_rtc_room_name(options: GetRtcRoomNameOptions) -> Dictionary:
-			return IEOS.lobby_interface_get_rtc_room_name(options)
+			return Engine.get_singleton("IEOS").lobby_interface_get_rtc_room_name(options)
 
 		static func is_rtc_room_connected(options: IsRtcRoomConnectedOptions) -> Dictionary:
-			return IEOS.lobby_interface_is_rtc_room_connected(options)
+			return Engine.get_singleton("IEOS").lobby_interface_is_rtc_room_connected(options)
 
 
 
@@ -1857,10 +1865,10 @@ class Metrics:
 
 	class MetricsInterface:
 		static func begin_player_session(options: BeginPlayerSessionOptions) -> Result:
-			return IEOS.metrics_interface_begin_player_session(options)
+			return Engine.get_singleton("IEOS").metrics_interface_begin_player_session(options)
 
 		static func end_player_session(options: EndPlayerSessionOptions) -> Result:
-			return IEOS.metrics_interface_end_player_session(options)
+			return Engine.get_singleton("IEOS").metrics_interface_end_player_session(options)
 
 
 
@@ -1904,19 +1912,19 @@ class Mods:
 
 	class ModsInterface:
 		static func copy_mod_info(options: CopyModInfoOptions) -> Dictionary:
-			return IEOS.mods_interface_copy_mod_info(options)
+			return Engine.get_singleton("IEOS").mods_interface_copy_mod_info(options)
 
 		static func enumerate_mods(options: EnumerateModsOptions) -> void:
-			IEOS.mods_interface_enumerate_mods(options)
+			Engine.get_singleton("IEOS").mods_interface_enumerate_mods(options)
 
 		static func install_mod(options: InstallModOptions) -> void:
-			IEOS.mods_interface_install_mod(options)
+			Engine.get_singleton("IEOS").mods_interface_install_mod(options)
 
 		static func uninstall_mod(options: UninstallModOptions) -> void:
-			IEOS.mods_interface_uninstall_mod(options)
+			Engine.get_singleton("IEOS").mods_interface_uninstall_mod(options)
 
 		static func update_mod(options: UpdateModOptions) -> void:
-			IEOS.mods_interface_update_mod(options)
+			Engine.get_singleton("IEOS").mods_interface_update_mod(options)
 
 
 
@@ -1965,28 +1973,28 @@ class P2P:
 
 	class P2PInterface:
 		static func get_packet_queue_info() -> Dictionary:
-			return IEOS.p2p_interface_get_packet_queue_info()
+			return Engine.get_singleton("IEOS").p2p_interface_get_packet_queue_info()
 
 		static func get_port_range() -> Dictionary:
-			return IEOS.p2p_interface_get_port_range()
+			return Engine.get_singleton("IEOS").p2p_interface_get_port_range()
 
 		static func get_nat_type() -> Dictionary:
-			return IEOS.p2p_interface_get_nat_type()
+			return Engine.get_singleton("IEOS").p2p_interface_get_nat_type()
 
 		static func get_relay_control() -> Dictionary:
-			return IEOS.p2p_interface_get_relay_control()
+			return Engine.get_singleton("IEOS").p2p_interface_get_relay_control()
 
 		static func query_nat_type() -> void:
-			IEOS.p2p_interface_query_nat_type()
+			Engine.get_singleton("IEOS").p2p_interface_query_nat_type()
 
 		static func set_packet_queue_size(options: SetPacketQueueSizeOptions) -> EOS.Result:
-			return IEOS.p2p_interface_set_packet_queue_size(options)
+			return Engine.get_singleton("IEOS").p2p_interface_set_packet_queue_size(options)
 
 		static func set_port_range(options: SetPortRangeOptions) -> EOS.Result:
-			return IEOS.p2p_interface_set_port_range(options)
+			return Engine.get_singleton("IEOS").p2p_interface_set_port_range(options)
 
 		static func set_relay_control(relay_control: RelayControl) -> EOS.Result:
-			return IEOS.p2p_interface_set_relay_control(relay_control)
+			return Engine.get_singleton("IEOS").p2p_interface_set_relay_control(relay_control)
 
 
 
@@ -2070,22 +2078,22 @@ class Presence:
 
 	class PresenceInterface:
 		static func copy_presence(options: CopyPresenceOptions) -> Dictionary:
-			return IEOS.presence_interface_copy_presence(options)
+			return Engine.get_singleton("IEOS").presence_interface_copy_presence(options)
 
 		static func create_presence_modification(options: CreatePresenceModificationOptions) -> Dictionary:
-			return IEOS.presence_interface_create_presence_modification(options)
+			return Engine.get_singleton("IEOS").presence_interface_create_presence_modification(options)
 
 		static func get_join_info(options: GetJoinInfoOptions) -> Dictionary:
-			return IEOS.presence_interface_get_join_info(options)
+			return Engine.get_singleton("IEOS").presence_interface_get_join_info(options)
 
 		static func has_presence(options: HasPresenceOptions) -> bool:
-			return IEOS.presence_interface_has_presence(options)
+			return Engine.get_singleton("IEOS").presence_interface_has_presence(options)
 
 		static func query_presence(options: QueryPresenceOptions) -> void:
-			IEOS.presence_interface_query_presence(options)
+			Engine.get_singleton("IEOS").presence_interface_query_presence(options)
 
 		static func set_presence(options: SetPresenceOptions) -> void:
-			IEOS.presence_interface_set_presence(options)
+			Engine.get_singleton("IEOS").presence_interface_set_presence(options)
 
 
 
@@ -2115,7 +2123,7 @@ class Reports:
 
 	class ReportsInterface:
 		static func send_player_behavior_report(options: SendPlayerBehaviorReportOptions) -> void:
-			IEOS.reports_interface_send_player_behavior_report(options)
+			Engine.get_singleton("IEOS").reports_interface_send_player_behavior_report(options)
 
 
 
@@ -2158,19 +2166,19 @@ class ProgressionSnapshot:
 
 	class ProgressionSnapshotInterface:
 		static func begin_snapshot(options: BeginSnapshotOptions) -> Dictionary:
-			return IEOS.progression_snapshot_interface_begin_snapshot(options)
+			return Engine.get_singleton("IEOS").progression_snapshot_interface_begin_snapshot(options)
 
 		static func add_progression(options: AddProgressionOptions) -> Result:
-			return IEOS.progression_snapshot_interface_add_progression(options)
+			return Engine.get_singleton("IEOS").progression_snapshot_interface_add_progression(options)
 
 		static func submit_snapshot(options: SubmitSnapshotOptions) -> void:
-			IEOS.progression_snapshot_interface_submit_snapshot(options)
+			Engine.get_singleton("IEOS").progression_snapshot_interface_submit_snapshot(options)
 
 		static func delete_snapshot(options: DeleteSnapshotOptions) -> void:
-			IEOS.progression_snapshot_interface_delete_snapshot(options)
+			Engine.get_singleton("IEOS").progression_snapshot_interface_delete_snapshot(options)
 
 		static func end_snapshot(options: EndSnapshotOptions) -> void:
-			IEOS.progression_snapshot_interface_end_snapshot(options)
+			Engine.get_singleton("IEOS").progression_snapshot_interface_end_snapshot(options)
 
 
 
@@ -2448,67 +2456,67 @@ class UI:
 
 	class UIInterface:
 		static func acknowledge_event_id(options: AcknowledgeEventIdOptions) -> Result:
-			return IEOS.ui_interface_acknowledge_event_id(options)
+			return Engine.get_singleton("IEOS").ui_interface_acknowledge_event_id(options)
 
 		static func get_friends_visible(options: GetFriendsVisibleOptions) -> bool:
-			return IEOS.ui_interface_get_friends_visible(options)
+			return Engine.get_singleton("IEOS").ui_interface_get_friends_visible(options)
 
 		static func get_notification_location_preference() -> EOS.UI.NotificationLocation:
-			return IEOS.ui_interface_get_notification_location_preference()
+			return Engine.get_singleton("IEOS").ui_interface_get_notification_location_preference()
 
 		static func get_toggle_friends_key(options: GetToggleFriendsKeyOptions) -> EOS.UI.KeyCombination:
-			return IEOS.ui_interface_get_toggle_friends_key(options)
+			return Engine.get_singleton("IEOS").ui_interface_get_toggle_friends_key(options)
 
 		static func hide_friends(options: HideFriendsOptions) -> void:
-			IEOS.ui_interface_hide_friends(options)
+			Engine.get_singleton("IEOS").ui_interface_hide_friends(options)
 
 		static func is_valid_key_combination(key_combination: EOS.UI.KeyCombination) -> bool:
-			return IEOS.ui_interface_is_valid_key_combination(key_combination)
+			return Engine.get_singleton("IEOS").ui_interface_is_valid_key_combination(key_combination)
 
 		static func set_display_preference(options: SetDisplayPreferenceOptions) -> EOS.UI.NotificationLocation:
-			return IEOS.ui_interface_set_display_preference(options)
+			return Engine.get_singleton("IEOS").ui_interface_set_display_preference(options)
 
 		static func set_toggle_friends_key(options: SetToggleFriendsKeyOptions) -> Result:
-			return IEOS.ui_interface_set_toggle_friends_key(options)
+			return Engine.get_singleton("IEOS").ui_interface_set_toggle_friends_key(options)
 
 		static func show_friends(options: ShowFriendsOptions) -> void:
-			IEOS.ui_interface_show_friends(options)
+			Engine.get_singleton("IEOS").ui_interface_show_friends(options)
 
 		static func get_friends_exclusive_input(options: GetFriendsExclusiveInputOptions) -> bool:
-			return IEOS.ui_interface_get_friends_exclusive_input(options)
+			return Engine.get_singleton("IEOS").ui_interface_get_friends_exclusive_input(options)
 
 		static func show_block_player(options: ShowBlockPlayerOptions) -> void:
-			IEOS.ui_interface_show_block_player(options)
+			Engine.get_singleton("IEOS").ui_interface_show_block_player(options)
 
 		static func show_report_player(options: ShowReportPlayerOptions) -> void:
-			IEOS.ui_interface_show_report_player(options)
+			Engine.get_singleton("IEOS").ui_interface_show_report_player(options)
 
 		static func pause_social_overlay(options: PauseSocialOverlayOptions) -> Result:
-			return IEOS.ui_interface_pause_social_overlay(options)
+			return Engine.get_singleton("IEOS").ui_interface_pause_social_overlay(options)
 
 		static func is_social_overlay_paused(options: IsSocialOverlayPausedOptions) -> bool:
-			return IEOS.ui_interface_is_social_overlay_paused(options)
+			return Engine.get_singleton("IEOS").ui_interface_is_social_overlay_paused(options)
 
 		static func set_toggle_friends_button(options: SetToggleFriendsKeyOptions) -> Result:
-			return IEOS.ui_interface_set_toggle_friends_button(options)
+			return Engine.get_singleton("IEOS").ui_interface_set_toggle_friends_button(options)
 
 		static func report_input_state(options: ReportInputStateOptions) -> Result:
-			return IEOS.ui_interface_report_input_state(options)
+			return Engine.get_singleton("IEOS").ui_interface_report_input_state(options)
 
 		static func pre_present(options: PrePresentOptions) -> Result:
-			return IEOS.ui_interface_pre_present(options)
+			return Engine.get_singleton("IEOS").ui_interface_pre_present(options)
 
 		static func show_native_profile(options: ShowNativeProfileOptions) -> void:
-			IEOS.ui_interface_show_native_profile(options)
+			Engine.get_singleton("IEOS").ui_interface_show_native_profile(options)
 
 		static func configure_on_screen_keyboard(options: ConfigureOnScreenKeyboardOptions) -> Result:
-			return IEOS.ui_interface_configure_on_screen_keyboard(options)
+			return Engine.get_singleton("IEOS").ui_interface_configure_on_screen_keyboard(options)
 
 		static func add_notify_on_screen_keyboard_requested(options: AddNotifyOnScreenKeyboardRequestedOptions) -> int:
-			return IEOS.ui_interface_add_notify_on_screen_keyboard_requested(options)
+			return Engine.get_singleton("IEOS").ui_interface_add_notify_on_screen_keyboard_requested(options)
 
 		static func remove_notify_on_screen_keyboard_requested(notification_id: int) -> void:
-			IEOS.ui_interface_remove_notify_on_screen_keyboard_requested(notification_id)
+			Engine.get_singleton("IEOS").ui_interface_remove_notify_on_screen_keyboard_requested(notification_id)
 
 
 class UserInfo:
@@ -2599,37 +2607,37 @@ class UserInfo:
 
 	class UserInfoInterface:
 		static func copy_external_user_info_by_account_id(options: CopyExternalUserInfoByAccountIdOptions) -> Dictionary:
-			return IEOS.user_info_interface_copy_external_user_info_by_account_id(options)
+			return Engine.get_singleton("IEOS").user_info_interface_copy_external_user_info_by_account_id(options)
 
 		static func copy_external_user_info_by_account_type(options: CopyExternalUserInfoByAccountTypeOptions) -> Dictionary:
-			return IEOS.user_info_interface_copy_external_user_info_by_account_type(options)
+			return Engine.get_singleton("IEOS").user_info_interface_copy_external_user_info_by_account_type(options)
 
 		static func copy_external_user_info_by_index(options: CopyExternalUserInfoByIndexOptions) -> Dictionary:
-			return IEOS.user_info_interface_copy_external_user_info_by_index(options)
+			return Engine.get_singleton("IEOS").user_info_interface_copy_external_user_info_by_index(options)
 
 		static func copy_user_info(options: CopyUserInfoOptions) -> Dictionary:
-			return IEOS.user_info_interface_copy_user_info(options)
+			return Engine.get_singleton("IEOS").user_info_interface_copy_user_info(options)
 
 		static func get_external_user_info_count(options: GetExternalUserInfoCountOptions) -> int:
-			return IEOS.user_info_interface_get_external_user_info_count(options)
+			return Engine.get_singleton("IEOS").user_info_interface_get_external_user_info_count(options)
 
 		static func query_user_info(options: QueryUserInfoOptions) -> void:
-			IEOS.user_info_interface_query_user_info(options)
+			Engine.get_singleton("IEOS").user_info_interface_query_user_info(options)
 
 		static func query_user_info_by_display_name(options: QueryUserInfoByDisplayNameOptions) -> void:
-			IEOS.user_info_interface_query_user_info_by_display_name(options)
+			Engine.get_singleton("IEOS").user_info_interface_query_user_info_by_display_name(options)
 
 		static func query_user_info_by_external_account(options: QueryUserInfoByExternalAccountOptions) -> void:
-			IEOS.user_info_interface_query_user_info_by_external_account(options)
+			Engine.get_singleton("IEOS").user_info_interface_query_user_info_by_external_account(options)
 
 		static func copy_best_display_name(options: CopyBestDisplayNameOptions) -> Dictionary:
-			return IEOS.user_info_interface_copy_best_display_name(options)
+			return Engine.get_singleton("IEOS").user_info_interface_copy_best_display_name(options)
 
 		static func copy_best_display_name_with_platform(options: CopyBestDisplayNameWithPlatformOptions) -> Dictionary:
-			return IEOS.user_info_interface_copy_best_display_name_with_platform(options)
+			return Engine.get_singleton("IEOS").user_info_interface_copy_best_display_name_with_platform(options)
 
 		static func get_local_platform_type(options: GetLocalPlatformTypeOptions = GetLocalPlatformTypeOptions.new()) -> OnlinePlatformType:
-			return IEOS.user_info_interface_get_local_platform_type(options)
+			return Engine.get_singleton("IEOS").user_info_interface_get_local_platform_type(options)
 
 
 
@@ -2700,7 +2708,7 @@ class Logging:
 			return "%s | %s | %s" % [category, level, message]
 
 	static func set_log_level(log_category: EOS.Logging.LogCategory, log_level: EOS.Logging.LogLevel) -> Result:
-		return IEOS.logging_interface_set_log_level(log_category, log_level)
+		return Engine.get_singleton("IEOS").logging_interface_set_log_level(log_category, log_level)
 
 
 
@@ -2763,25 +2771,25 @@ class TitleStorage:
 
 	class TitleStorageInterface:
 		static func query_file(options: QueryFileOptions) -> void:
-			IEOS.titlestorage_interface_query_file(options)
+			Engine.get_singleton("IEOS").titlestorage_interface_query_file(options)
 
 		static func query_file_list(options: QueryFileListOptions) -> void:
-			IEOS.titlestorage_interface_query_file_list(options)
+			Engine.get_singleton("IEOS").titlestorage_interface_query_file_list(options)
 
 		static func copy_file_metadata_by_filename(options: CopyFileMetadataByFilenameOptions) -> Dictionary:
-			return IEOS.titlestorage_interface_copy_file_metadata_by_filename(options)
+			return Engine.get_singleton("IEOS").titlestorage_interface_copy_file_metadata_by_filename(options)
 
 		static func get_file_metadata_count(options: GetFileMetadataCountOptions) -> int:
-			return IEOS.titlestorage_interface_get_file_metadata_count(options)
+			return Engine.get_singleton("IEOS").titlestorage_interface_get_file_metadata_count(options)
 
 		static func copy_file_metadata_at_index(options) -> Dictionary:
-			return IEOS.titlestorage_interface_copy_file_metadata_at_index(options)
+			return Engine.get_singleton("IEOS").titlestorage_interface_copy_file_metadata_at_index(options)
 
 		static func delete_cache(options: DeleteCacheOptions) -> Result:
-			return IEOS.titlestorage_interface_delete_cache(options)
+			return Engine.get_singleton("IEOS").titlestorage_interface_delete_cache(options)
 
 		static func read_file(options: ReadFileOptions) -> Variant:
-			return IEOS.titlestorage_interface_read_file(options)
+			return Engine.get_singleton("IEOS").titlestorage_interface_read_file(options)
 
 
 
@@ -2875,34 +2883,34 @@ class PlayerDataStorage:
 
 	class PlayerDataStorageInterface:
 		static func query_file(options: QueryFileOptions) -> void:
-			IEOS.playerdatastorage_interface_query_file(options)
+			Engine.get_singleton("IEOS").playerdatastorage_interface_query_file(options)
 
 		static func query_file_list(options: QueryFileListOptions) -> void:
-			IEOS.playerdatastorage_interface_query_file_list(options)
+			Engine.get_singleton("IEOS").playerdatastorage_interface_query_file_list(options)
 
 		static func copy_file_metadata_by_filename(options: CopyFileMetadataByFilenameOptions) -> Dictionary:
-			return IEOS.playerdatastorage_interface_copy_file_metadata_by_filename(options)
+			return Engine.get_singleton("IEOS").playerdatastorage_interface_copy_file_metadata_by_filename(options)
 
 		static func get_file_metadata_count(options: GetFileMetadataCountOptions) -> Dictionary:
-			return IEOS.playerdatastorage_interface_get_file_metadata_count(options)
+			return Engine.get_singleton("IEOS").playerdatastorage_interface_get_file_metadata_count(options)
 
 		static func copy_file_metadata_at_index(options) -> Dictionary:
-			return IEOS.playerdatastorage_interface_copy_file_metadata_at_index(options)
+			return Engine.get_singleton("IEOS").playerdatastorage_interface_copy_file_metadata_at_index(options)
 
 		static func duplicate_file(options: DuplicateFileOptions) -> void:
-			IEOS.playerdatastorage_interface_duplicate_file(options)
+			Engine.get_singleton("IEOS").playerdatastorage_interface_duplicate_file(options)
 
 		static func delete_file(options: DeleteFileOptions) -> void:
-			IEOS.playerdatastorage_interface_delete_file(options)
+			Engine.get_singleton("IEOS").playerdatastorage_interface_delete_file(options)
 
 		static func delete_cache(options: DeleteCacheOptions) -> Result:
-			return IEOS.playerdatastorage_interface_delete_cache(options)
+			return Engine.get_singleton("IEOS").playerdatastorage_interface_delete_cache(options)
 
 		static func read_file(options: ReadFileOptions) -> Variant:
-			return IEOS.playerdatastorage_interface_read_file(options)
+			return Engine.get_singleton("IEOS").playerdatastorage_interface_read_file(options)
 
 		static func write_file(options: WriteFileOptions) -> Variant:
-			return IEOS.playerdatastorage_interface_write_file(options)
+			return Engine.get_singleton("IEOS").playerdatastorage_interface_write_file(options)
 
 
 
@@ -2954,16 +2962,16 @@ class Sanctions:
 
 	class SanctionsInterface:
 		static func query_active_player_sanctions(options: QueryActivePlayerSanctionsOptions) -> void:
-			IEOS.sanctions_interface_query_active_player_sanctions(options)
+			Engine.get_singleton("IEOS").sanctions_interface_query_active_player_sanctions(options)
 
 		static func get_player_sanction_count(options: GetPlayerSanctionCountOptions) -> int:
-			return IEOS.sanctions_interface_get_player_sanction_count(options)
+			return Engine.get_singleton("IEOS").sanctions_interface_get_player_sanction_count(options)
 
 		static func copy_player_sanction_by_index(options: CopyPlayerSanctionByIndexOptions) -> Variant:
-			return IEOS.sanctions_interface_copy_player_sanction_by_index(options)
+			return Engine.get_singleton("IEOS").sanctions_interface_copy_player_sanction_by_index(options)
 
 		static func create_player_sanction_appeal(options: CreatePlayerSanctionAppealOptions) -> void:
-			IEOS.sanctions_interface_create_player_sanction_appeal(options)
+			Engine.get_singleton("IEOS").sanctions_interface_create_player_sanction_appeal(options)
 
 
 
@@ -3092,7 +3100,7 @@ class Sessions:
 
 		var local_user_id = EOSGRuntime.local_product_user_id
 		var presence_enabled: bool
-		var session_details: EOSGSessionDetails
+		var session_details
 		var session_name: String
 
 		var client_data = null
@@ -3154,73 +3162,73 @@ class Sessions:
 		func _init():
 			super._init("UpdateSessionOptions")
 
-		var session_modification: EOSGSessionModification
+		var session_modification
 
 		var client_data = null
 
 	class SessionsInterface:
 		static func copy_active_session_details(options: CopyActiveSessionDetailsOptions) -> Dictionary:
-			return IEOS.sessions_interface_copy_active_session_details(options)
+			return Engine.get_singleton("IEOS").sessions_interface_copy_active_session_details(options)
 
 		static func copy_session_details_by_invite_id(options: CopySessionDetailsByInviteIdOptions) -> Dictionary:
-			return IEOS.sessions_interface_copy_session_details_by_invite_id(options)
+			return Engine.get_singleton("IEOS").sessions_interface_copy_session_details_by_invite_id(options)
 
 		static func copy_session_details_by_ui_event_id(options: CopySessionDetailsByUiEventIdOptions) -> Dictionary:
-			return IEOS.sessions_interface_copy_session_details_by_ui_event_id(options)
+			return Engine.get_singleton("IEOS").sessions_interface_copy_session_details_by_ui_event_id(options)
 
 		static func copy_session_details_for_presence(options: CopySessionDetailsForPresenceOptions) -> Dictionary:
-			return IEOS.sessions_interface_copy_session_details_for_presence(options)
+			return Engine.get_singleton("IEOS").sessions_interface_copy_session_details_for_presence(options)
 
 		static func create_session_modification(options: CreateSessionModificationOptions) -> Dictionary:
-			return IEOS.sessions_interface_create_session_modification(options)
+			return Engine.get_singleton("IEOS").sessions_interface_create_session_modification(options)
 
 		static func create_session_search(options: CreateSessionSearchOptions) -> Dictionary:
-			return IEOS.sessions_interface_create_session_search(options)
+			return Engine.get_singleton("IEOS").sessions_interface_create_session_search(options)
 
 		static func get_invite_id_by_index(options: GetInviteIdByIndexOptions) -> Dictionary:
-			return IEOS.sessions_interface_get_invite_id_by_index(options)
+			return Engine.get_singleton("IEOS").sessions_interface_get_invite_id_by_index(options)
 
 		static func update_session_modification(options: UpdateSessionModificationOptions) -> Dictionary:
-			return IEOS.sessions_interface_update_session_modification(options)
+			return Engine.get_singleton("IEOS").sessions_interface_update_session_modification(options)
 
 		static func dump_session_state(options: DumpSessionStateOptions) -> int:
-			return IEOS.sessions_interface_dump_session_state(options)
+			return Engine.get_singleton("IEOS").sessions_interface_dump_session_state(options)
 
 		static func get_invite_count(options: GetInviteCountOptions) -> int:
-			return IEOS.sessions_interface_get_invite_count(options)
+			return Engine.get_singleton("IEOS").sessions_interface_get_invite_count(options)
 
 		static func is_user_in_session(options: IsUserInSessionOptions) -> int:
-			return IEOS.sessions_interface_is_user_in_session(options)
+			return Engine.get_singleton("IEOS").sessions_interface_is_user_in_session(options)
 
 		static func destroy_session(options: DestroySessionOptions) -> void:
-			IEOS.sessions_interface_destroy_session(options)
+			Engine.get_singleton("IEOS").sessions_interface_destroy_session(options)
 
 		static func end_session(options: EndSessionOptions) -> void:
-			IEOS.sessions_interface_end_session(options)
+			Engine.get_singleton("IEOS").sessions_interface_end_session(options)
 
 		static func join_session(options: JoinSessionOptions) -> void:
-			IEOS.sessions_interface_join_session(options)
+			Engine.get_singleton("IEOS").sessions_interface_join_session(options)
 
 		static func query_invites(options: QueryInvitesOptions) -> void:
-			IEOS.sessions_interface_query_invites(options)
+			Engine.get_singleton("IEOS").sessions_interface_query_invites(options)
 
 		static func register_players(options: RegisterPlayersOptions) -> void:
-			IEOS.sessions_interface_register_players(options)
+			Engine.get_singleton("IEOS").sessions_interface_register_players(options)
 
 		static func reject_invite(options: RejectInviteOptions) -> void:
-			IEOS.sessions_interface_reject_invite(options)
+			Engine.get_singleton("IEOS").sessions_interface_reject_invite(options)
 
 		static func send_invite(options: SendInviteOptions) -> void:
-			IEOS.sessions_interface_send_invite(options)
+			Engine.get_singleton("IEOS").sessions_interface_send_invite(options)
 
 		static func start_session(options: StartSessionOptions) -> void:
-			IEOS.sessions_interface_start_session(options)
+			Engine.get_singleton("IEOS").sessions_interface_start_session(options)
 
 		static func unregister_players(options: UnregisterPlayersOptions) -> void:
-			IEOS.sessions_interface_unregister_players(options)
+			Engine.get_singleton("IEOS").sessions_interface_unregister_players(options)
 
 		static func update_session(options: UpdateSessionOptions) -> void:
-			IEOS.sessions_interface_update_session(options)
+			Engine.get_singleton("IEOS").sessions_interface_update_session(options)
 
 
 
@@ -3318,43 +3326,43 @@ class RTC:
 
 	class RTCInterface:
 		static func add_notify_disconnected(options: AddNotifyDisconnectedOptions) -> int:
-			return IEOS.rtc_interface_add_notify_disconnected(options)
+			return Engine.get_singleton("IEOS").rtc_interface_add_notify_disconnected(options)
 
 		static func add_notify_participant_status_changed(options: AddNotifyParticipantStatusChangedOptions) -> int:
-			return IEOS.rtc_interface_add_notify_participant_status_changed(options)
+			return Engine.get_singleton("IEOS").rtc_interface_add_notify_participant_status_changed(options)
 
 		static func add_notify_room_statistics_updated(options: AddNotifyRoomStatisticsUpdatedOptions) -> int:
-			return IEOS.rtc_interface_add_notify_room_statistics_updated(options)
+			return Engine.get_singleton("IEOS").rtc_interface_add_notify_room_statistics_updated(options)
 
 		static func set_room_setting(options: SetRoomSettingOptions) -> int:
-			return IEOS.rtc_interface_set_room_setting(options)
+			return Engine.get_singleton("IEOS").rtc_interface_set_room_setting(options)
 
 		static func set_setting(options: SetSettingOptions) -> int:
-			return IEOS.rtc_interface_set_setting(options)
+			return Engine.get_singleton("IEOS").rtc_interface_set_setting(options)
 
 		static func block_participant(options: BlockParticipantOptions) -> void:
-			IEOS.rtc_interface_block_participant(options)
+			Engine.get_singleton("IEOS").rtc_interface_block_participant(options)
 
 		static func join_room(options: JoinRoomOptions) -> void:
-			IEOS.rtc_interface_join_room(options)
+			Engine.get_singleton("IEOS").rtc_interface_join_room(options)
 
 		static func leave_room(options: LeaveRoomOptions) -> void:
-			IEOS.rtc_interface_leave_room(options)
+			Engine.get_singleton("IEOS").rtc_interface_leave_room(options)
 
 		static func remove_notify_disconnected(notification_id: int) -> void:
-			IEOS.rtc_interface_remove_notify_disconnected(notification_id)
+			Engine.get_singleton("IEOS").rtc_interface_remove_notify_disconnected(notification_id)
 
 		static func remove_notify_participant_status_changed(notification_id: int) -> void:
-			IEOS.rtc_interface_remove_notify_participant_status_changed(notification_id)
+			Engine.get_singleton("IEOS").rtc_interface_remove_notify_participant_status_changed(notification_id)
 
 		static func remove_notify_room_statistics_updated(notification_id: int) -> void:
-			IEOS.rtc_interface_remove_notify_room_statistics_updated(notification_id)
+			Engine.get_singleton("IEOS").rtc_interface_remove_notify_room_statistics_updated(notification_id)
 
 		static func add_notify_room_before_join(options: AddNotifyRoomBeforeJoinOptions) -> int:
-			return IEOS.rtc_interface_add_notify_room_before_join(options)
+			return Engine.get_singleton("IEOS").rtc_interface_add_notify_room_before_join(options)
 
 		static func remove_notify_room_before_join(notification_id: int) -> void:
-			IEOS.rtc_interface_remove_notify_room_before_join(notification_id)
+			Engine.get_singleton("IEOS").rtc_interface_remove_notify_room_before_join(notification_id)
 
 
 class RTCAudio:
@@ -3564,82 +3572,82 @@ class RTCAudio:
 
 	class RTCAudioInterface:
 		static func copy_input_device_information_by_index(options: CopyInputDeviceInformationByIndexOptions) -> Dictionary:
-			return IEOS.rtc_audio_interface_copy_input_device_information_by_index(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_copy_input_device_information_by_index(options)
 
 		static func copy_output_device_information_by_index(options: CopyOutputDeviceInformationByIndexOptions) -> Dictionary:
-			return IEOS.rtc_audio_interface_copy_output_device_information_by_index(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_copy_output_device_information_by_index(options)
 
 		static func add_notify_audio_before_render(options: AddNotifyAudioBeforeRenderOptions) -> int:
-			return IEOS.rtc_audio_interface_add_notify_audio_before_render(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_add_notify_audio_before_render(options)
 
 		static func add_notify_audio_before_send(options: AddNotifyAudioBeforeSendOptions) -> int:
-			return IEOS.rtc_audio_interface_add_notify_audio_before_send(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_add_notify_audio_before_send(options)
 
 		static func add_notify_audio_input_state(options: AddNotifyAudioInputStateOptions) -> int:
-			return IEOS.rtc_audio_interface_add_notify_audio_input_state(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_add_notify_audio_input_state(options)
 
 		static func add_notify_audio_output_state(options: AddNotifyAudioOutputStateOptions) -> int:
-			return IEOS.rtc_audio_interface_add_notify_audio_output_state(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_add_notify_audio_output_state(options)
 
 		static func add_notify_participant_updated(options: AddNotifyParticipantUpdatedOptions) -> int:
-			return IEOS.rtc_audio_interface_add_notify_participant_updated(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_add_notify_participant_updated(options)
 
 		static func get_input_devices_count(options := GetInputDevicesCountOptions.new()) -> int:
-			return IEOS.rtc_audio_interface_get_input_devices_count(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_get_input_devices_count(options)
 
 		static func get_output_devices_count(options := GetOutputDevicesCountOptions.new()) -> int:
-			return IEOS.rtc_audio_interface_get_output_devices_count(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_get_output_devices_count(options)
 
 		static func send_audio(options: SendAudioOptions) -> int:
-			return IEOS.rtc_audio_interface_send_audio(options)
+			return Engine.get_singleton("IEOS").rtc_audio_interface_send_audio(options)
 
 		static func query_input_devices_information(options := QueryInputDevicesInformationOptions.new()) -> void:
-			IEOS.rtc_audio_interface_query_input_devices_information(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_query_input_devices_information(options)
 
 		static func query_output_devices_information(options := QueryOutputDevicesInformationOptions.new()) -> void:
-			IEOS.rtc_audio_interface_query_output_devices_information(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_query_output_devices_information(options)
 
 		static func register_platform_user(options: RegisterPlatformUserOptions) -> void:
-			IEOS.rtc_audio_interface_register_platform_user(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_register_platform_user(options)
 
 		static func remove_notify_audio_before_render(notification_id: int) -> void:
-			IEOS.rtc_audio_interface_remove_notify_audio_before_render(notification_id)
+			Engine.get_singleton("IEOS").rtc_audio_interface_remove_notify_audio_before_render(notification_id)
 
 		static func remove_notify_audio_before_send(notification_id: int) -> void:
-			IEOS.rtc_audio_interface_remove_notify_audio_before_send(notification_id)
+			Engine.get_singleton("IEOS").rtc_audio_interface_remove_notify_audio_before_send(notification_id)
 
 		static func remove_notify_audio_input_state(notification_id: int) -> void:
-			IEOS.rtc_audio_interface_remove_notify_audio_input_state(notification_id)
+			Engine.get_singleton("IEOS").rtc_audio_interface_remove_notify_audio_input_state(notification_id)
 
 		static func remove_notify_audio_output_state(notification_id: int) -> void:
-			IEOS.rtc_audio_interface_remove_notify_audio_output_state(notification_id)
+			Engine.get_singleton("IEOS").rtc_audio_interface_remove_notify_audio_output_state(notification_id)
 
 		static func remove_notify_participant_updated(notification_id: int) -> void:
-			IEOS.rtc_audio_interface_remove_notify_participant_updated(notification_id)
+			Engine.get_singleton("IEOS").rtc_audio_interface_remove_notify_participant_updated(notification_id)
 
 		static func set_input_device_settings(options: SetInputDeviceSettingsOptions) -> void:
-			IEOS.rtc_audio_interface_set_input_device_settings(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_set_input_device_settings(options)
 
 		static func set_output_device_settings(options: SetOutputDeviceSettingsOptions) -> void:
-			IEOS.rtc_audio_interface_set_output_device_settings(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_set_output_device_settings(options)
 
 		static func unregister_platform_user(options: UnregisterPlatformUserOptions) -> void:
-			IEOS.rtc_audio_interface_unregister_platform_user(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_unregister_platform_user(options)
 
 		static func update_participant_volume(options: UpdateParticipantVolumeOptions) -> void:
-			IEOS.rtc_audio_interface_update_participant_volume(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_update_participant_volume(options)
 
 		static func update_receiving(options: UpdateReceivingOptions) -> void:
-			IEOS.rtc_audio_interface_update_receiving(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_update_receiving(options)
 
 		static func update_receiving_volume(options: UpdateReceivingVolumeOptions) -> void:
-			IEOS.rtc_audio_interface_update_receiving_volume(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_update_receiving_volume(options)
 
 		static func update_sending(options: UpdateSendingOptions) -> void:
-			IEOS.rtc_audio_interface_update_sending(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_update_sending(options)
 
 		static func update_sending_volume(options: UpdateSendingVolumeOptions) -> void:
-			IEOS.rtc_audio_interface_update_sending_volume(options)
+			Engine.get_singleton("IEOS").rtc_audio_interface_update_sending_volume(options)
 
 
 class RTCData:
@@ -3695,25 +3703,25 @@ class RTCData:
 
 	class RTCDataInterface:
 		static func add_notify_data_received(options: AddNotifyDataReceivedOptions) -> int:
-			return IEOS.rtc_data_interface_add_notify_data_received(options);
+			return Engine.get_singleton("IEOS").rtc_data_interface_add_notify_data_received(options);
 		
 		static func add_notify_participant_updated(options: AddNotifyParticipantUpdatedOptions) -> int:
-			return IEOS.rtc_data_interface_add_notify_participant_updated(options);
+			return Engine.get_singleton("IEOS").rtc_data_interface_add_notify_participant_updated(options);
 		
 		static func send_data(options: SendDataOptions) -> EOS.Result:
-			return IEOS.rtc_data_interface_send_data(options);
+			return Engine.get_singleton("IEOS").rtc_data_interface_send_data(options);
 		
 		static func remove_notify_data_received(notification_id: int) -> void:
-			IEOS.rtc_data_interface_remove_notify_data_received(notification_id)
+			Engine.get_singleton("IEOS").rtc_data_interface_remove_notify_data_received(notification_id)
 		
 		static func remove_notify_participant_updated(notification_id: int) -> void:
-			IEOS.rtc_data_interface_remove_notify_participant_updated(notification_id)
+			Engine.get_singleton("IEOS").rtc_data_interface_remove_notify_participant_updated(notification_id)
 		
 		static func update_receiving(options: UpdateReceivingOptions) -> void:
-			IEOS.rtc_data_interface_update_receiving(options);
+			Engine.get_singleton("IEOS").rtc_data_interface_update_receiving(options);
 		
 		static func update_sending(options: UpdateSendingOptions) -> void:
-			IEOS.rtc_data_interface_update_sending(options);
+			Engine.get_singleton("IEOS").rtc_data_interface_update_sending(options);
 
 
 class AntiCheatServer:
@@ -3910,70 +3918,70 @@ class AntiCheatServer:
 
 	class AntiCheatServerInterface:
 		static func begin_session(options: BeginSessionOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_begin_session(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_begin_session(options)
 
 		static func end_session() -> EOS.Result:
-			return IEOS.anticheat_server_interface_end_session(EndSessionOptions.new())
+			return Engine.get_singleton("IEOS").anticheat_server_interface_end_session(EndSessionOptions.new())
 
 		static func register_client(options: RegisterClientOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_register_client(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_register_client(options)
 
 		static func unregister_client(options: UnregisterClientOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_unregister_client(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_unregister_client(options)
 
 		static func receive_message_from_client(options: ReceiveMessageFromClientOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_receive_message_from_client(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_receive_message_from_client(options)
 
 		static func set_client_details(options: SetClientDetailsOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_set_client_details(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_set_client_details(options)
 
 		static func set_game_session_id(options: SetGameSessionIdOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_set_game_session_id(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_set_game_session_id(options)
 
 		static func set_client_network_state(options: SetClientNetworkStateOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_set_client_network_state(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_set_client_network_state(options)
 
 		static func get_protect_message_output_length(options: GetProtectMessageOutputLengthOptions) -> Dictionary:
-			return IEOS.anticheat_server_interface_get_protect_message_output_length(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_get_protect_message_output_length(options)
 
 		static func protect_message(options: ProtectMessageOptions) -> Dictionary:
-			return IEOS.anticheat_server_interface_protect_message(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_protect_message(options)
 
 		static func unprotect_message(options: UnprotectMessageOptions) -> Dictionary:
-			return IEOS.anticheat_server_interface_unprotect_message(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_unprotect_message(options)
 
 		static func register_event(options: RegisterEventOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_register_event(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_register_event(options)
 
 		static func log_event(options: LogEventOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_event(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_event(options)
 
 		static func log_game_round_start(options: LogGameRoundStartOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_game_round_start(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_game_round_start(options)
 
 		static func log_game_round_end(options: LogGameRoundEndOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_game_round_end(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_game_round_end(options)
 
 		static func log_player_spawn(options: LogPlayerSpawnOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_spawn(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_spawn(options)
 
 		static func log_player_despawn(options: LogPlayerDespawnOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_despawn(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_despawn(options)
 
 		static func log_player_revive(options: LogPlayerReviveOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_revive(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_revive(options)
 
 		static func log_player_tick(options: LogPlayerTickOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_tick(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_tick(options)
 
 		static func log_player_use_weapon(options: LogPlayerUseWeaponOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_use_weapon(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_use_weapon(options)
 
 		static func log_player_use_ability(options: LogPlayerUseAbilityOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_use_ability(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_use_ability(options)
 
 		static func log_player_take_damage(options: LogPlayerTakeDamageOptions) -> EOS.Result:
-			return IEOS.anticheat_server_interface_log_player_take_damage(options)
+			return Engine.get_singleton("IEOS").anticheat_server_interface_log_player_take_damage(options)
 
 
 
@@ -4059,49 +4067,49 @@ class AntiCheatClient:
 
 	class AntiCheatClientInterface:
 		static func begin_session(options: BeginSessionOptions) -> EOS.Result:
-			return IEOS.anticheat_client_interface_begin_session(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_begin_session(options)
 
 		static func end_session() -> EOS.Result:
-			return IEOS.anticheat_client_interface_end_session(EndSessionOptions.new())
+			return Engine.get_singleton("IEOS").anticheat_client_interface_end_session(EndSessionOptions.new())
 
 		static func add_external_integrity_catalog(options: AddExternalIntegrityCatalogOptions) -> EOS.Result:
-			return IEOS.anticheat_client_interface_add_external_integrity_catalog(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_add_external_integrity_catalog(options)
 
 		static func receive_message_from_server(options: ReceiveMessageFromServerOptions) -> EOS.Result:
-			return IEOS.anticheat_client_interface_receive_message_from_server(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_receive_message_from_server(options)
 
 		static func get_protect_message_output_length(options: GetProtectMessageOutputLengthOptions) -> Dictionary:
-			return IEOS.anticheat_client_interface_get_protect_message_output_length(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_get_protect_message_output_length(options)
 
 		static func protect_message(options: ProtectMessageOptions) -> Dictionary:
-			return IEOS.anticheat_client_interface_protect_message(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_protect_message(options)
 
 		static func unprotect_message(options: UnprotectMessageOptions) -> Dictionary:
-			return IEOS.anticheat_client_interface_unprotect_message(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_unprotect_message(options)
 
 		static func register_peer(options: RegisterPeerOptions) -> EOS.Result:
-			return IEOS.anticheat_client_interface_register_peer(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_register_peer(options)
 
 		static func unregister_peer(options: UnregisterPeerOptions) -> EOS.Result:
-			return IEOS.anticheat_client_interface_unregister_peer(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_unregister_peer(options)
 
 		static func receive_message_from_peer(options: ReceiveMessageFromPeerOptions) -> EOS.Result:
-			return IEOS.anticheat_client_interface_receive_message_from_peer(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_receive_message_from_peer(options)
 
 		static func get_module_build_id(options: GetModuleBuildIdOptions) -> int:
-			return IEOS.anticheat_client_interface_get_module_build_id(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_get_module_build_id(options)
 
 		static func reserved02(options: Reserved02Options) -> int:
-			return IEOS.anticheat_client_interface_reserved02(options)
+			return Engine.get_singleton("IEOS").anticheat_client_interface_reserved02(options)
 
 
 class Version:
 	class VersionInterface:
 		static func get_version() -> String:
-			return IEOS.version_interface_get_version()
+			return Engine.get_singleton("IEOS").version_interface_get_version()
 
 		static func get_constants() -> Dictionary:
-			return IEOS.version_interface_get_constants()
+			return Engine.get_singleton("IEOS").version_interface_get_constants()
 
 
 

@@ -54,7 +54,7 @@ var allowed_platform_ids: Array
 var _log = HLog.logger("HLobby")
 
 var _attributes_to_add = []
-var _lobby_details: EOSGLobbyDetails
+var _lobby_details
 
 var _connected_to_lobby_events = false
 var _connected_to_rtc_events = false
@@ -125,17 +125,17 @@ func init_from_id(p_lobby_id: String):
 
 	if is_valid() and get_current_member() and not _connected_to_lobby_events:
 		_connected_to_lobby_events = true
-		IEOS.lobby_interface_lobby_update_received_callback.connect(_on_lobby_update_received_callback)
-		IEOS.lobby_interface_lobby_member_update_received_callback.connect(_on_lobby_interface_lobby_member_update_received_callback)
-		IEOS.lobby_interface_lobby_member_status_received_callback.connect(_on_lobby_member_status_received_callback)
-		IEOS.lobby_interface_rtc_room_connection_changed_callback.connect(_on_lobby_interface_rtc_room_connection_changed_callback)
-		IEOS.lobby_interface_leave_lobby_requested_callback.connect(_on_lobby_interface_leave_lobby_requested_callback)
+		Engine.get_singleton("IEOS").lobby_interface_lobby_update_received_callback.connect(_on_lobby_update_received_callback)
+		Engine.get_singleton("IEOS").lobby_interface_lobby_member_update_received_callback.connect(_on_lobby_interface_lobby_member_update_received_callback)
+		Engine.get_singleton("IEOS").lobby_interface_lobby_member_status_received_callback.connect(_on_lobby_member_status_received_callback)
+		Engine.get_singleton("IEOS").lobby_interface_rtc_room_connection_changed_callback.connect(_on_lobby_interface_rtc_room_connection_changed_callback)
+		Engine.get_singleton("IEOS").lobby_interface_leave_lobby_requested_callback.connect(_on_lobby_interface_leave_lobby_requested_callback)
 
 		# RTC
-		IEOS.rtc_interface_participant_status_changed.connect(_on_rtc_interface_participant_status_changed)
-		IEOS.rtc_audio_participant_updated.connect(_on_rtc_audio_participant_updated)
-		IEOS.rtc_data_participant_updated.connect(_on_rtc_data_participant_updated)
-		IEOS.rtc_data_data_received.connect(_on_rtc_data_data_received)
+		Engine.get_singleton("IEOS").rtc_interface_participant_status_changed.connect(_on_rtc_interface_participant_status_changed)
+		Engine.get_singleton("IEOS").rtc_audio_participant_updated.connect(_on_rtc_audio_participant_updated)
+		Engine.get_singleton("IEOS").rtc_data_participant_updated.connect(_on_rtc_data_participant_updated)
+		Engine.get_singleton("IEOS").rtc_data_data_received.connect(_on_rtc_data_data_received)
 
 
 
@@ -200,7 +200,7 @@ func update_async() -> bool:
 		_log.error("Failed to create lobby modification: result_code=%s" % EOS.result_str(lobby_mod_ret))
 		return false
 	
-	var lobby_mod: EOSGLobbyModification = lobby_mod_ret.lobby_modification
+	var lobby_mod = lobby_mod_ret.lobby_modification
 
 	if is_owner(HAuth.product_user_id):
 		_log.debug("Updating lobby as owner...")
@@ -255,7 +255,7 @@ func update_async() -> bool:
 	update_opts.lobby_modification = lobby_mod
 	EOS.Lobby.LobbyInterface.update_lobby(update_opts)
 	
-	var update_ret = await IEOS.lobby_interface_update_lobby_callback
+	var update_ret = await Engine.get_singleton("IEOS").lobby_interface_update_lobby_callback
 	if not EOS.is_success(update_ret):
 		_log.error("Failed to update lobby: result_code=%s. lobby_id=%s" % [EOS.result_str(update_ret), lobby_id])
 		return false
@@ -279,7 +279,7 @@ func leave_async() -> bool:
 	opts.lobby_id = lobby_id
 	EOS.Lobby.LobbyInterface.leave_lobby(opts)
 
-	var ret = await IEOS.lobby_interface_leave_lobby_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_leave_lobby_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to leave lobby: result_code=%s" % EOS.result_str(ret))
 		return false
@@ -303,7 +303,7 @@ func destroy_async() -> bool:
 	opts.lobby_id = lobby_id
 	EOS.Lobby.LobbyInterface.destroy_lobby(opts)
 
-	var ret = await IEOS.lobby_interface_destroy_lobby_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_destroy_lobby_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to destroy lobby: result_code=%s" % EOS.result_str(ret))
 		return false
@@ -370,7 +370,7 @@ func _copy_lobby_data():
 	_init_from_details(copy_ret.lobby_details)
 
 
-func _init_from_details(lobby_details: EOSGLobbyDetails):
+func _init_from_details(lobby_details):
 	_log.debug("Initializing from EOSGLobbyDetails")
 
 	_lobby_details = lobby_details
@@ -654,17 +654,17 @@ func _on_rtc_data_data_received(p_data: Dictionary):
 
 
 func _disconnect_from_signals() -> void:
-	_disconnect_signal_if_connected(IEOS, "lobby_interface_lobby_update_received_callback", _on_lobby_interface_lobby_member_update_received_callback)
-	_disconnect_signal_if_connected(IEOS, "lobby_interface_lobby_member_update_received_callback", _on_lobby_interface_lobby_member_update_received_callback)
-	_disconnect_signal_if_connected(IEOS, "lobby_interface_lobby_member_status_received_callback", _on_lobby_member_status_received_callback)
-	_disconnect_signal_if_connected(IEOS, "lobby_interface_rtc_room_connection_changed_callback", _on_lobby_interface_rtc_room_connection_changed_callback)
-	_disconnect_signal_if_connected(IEOS, "lobby_interface_leave_lobby_requested_callback", _on_lobby_interface_leave_lobby_requested_callback)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "lobby_interface_lobby_update_received_callback", _on_lobby_interface_lobby_member_update_received_callback)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "lobby_interface_lobby_member_update_received_callback", _on_lobby_interface_lobby_member_update_received_callback)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "lobby_interface_lobby_member_status_received_callback", _on_lobby_member_status_received_callback)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "lobby_interface_rtc_room_connection_changed_callback", _on_lobby_interface_rtc_room_connection_changed_callback)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "lobby_interface_leave_lobby_requested_callback", _on_lobby_interface_leave_lobby_requested_callback)
 
 	# RTC
-	_disconnect_signal_if_connected(IEOS, "rtc_interface_participant_status_changed", _on_rtc_interface_participant_status_changed)
-	_disconnect_signal_if_connected(IEOS, "rtc_audio_participant_updated", _on_rtc_audio_participant_updated)
-	_disconnect_signal_if_connected(IEOS, "rtc_data_participant_updated", _on_rtc_data_participant_updated)
-	_disconnect_signal_if_connected(IEOS, "rtc_data_data_received", _on_rtc_data_data_received)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "rtc_interface_participant_status_changed", _on_rtc_interface_participant_status_changed)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "rtc_audio_participant_updated", _on_rtc_audio_participant_updated)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "rtc_data_participant_updated", _on_rtc_data_participant_updated)
+	_disconnect_signal_if_connected(Engine.get_singleton("IEOS"), "rtc_data_data_received", _on_rtc_data_data_received)
 
 	if _notif_rtc_parti_status_changed != EOS.NotificationIdInvalid:
 		EOS.RTC.RTCInterface.remove_notify_participant_status_changed(_notif_rtc_parti_status_changed)

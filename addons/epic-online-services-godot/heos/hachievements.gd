@@ -25,7 +25,10 @@ var _achievements: Array[HAchievementData]= []
 #region Built-in methods
 
 func _ready() -> void:
-	IEOS.achievements_interface_achievements_unlocked_v2_callback.connect(_on_achievements_interface_achievements_unlocked_v2_callback)
+	# No-op on web (EOS GDExtension has no web build). Desktop unaffected.
+	if not Engine.has_singleton("IEOS"):
+		return
+	Engine.get_singleton("IEOS").achievements_interface_achievements_unlocked_v2_callback.connect(_on_achievements_interface_achievements_unlocked_v2_callback)
 
 #endregion
 
@@ -39,7 +42,7 @@ func get_all_achievements_async() -> Array[HAchievementData]:
 	var opts = EOS.Achievements.QueryDefinitionsOptions.new()
 	EOS.Achievements.AchievementsInterface.query_definitions(opts)
 
-	var ret = await IEOS.achievements_interface_query_definitions_callback
+	var ret = await Engine.get_singleton("IEOS").achievements_interface_query_definitions_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query achievements: result_code=%s" % EOS.result_str(ret))
 		return []
@@ -79,7 +82,7 @@ func get_player_achievements_async() -> Array[HAchievementData]:
 	var opts = EOS.Achievements.QueryPlayerAchievementsOptions.new()
 
 	EOS.Achievements.AchievementsInterface.query_player_achievements(opts)
-	var ret = await IEOS.achievements_interface_query_player_achievements_callback
+	var ret = await Engine.get_singleton("IEOS").achievements_interface_query_player_achievements_callback
 
 	if not EOS.is_success(ret):
 		_log.error("Failed to query player achievements: result_code=%s" % EOS.result_str(ret))
@@ -145,7 +148,7 @@ func unlock_achievements_async(achievement_ids: Array) -> bool:
 
 	EOS.Achievements.AchievementsInterface.unlock_achievements(opts)
 
-	var res: Dictionary = await IEOS.achievements_interface_unlock_achievements_callback
+	var res: Dictionary = await Engine.get_singleton("IEOS").achievements_interface_unlock_achievements_callback
 
 	if not EOS.is_success(res):
 		_log.error("Failed to unlock achievement(s): result_code=%s" % EOS.result_str(res))

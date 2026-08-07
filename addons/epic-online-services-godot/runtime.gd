@@ -14,17 +14,22 @@ var local_epic_account_id: String
 
 
 func _ready() -> void:
-	IEOS.auth_interface_login_callback.connect(func (data: Dictionary):
+	# On web the EOS GDExtension isn't loaded, so there is no native singleton to
+	# hook into. Skip to avoid a null-crash at startup; desktop is unaffected.
+	if not Engine.has_singleton("IEOS"):
+		set_process(false)
+		return
+	Engine.get_singleton("IEOS").auth_interface_login_callback.connect(func (data: Dictionary):
 		if data.local_user_id != "":
 			local_epic_account_id = data.local_user_id
 	)
 
-	IEOS.connect_interface_login_callback.connect(func (data: Dictionary):
+	Engine.get_singleton("IEOS").connect_interface_login_callback.connect(func (data: Dictionary):
 		if data.local_user_id != "":
 			local_product_user_id = data.local_user_id
 	)
 
-	IEOS.auth_interface_logout_callback.connect(_on_logout)
+	Engine.get_singleton("IEOS").auth_interface_logout_callback.connect(_on_logout)
 
 
 func _on_logout(data: Dictionary):
@@ -33,4 +38,6 @@ func _on_logout(data: Dictionary):
 
 
 func _process(_delta: float):
-	IEOS.tick()
+	if not Engine.has_singleton("IEOS"):
+		return
+	Engine.get_singleton("IEOS").tick()

@@ -38,7 +38,7 @@ func create_lobby_async(opts: EOS.Lobby.CreateLobbyOptions) -> HLobby:
 	_log.debug("Creating lobby...")
 	EOS.Lobby.LobbyInterface.create_lobby(opts)
 
-	var ret = await IEOS.lobby_interface_create_lobby_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_create_lobby_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to create lobby: %s" % EOS.result_str(ret))
 		return null
@@ -62,7 +62,7 @@ func join_by_id_async(lobby_id: String) -> HLobby:
 	opts.local_rtc_options = local_rtc_options
 	EOS.Lobby.LobbyInterface.join_lobby_by_id(opts)
 
-	var ret = await IEOS.lobby_interface_join_lobby_by_id_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_join_lobby_by_id_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to join lobby: result_code=%s" % EOS.result_str(ret))
 		return null
@@ -87,7 +87,7 @@ func join_async(lobby: HLobby):
 	opts.local_rtc_options = local_rtc_options
 	EOS.Lobby.LobbyInterface.join_lobby(opts)
 
-	var ret = await IEOS.lobby_interface_join_lobby_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_join_lobby_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to join lobby: result_code=%s" % EOS.result_str(ret))
 		return null
@@ -106,7 +106,7 @@ func search_by_product_user_id_async(product_user_id: String):
 	var opts = EOS.Lobby.CreateLobbySearchOptions.new()
 	opts.max_results = max_search_results
 	
-	var search: EOSGLobbySearch = create_search(opts)
+	var search = create_search(opts)
 	if not search:
 		return null
 	
@@ -131,7 +131,7 @@ func search_by_attribute_async(attributes):
 	var opts = EOS.Lobby.CreateLobbySearchOptions.new()
 	opts.max_results = max_search_results
 	
-	var search: EOSGLobbySearch = create_search(opts)
+	var search = create_search(opts)
 	if not search:
 		return null
 	
@@ -151,7 +151,7 @@ func search_by_lobby_id_async(lobby_id: String):
 	var opts = EOS.Lobby.CreateLobbySearchOptions.new()
 	opts.max_results = max_search_results
 	
-	var search: EOSGLobbySearch = create_search(opts)
+	var search = create_search(opts)
 	if not search:
 		return null
 	
@@ -184,12 +184,12 @@ func create_search(opts: EOS.Lobby.CreateLobbySearchOptions):
 
 
 ## (Advanced) Perform the lobby search. Returns [Array] of [HLobby] or null
-func search_async(lobby_search: EOSGLobbySearch):
+func search_async(lobby_search):
 	_log.debug("Searching for lobbies...")
 
 	lobby_search.find(HAuth.product_user_id)
 
-	var search_ret = await IEOS.lobby_search_find_callback
+	var search_ret = await Engine.get_singleton("IEOS").lobby_search_find_callback
 	if not EOS.is_success(search_ret):
 		_log.error("Failed to search for lobbies: result_code=%s" % EOS.result_str(search_ret))
 		return null

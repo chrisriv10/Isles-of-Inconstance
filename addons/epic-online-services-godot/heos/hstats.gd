@@ -38,7 +38,7 @@ func get_stats_async() -> Array:
 	var query_opts = EOS.Stats.QueryStatsOptions.new()
 	EOS.Stats.StatsInterface.query_stats(query_opts)
 
-	var ret = await IEOS.stats_interface_query_stats_callback
+	var ret = await Engine.get_singleton("IEOS").stats_interface_query_stats_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query stats: result_code=%s" % EOS.result_str(ret))
 		return []
@@ -69,7 +69,7 @@ func ingest_stat_async(stat_name: String, _ingest_amount: int) -> EOS.Result:
 	]
 	EOS.Stats.StatsInterface.ingest_stat(opts)
 
-	var ret = await IEOS.stats_interface_ingest_stat_callback
+	var ret = await Engine.get_singleton("IEOS").stats_interface_ingest_stat_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to ingest stat: result_code=%s" % EOS.result_str(ret))
 	return ret.result_code

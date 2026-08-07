@@ -39,7 +39,7 @@ func get_leaderboard_definitions_async() -> Array:
 	var query_opts = EOS.Leaderboards.QueryLeaderboardDefinitionsOptions.new()
 	EOS.Leaderboards.LeaderboardsInterface.query_leaderboard_definitions(query_opts)
 
-	var ret: Dictionary = await IEOS.leaderboards_interface_query_leaderboard_definitions_callback
+	var ret: Dictionary = await Engine.get_singleton("IEOS").leaderboards_interface_query_leaderboard_definitions_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query leaderboards: result_code=%s" % EOS.result_str(ret))
 		return []
@@ -77,7 +77,7 @@ func get_leaderboard_records_async(leaderboard_id: String) -> Array:
 	query_opts.leaderboard_id = leaderboard_id
 	EOS.Leaderboards.LeaderboardsInterface.query_leaderboard_ranks(query_opts)
 
-	var ret = await IEOS.leaderboards_interface_query_leaderboard_ranks_callback
+	var ret = await Engine.get_singleton("IEOS").leaderboards_interface_query_leaderboard_ranks_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to query leaderboard ranks: result_code=%s" % EOS.result_str(ret))
 		return []

@@ -99,7 +99,7 @@ func toggle_mute_member_async() -> bool:
 		opts.audio_status = EOS.RTCAudio.AudioStatus.Enabled if _is_muted else EOS.RTCAudio.AudioStatus.Disabled
 		
 		EOS.RTCAudio.RTCAudioInterface.update_sending(opts)
-		var ret = await IEOS.rtc_audio_interface_update_sending_callback
+		var ret = await Engine.get_singleton("IEOS").rtc_audio_interface_update_sending_callback
 		if not EOS.is_success(ret):
 			_log.error("Failed to update audio sending: result_code=%s" % EOS.result_str(ret))
 			return false
@@ -119,7 +119,7 @@ func toggle_mute_member_async() -> bool:
 		opts.audio_enabled = _is_muted
 
 		EOS.RTCAudio.RTCAudioInterface.update_receiving(opts)
-		var ret = await IEOS.rtc_audio_interface_update_receiving_callback
+		var ret = await Engine.get_singleton("IEOS").rtc_audio_interface_update_receiving_callback
 		if not EOS.is_success(ret):
 			_log.error("Failed to update audio receiving: result_code=%s" % EOS.result_str(ret))
 			return false
@@ -146,7 +146,7 @@ func toggle_hard_mute_member_async() -> bool:
 	opts.hard_mute = not _is_hard_muted
 	EOS.Lobby.LobbyInterface.hard_mute_member(opts)
 
-	var ret = await IEOS.lobby_interface_hard_mute_member_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_hard_mute_member_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to %s member: result_code=%s" % [action, EOS.result_str(ret)])
 		return false
@@ -170,7 +170,7 @@ func kick_member_async() -> bool:
 	opts.target_user_id = product_user_id
 
 	EOS.Lobby.LobbyInterface.kick_member(opts)
-	var ret = await IEOS.lobby_interface_kick_member_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_kick_member_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to kick member: result_code=%s" % EOS.result_str(ret))
 		return false
@@ -192,7 +192,7 @@ func promote_member_async() -> bool:
 	opts.target_user_id = product_user_id
 	EOS.Lobby.LobbyInterface.promote_member(opts)
 
-	var ret = await IEOS.lobby_interface_promote_member_callback
+	var ret = await Engine.get_singleton("IEOS").lobby_interface_promote_member_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to promote member: result_code=%s" % EOS.result_str(ret))
 		return false

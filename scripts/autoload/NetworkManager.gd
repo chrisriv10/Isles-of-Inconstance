@@ -31,7 +31,10 @@ var _ezcha_joining_in_progress: bool = false
 
 var _eos_initialized: bool = false
 var _eos_lobby: HLobby = null
-var _eos_peer: EOSGMultiplayerPeer = null
+# Untyped on purpose: EOSGMultiplayerPeer is a native class that has no web
+# build, so typing this var would make NetworkManager fail to compile on an
+# HTML5 export. On desktop it holds the same EOSGMultiplayerPeer instance.
+var _eos_peer = null
 var _eos_hosting_in_progress: bool = false
 var _eos_joining_in_progress: bool = false
 var _eos_searching_in_progress: bool = false
@@ -115,6 +118,9 @@ func join_via_ezcha_code(join_code: String) -> void:
 	_do_join_via_ezcha_code(join_code)
 
 func host_via_eos(lobby_name: String = "", max_players: int = 8, public_lobby: bool = true) -> void:
+	if OS.has_feature("web"):
+		push_warning("NetworkManager: EOS unavailable on web build")
+		return
 	if mode != ConnectionMode.NONE:
 		disconnect_from_server()
 	if _eos_hosting_in_progress or _eos_joining_in_progress:
@@ -128,6 +134,9 @@ func host_via_eos(lobby_name: String = "", max_players: int = 8, public_lobby: b
 	_do_host_via_eos(lobby_name, max_players, public_lobby)
 
 func join_via_eos_code(join_code: String) -> void:
+	if OS.has_feature("web"):
+		push_warning("NetworkManager: EOS unavailable on web build")
+		return
 	if mode != ConnectionMode.NONE:
 		disconnect_from_server()
 	if _eos_hosting_in_progress or _eos_joining_in_progress:
@@ -412,6 +421,8 @@ func _eos_fail(message: String) -> void:
 		connection_failed.emit()
 
 func _ensure_eos_ready() -> bool:
+	if OS.has_feature("web"):
+		return false
 	if _eos_initialized and not HAuth.product_user_id.is_empty():
 		return true
 	var creds := HCredentials.new()
@@ -475,10 +486,13 @@ func _do_host_via_eos(lobby_name: String, max_players: int, public_lobby: bool) 
 	_eos_lobby = lobby
 	print("NetworkManager: EOS lobby created: ", lobby.lobby_id, " code: ", _eos_join_code)
 
-	_eos_peer = EOSGMultiplayerPeer.new()
+	_eos_peer = ClassDB.instantiate("EOSGMultiplayerPeer")
+	if _eos_peer == null:
+		_eos_fail("Failed to create EOS P2P server")
+		return
 	_eos_peer.set_is_polling(true)
 	_eos_peer.set_auto_accept_connection_requests(true)
-	var server_err := _eos_peer.create_server(EOS_SOCKET_ID)
+	var server_err: Error = _eos_peer.create_server(EOS_SOCKET_ID)
 	if server_err != OK:
 		_eos_fail("Failed to create EOS P2P server: " + str(server_err))
 		return
@@ -498,7 +512,9 @@ func _do_join_via_eos_code(join_code: String) -> void:
 
 	var search_opts := EOS.Lobby.CreateLobbySearchOptions.new()
 	search_opts.max_results = 25
-	var search: EOSGLobbySearch = HLobbies.create_search(search_opts)
+	# EOSGLobbySearch is a native EOS class with no web build; keep untyped so
+	# NetworkManager compiles on HTML5. Desktop still gets the real object.
+	var search = HLobbies.create_search(search_opts)
 	if search == null:
 		_eos_fail("Failed to create lobby search")
 		return
@@ -533,9 +549,12 @@ func _do_join_via_eos_code(join_code: String) -> void:
 		return
 	print("NetworkManager: EOS found lobby, host: ", host_id)
 
-	_eos_peer = EOSGMultiplayerPeer.new()
+	_eos_peer = ClassDB.instantiate("EOSGMultiplayerPeer")
+	if _eos_peer == null:
+		_eos_fail("Failed to create EOS P2P client")
+		return
 	_eos_peer.set_is_polling(true)
-	var client_err := _eos_peer.create_client(EOS_SOCKET_ID, host_id)
+	var client_err: Error = _eos_peer.create_client(EOS_SOCKET_ID, host_id)
 	if client_err != OK:
 		_eos_fail("Failed to create EOS P2P client: " + str(client_err))
 		return
@@ -560,7 +579,7 @@ func search_public_lobbies() -> Variant:
 
 	var search_opts := EOS.Lobby.CreateLobbySearchOptions.new()
 	search_opts.max_results = 50
-	var search: EOSGLobbySearch = HLobbies.create_search(search_opts)
+	var search = HLobbies.create_search(search_opts)
 	if search == null:
 		_eos_searching_in_progress = false
 		return null

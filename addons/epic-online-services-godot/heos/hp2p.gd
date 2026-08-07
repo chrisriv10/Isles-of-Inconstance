@@ -22,7 +22,7 @@ func get_nat_type_async() -> EOS.P2P.NATType:
 	_log.debug("Getting nat type...")
 	EOS.P2P.P2PInterface.query_nat_type()
 	
-	var ret = await IEOS.p2p_interface_query_nat_type_callback
+	var ret = await Engine.get_singleton("IEOS").p2p_interface_query_nat_type_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to get nat type: %s" % EOS.result_str(ret))
 	else:

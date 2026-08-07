@@ -62,7 +62,10 @@ var _log = HLog.logger("HPlatform")
 #region Built-in methods
 
 func _ready() -> void:
-	IEOS.logging_interface_callback.connect(_on_logging_callback)
+	# No-op on web (EOS GDExtension has no web build). Desktop unaffected.
+	if not Engine.has_singleton("IEOS"):
+		return
+	Engine.get_singleton("IEOS").logging_interface_callback.connect(_on_logging_callback)
 
 #endregion
 

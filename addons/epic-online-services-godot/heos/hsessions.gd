@@ -31,13 +31,13 @@ func create_session(opts: EOS.Sessions.CreateSessionModificationOptions) -> EOSG
 	return session_mod
 
 
-func update_session_async(p_session: EOSGSessionModification) -> bool:
+func update_session_async(p_session) -> bool:
 	_log.debug("Updating session...")
 	
 	var opts := EOS.Sessions.UpdateSessionOptions.new()
 	opts.session_modification = p_session
 	EOS.Sessions.SessionsInterface.update_session(opts)
-	var ret = await IEOS.sessions_interface_update_session_callback
+	var ret = await Engine.get_singleton("IEOS").sessions_interface_update_session_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to update session: %s" % EOS.result_str(ret))
 		return false
@@ -60,7 +60,7 @@ func get_active_session(p_session_name: String) -> EOSGActiveSession:
 	return ret.active_session
 
 
-func join_async(session: EOSGSessionDetails, session_name: String, presence_enabled = false) -> bool:
+func join_async(session, session_name: String, presence_enabled = false) -> bool:
 	if not session:
 		return false
 	var session_id = session.copy_info().info.session_id
@@ -72,7 +72,7 @@ func join_async(session: EOSGSessionDetails, session_name: String, presence_enab
 	opts.session_name = session_name
 	EOS.Sessions.SessionsInterface.join_session(opts)
 
-	var ret = await IEOS.sessions_interface_join_session_callback
+	var ret = await Engine.get_singleton("IEOS").sessions_interface_join_session_callback
 	if not EOS.is_success(ret):
 		_log.error("Failed to join session session_id=%s: result_code=%s" % [session_id, EOS.result_str(ret)])
 		return false
@@ -115,12 +115,12 @@ func create_search(opts: EOS.Sessions.CreateSessionSearchOptions) -> EOSGSession
 
 
 ## (Advanced)
-func search_async(session_search: EOSGSessionSearch):
+func search_async(session_search):
 	_log.debug("Searching for sessions...")
 
 	session_search.find(HAuth.product_user_id)
 
-	var search_ret = await IEOS.session_search_find_callback
+	var search_ret = await Engine.get_singleton("IEOS").session_search_find_callback
 	if not EOS.is_success(search_ret):
 		_log.error("Failed to search for sessions: result_code=%s" % EOS.result_str(search_ret))
 		return null
