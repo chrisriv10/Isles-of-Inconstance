@@ -1,18 +1,20 @@
 # 🌾 Isles of Inconstance
 
-A Stardew Valley and Minecraft inspired farming, survival, and crafting game built in **Godot 4.7**, featuring procedurally generated crops, a fully deterministic seeded world, and a surprising amount of stuff to do once you get past the first few days.
+**v0.2.0**
 
-> Plant something weird. See what it becomes. Bake a pie, eat it, or summon a boss. 
+A Stardew Valley and Minecraft inspired farming, survival, and crafting game built in **Godot 4.7**, featuring procedurally generated crops, a fully deterministic seeded world, co-op multiplayer, and a surprising amount of stuff to do.
+
+> Plant something weird. See what it becomes. Bake a pie, eat it, or summon a boss.
 
 ---
 
 ## ✨ What's in the game
 
-- **🌱 Procedural crop generation** — beyond the standard crops, every playthrough generates unique procedural crops (prefix + root combos like *"Azure Melon"* or *"Void Bloom"*) with their own rarity and traits
+- **🌱 Procedural crop generation** — beyond the standard crops, every playthrough generates unique procedural crops (like *"Azure Melon"* or *"Void Bloom"*) with their own rarity and traits
 - **🧬 Crop mutations & genetics** — 10 possible mutations (Crystal, Golden, Prismatic, and more), each with real gameplay effects like light emission or bonus value
 - **🌍 Deterministic seeded worlds** — every world is generated from a single seed. The same seed always produces the same island, biomes, and crop pool
 - **⚔️ Combat & bosses** — 5 common enemy types plus 4 unique bosses, each with phase changes and a full defeat sequence
-- **⛏️ Mining** — procedurally generated underground mines with 6 depth levels, HP-based ore deposits, and depth-gated loot
+- **⛏️ Mining** — procedurally generated underground mines with depth levels, HP-based ore deposits, and depth-gated loot
 - **🎣 Fishing** — 9 fish types with a cast-and-reel minigame, plus a rare legendary catch
 - **🏘️ Town restoration** — rebuild the ruined town of Tidehaven building-by-building to unlock NPCs, shops, and services
 - **🐾 Pets** — 8 companion pets with passive bonuses and their own leveling system
@@ -21,6 +23,8 @@ A Stardew Valley and Minecraft inspired farming, survival, and crafting game bui
 - **🧪 Alchemy & cooking** — potion brewing and a full meal-cooking system with buffs
 - **🌦️ Weather & seasons** — 4 seasons with growth/yield effects, plus dynamic weather (rain, storms, fog)
 - **🏝️ Expedition islands** — pay Captain Briggs to visit a randomly generated bonus island (6 possible biomes, from ethereal to volcanic to ice cream land)
+- **🤝 Co-op multiplayer** — play with up to 8 players online through public lobbies or join codes
+- **🏆 Game completion** — an endgame capstone tracks four pillars (defeat the final boss, restore every building, visit every island biome, and reach level 50) toward finishing the game
 
 ---
 
@@ -31,7 +35,7 @@ A Stardew Valley and Minecraft inspired farming, survival, and crafting game bui
 | `WASD` | Move |
 | `1` / `2` | Hoe / Watering Can slots |
 | `3`–`0` | Hotbar slots |
-| `Space` / `F` | Use tool |
+| `F` | Use tool |
 | `E` | Interact, sit, cast fishing line |
 | `I` | Inventory |
 | `C` | Crafting |
@@ -44,9 +48,10 @@ A Stardew Valley and Minecraft inspired farming, survival, and crafting game bui
 | `K` | Cooking |
 | `N` | Town overview |
 | `L` | Collections |
+| `Enter` | Open/close chat |
 | `Esc` | Close menus |
 
-Three game modes are available: **Peaceful** (no enemies), **Survival** (night enemies), **Harcore** (Survival with one life), and **Creative** (god mode).
+Four game modes are available: **Peaceful**, **Survival**, **Hardcore**, and **Creative**.
 
 ---
 
@@ -65,6 +70,17 @@ Saves are stored per-slot (5 slots) in Godot's user data folder, so you can run 
 
 ---
 
+## 🤝 Multiplayer
+
+Host or join a co-op game with up to 8 players from the main menu:
+ 
+- **Join code** — host a game and share the generated code with friends
+- **Public lobbies** — browse and join open lobbies directly from the lobby browser
+- One player hosts and acts as the authority for shared world state (weather, day/night, enemies, town progress, and so on); everyone's individual farm, inventory, and progress stays their own
+- Online multiplayer is desktop-only. The web build only supports single-player.
+
+---
+
 ## 🛠️ Tech notes
 
 - Built entirely in **GDScript**, no external game frameworks
@@ -77,6 +93,7 @@ Saves are stored per-slot (5 slots) in Godot's user data folder, so you can run 
 ## 📌 Project status
 
 This is an actively developed solo project. Expect some rough edges, ongoing balance tuning, and new systems arriving over time. Known areas being worked on:
+- Multiplayer stability and edge-case sync fixes (newest major system, still hardening)
 - Progression pacing 
 - Additional automated test coverage
 - Onboarding/tutorial flow for new players
