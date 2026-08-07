@@ -85,7 +85,9 @@ const ANIMAL_SCENE := preload("res://scenes/world/Animal.tscn")
 func _bbcode_to_plain(text: String) -> String:
 	if text.is_empty():
 		return text
-	var parser := Label.new()
+	# RichTextLabel supports BBCode parsing and get_parsed_text(); a plain Label
+	# has no bbcode_enabled property, so we must use RichTextLabel here.
+	var parser := RichTextLabel.new()
 	parser.bbcode_enabled = true
 	parser.text = text
 	var parsed: String = parser.get_parsed_text()
