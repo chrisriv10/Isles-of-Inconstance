@@ -1745,15 +1745,16 @@ func _summon_boss(bait_item_id: String) -> void:
 		_:
 			return
 	
-	# Remove the bait from inventory
-	InventoryManager.remove_item(bait_item_id, 1)
-	
-	# Prevent multiple boss summons — check if any boss is already alive
+	# Prevent multiple boss summons — check if any boss is already alive BEFORE
+	# consuming the bait, so a rejected summon doesn't waste a crafted boss item.
 	var existing_bosses := get_tree().get_nodes_in_group("bosses")
 	for eb in existing_bosses:
 		if is_instance_valid(eb):
 			ToastNotification.show_toast("A boss is already active! Defeat it first.", ToastNotification.ToastType.WARNING, 2.5)
 			return
+
+	# Remove the bait from inventory (only reached when no boss is alive locally).
+	InventoryManager.remove_item(bait_item_id, 1)
 	
 	# Spawn the boss at a random position near the player
 	var angle := randf_range(0.0, TAU)
@@ -1783,7 +1784,7 @@ func _summon_boss(bait_item_id: String) -> void:
 			boss.queue_free()
 			var spawner_node := get_tree().get_first_node_in_group("enemy_spawner")
 			if spawner_node:
-				spawner_node.rpc_id(1, "_server_request_summon_boss", boss_scene.resource_path, spawn_pos.x, spawn_pos.y)
+				spawner_node.rpc_id(1, "_server_request_summon_boss", boss_scene.resource_path, spawn_pos.x, spawn_pos.y, bait_item_id)
 			return
 
 	world.add_child(boss)

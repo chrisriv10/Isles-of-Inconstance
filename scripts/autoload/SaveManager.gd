@@ -34,8 +34,11 @@ func _hook_server_disconnect() -> void:
 ## mode to NONE by the time this fires, so save_game() would take the full
 ## world path — which a client must never write.)
 func _on_server_disconnected() -> void:
-	if multiplayer.is_server():
-		return
+	# This handler is only wired to NetworkManager.server_disconnected, which
+	# fires ONLY on a client that lost its host. The former `if multiplayer
+	# .is_server(): return` guard was a bug: NetworkManager nulls the network
+	# peer BEFORE emitting this signal, and is_server() returns true with a null
+	# peer — so the guard always bailed and the save never ran. Save here.
 	_save_player_progression()
 	print("SaveManager: host disconnected — personal progression saved")
 

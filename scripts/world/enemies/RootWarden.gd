@@ -179,9 +179,9 @@ func _summon_minions() -> void:
 
 
 func _die() -> void:
-	InventoryManager.add_item("wardens_core", 1)
+	_grant_loot_to_killer("wardens_core", 1)
 	_queue_loot("wardens_core", 1)
-	InventoryManager.add_item("evergrowth_seed", 1)
+	_grant_loot_to_killer("evergrowth_seed", 1)
 	_queue_loot("evergrowth_seed", 1)
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
 	if mgr and mgr.has_method("on_boss_defeated"):

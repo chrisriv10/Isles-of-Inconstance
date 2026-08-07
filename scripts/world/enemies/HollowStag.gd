@@ -220,9 +220,9 @@ func _spectral_howl() -> void:
 
 
 func _die() -> void:
-	InventoryManager.add_item("stags_essence", 1)
+	_grant_loot_to_killer("stags_essence", 1)
 	_queue_loot("stags_essence", 1)
-	InventoryManager.add_item("mythril_ingot", 1)
+	_grant_loot_to_killer("mythril_ingot", 1)
 	_queue_loot("mythril_ingot", 1)
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
 	if mgr and mgr.has_method("on_boss_defeated"):

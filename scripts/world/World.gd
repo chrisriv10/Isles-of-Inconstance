@@ -2373,6 +2373,26 @@ func _apply_animal_relay(method: String, args: Array) -> void:
 			return
 
 
+## Host → killer client: deliver an animal's kill drop to that player's own
+## inventory. Animal drops are routed to the killer only (via this targeted
+## RPC) instead of being broadcast to and duplicated across every peer.
+@rpc("authority", "reliable")
+func _receive_animal_loot(item_id: String, count: int) -> void:
+	if count <= 0 or item_id.is_empty():
+		return
+	InventoryManager.add_item(item_id, count)
+
+
+## Host → all clients: the final boss (Inconstant Soul) was defeated, so this
+## peer's game is complete too. The boss _die() only runs on the host's
+## authority copy, so without this broadcast clients would never see the win.
+@rpc("authority", "reliable")
+func _receive_game_completed() -> void:
+	if multiplayer.is_server():
+		return
+	GameManager.complete_game()
+
+
 ## Look up a live animal by its stable animal_id. Used by the World-routed
 ## client→host handlers below so they never depend on matching Animal_N node
 ## names across peers (those names drift apart after per-peer worldgen/respawn).
@@ -3589,17 +3609,43 @@ func _server_request_mine_deposit_state() -> void:
 				"h": child.remaining_hits,
 				"g": child.get("_is_regenerating") == true,
 			})
-	if entries.is_empty():
-		return
-	rpc_id(sender, "_receive_mine_deposit_state", entries)
+	# Backfill live mine-enemy HP too, so a late joiner doesn't get full-HP
+	# copies of enemies the host already damaged/killed (which would be
+	# unkillable blockers). Matched by deterministic enemy_id on the client.
+	var enemy_entries: Array = []
+	for child in current_mine_room.get_children():
+		if is_instance_valid(child) and (child is CaveCrawler or child is StoneGolem or child is CaveBat):
+			enemy_entries.append({
+				"d": child.enemy_id,
+				"h": child.current_health,
+				"m": child.max_health,
+			})
+	rpc_id(sender, "_receive_mine_deposit_state", entries, enemy_entries)
 
 
 ## Host → client: apply the host's ore-depletion snapshot to the matching
-## deposits in the local room (matched by deterministic deposit_id).
+## deposits in the local room (matched by deterministic deposit_id), and backfill
+## live mine-enemy HP so late joiners match the host's already-damaged enemies.
 @rpc("authority", "reliable")
-func _receive_mine_deposit_state(entries: Array) -> void:
+func _receive_mine_deposit_state(entries: Array, enemy_entries: Array = []) -> void:
 	if not current_mine_room or not is_instance_valid(current_mine_room):
 		return
+	# Backfill mine-enemy HP: match by deterministic enemy_id and clamp the
+	# client's full-HP copy down to the host's current health.
+	for e in enemy_entries:
+		var eid: int = int(e.get("d", -1))
+		if eid < 0:
+			continue
+		for child in current_mine_room.get_children():
+			if is_instance_valid(child) and "enemy_id" in child and child.enemy_id == eid:
+				var h: int = int(e.get("h", child.current_health))
+				var m: int = int(e.get("m", child.max_health))
+				if m > 0:
+					child.max_health = m
+				child.current_health = maxi(0, h)
+				if child.has_method("_update_health_bar"):
+					child._update_health_bar()
+				break
 	for entry in entries:
 		var did: int = int(entry.get("d", -1))
 		if did < 0:
@@ -3732,10 +3778,15 @@ func _do_exit_mine() -> void:
 	_mine_exit_cooldown = true
 	get_tree().create_timer(0.5).timeout.connect(func(): _mine_exit_cooldown = false)
 	
-	# Destroy the mine room (it's procedurally generated each time)
-	current_mine_room.queue_free()
-	current_mine_room = null
-	_mine_current_depth = 0
+	# Destroy the mine room (it's procedurally generated each time) — but ONLY
+	# if this peer is the last one out. On the host the room is authoritative
+	# for any clients still inside, so it must persist while the session is
+	# active. (_mine_session_members is host-tracked; on a client it's always
+	# empty, so a client still frees its own local room copy.)
+	if _mine_session_members.is_empty():
+		current_mine_room.queue_free()
+		current_mine_room = null
+		_mine_current_depth = 0
 	GameManager.inside_interior = false
 	GameManager.inside_mine = false
 	AudioManager.resume_ambient_music()

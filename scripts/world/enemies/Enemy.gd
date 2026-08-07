@@ -49,6 +49,9 @@ var _previous_state: int = State.IDLE
 const SYNC_INTERVAL: float = 0.1  # seconds between position broadcasts (host only)
 var enemy_id: int = 0
 var _is_remote: bool = false
+# MP: the peer that last dealt damage (used to route kill drops to the killer).
+# 0 = host/local context.
+var _last_attacker_peer: int = 0
 var _sync_timer: float = 0.0
 var _world_ref: Node = null  # cached World node for per-node RPC relay
 
@@ -661,6 +664,21 @@ func _queue_loot(item_id: String, count: int = 1) -> void:
 		_pending_loot_drops.append({"item_id": item_id, "count": count})
 
 
+## Route a boss/loot drop to the KILLER only (not the host by default). In
+## single-player or when the killer is the host (or unknown), grants locally.
+func _grant_loot_to_killer(item_id: String, count: int = 1) -> void:
+	if count <= 0 or item_id.is_empty():
+		return
+	if not NetworkManager.is_network_active() or not multiplayer.is_server():
+		InventoryManager.add_item(item_id, count)
+		return
+	var killer: int = _last_attacker_peer
+	if killer <= 0 or killer == multiplayer.get_unique_id():
+		InventoryManager.add_item(item_id, count)
+	else:
+		rpc_id(killer, "_receive_loot_drop", item_id, count)
+
+
 # ── Multiplayer RPC ──────────────────────────────────────────────────────
 
 ## Returns the World node (stable relay path for per-node RPCs). Enemies may
@@ -787,6 +805,8 @@ func _server_receive_enemy_attack(eid: int, amount: int, crit: bool, ranged: boo
 	var max_dist: float = 1000.0 if ranged else 100.0
 	if global_position.distance_to(attacker.global_position) > max_dist:
 		return
+	# Remember who's attacking so kill drops go to the killer only.
+	_last_attacker_peer = sender
 	take_damage(amount, attacker, crit)
 	# Arrows grant XP on the host (parity with the host's own arrow hits).
 	if ranged:

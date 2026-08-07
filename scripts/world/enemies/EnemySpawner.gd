@@ -306,9 +306,12 @@ func _server_request_creative_spawn_boss(scene_path: String, pos_x: float, pos_y
 ## Only the four known boss scenes are accepted, and no summon happens while a
 ## boss is already alive.
 @rpc("any_peer", "reliable")
-func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float) -> void:
+func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float, bait_item_id: String = "") -> void:
 	if not NetworkManager.is_network_active() or not multiplayer.is_server():
 		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	if sender == 0:
+		sender = multiplayer.get_unique_id()
 	var allow_list: Array[String] = [
 		"res://scenes/enemies/RootWarden.tscn",
 		"res://scenes/enemies/HollowStag.tscn",
@@ -317,10 +320,13 @@ func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float)
 	]
 	if not allow_list.has(scene_path):
 		push_warning("_server_request_summon_boss: rejected unregistered scene_path %s" % scene_path)
+		_refund_bait(sender, bait_item_id)
 		return
-	# Prevent multiple boss summons host-side.
+	# Prevent multiple boss summons host-side. If rejected, refund the bait so
+	# the summoning player doesn't permanently lose a crafted boss item.
 	for eb in get_tree().get_nodes_in_group("bosses"):
 		if is_instance_valid(eb):
+			_refund_bait(sender, bait_item_id)
 			return
 	var boss_scene := load(scene_path) as PackedScene
 	if not boss_scene:
@@ -331,6 +337,24 @@ func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float)
 	spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y))
 	if enemy.has_method("_summon_spawn_effect"):
 		enemy._summon_spawn_effect()
+
+
+## Host: tell the summoning client to refund its bait because the host rejected
+## the summon (another boss is already alive, or the scene path was invalid).
+## Called on the host's authority copy; the client re-adds the item.
+func _refund_bait(peer_id: int, bait_item_id: String) -> void:
+	if bait_item_id.is_empty():
+		return
+	rpc_id(peer_id, "_receive_refund_bait", bait_item_id)
+
+
+## Client: the host rejected a boss summon — re-add the consumed bait item.
+@rpc("authority", "reliable")
+func _receive_refund_bait(bait_item_id: String) -> void:
+	if bait_item_id.is_empty():
+		return
+	InventoryManager.add_item(bait_item_id, 1)
+	ToastNotification.show_toast("The summon was rejected — %s returned to your inventory." % bait_item_id.replace("_", " ").capitalize(), ToastNotification.ToastType.INFO, 3.0)
 
 
 ## Client: create a remote copy of a creative-panel boss spawn.

@@ -233,6 +233,10 @@ var _setup_done: bool = false  # set by setup() to prevent _ready() from overwri
 var _last_interaction_day: int = -999  # tracks last day interacted for cooldowns
 var _has_dropped_rare: bool = false  # tracks one-time rare drops
 
+# MP: the peer id that last dealt the killing/attacking blow. Used to route
+# kill drops to the killer only (not duplicated to every peer). 0 = host/local.
+var _last_attacker_peer: int = 0
+
 # Affection system (tracks how much player has pet this animal)
 var _affection: float = 0.0
 var _last_pet_time: float = 0.0
@@ -459,6 +463,8 @@ func _server_receive_animal_attack(aid: int, amount: int, crit: bool) -> void:
 		return
 	if global_position.distance_to(attacker.global_position) > 100.0:
 		return
+	# Remember who's attacking so kill drops go to the killer only.
+	_last_attacker_peer = sender
 	take_damage(amount, attacker, crit)
 
 
@@ -488,8 +494,9 @@ func take_damage(amount: int, _source: Node2D = null, _is_critical: bool = false
 		_broadcast_animal_rpc("_sync_animal_damage", [animal_id, current_health, amount, _is_critical, global_position, max_health], true)
 
 func _die() -> void:
-	# Drop meat and materials
+	# Roll meat and materials (don't grant yet — decide the recipient first).
 	_loot_drops.clear()
+	var rolled: Array[Dictionary] = []
 	var drops: Array[Dictionary] = _get_kill_drops()
 	for drop in drops:
 		var item_id: String = drop.get("item_id", "")
@@ -498,12 +505,30 @@ func _die() -> void:
 		var amount: int = drop.get("amount", 1)
 		var chance: float = drop.get("chance", 1.0)
 		if randf() <= chance:
-			InventoryManager.add_item(item_id, amount)
-			_loot_drops.append({"item_id": item_id, "count": amount})
-	
-	# Host: broadcast death and loot to all clients
+			rolled.append({"item_id": item_id, "count": amount})
+
+	# Host-authoritative MP animal: give the drops to the KILLER only (not
+	# duplicated to every peer). Remote copies just die and get no loot.
 	if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
-		_broadcast_animal_rpc("_sync_animal_died", [animal_id, _loot_drops], true)
+		var killer: int = _last_attacker_peer
+		if killer <= 0 or killer == multiplayer.get_unique_id():
+			# Killer is the host (or unknown) — add to the host's inventory.
+			for dr in rolled:
+				InventoryManager.add_item(dr["item_id"], dr["count"])
+		else:
+			# Killer is a remote client — route the loot to that peer only.
+			if _world_ref and is_instance_valid(_world_ref) and _world_ref.has_method("_receive_animal_loot"):
+				for dr in rolled:
+					_world_ref.rpc_id(killer, "_receive_animal_loot", dr["item_id"], dr["count"])
+		# Broadcast death (no loot) so every remote copy dies gracefully.
+		_broadcast_animal_rpc("_sync_animal_died", [animal_id, []], true)
+	else:
+		# Single-player, or a per-peer island animal on a client: grant locally.
+		for dr in rolled:
+			InventoryManager.add_item(dr["item_id"], dr["count"])
+			_loot_drops.append(dr)
+		if NetworkManager.is_network_active() and multiplayer.is_server() and not _is_in_host_only_subtree():
+			_broadcast_animal_rpc("_sync_animal_died", [animal_id, _loot_drops], true)
 	_loot_drops.clear()
 	
 	# Expedition island animals are generated independently per peer (not

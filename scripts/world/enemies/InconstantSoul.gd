@@ -498,7 +498,7 @@ func _die() -> void:
 	_trigger_screen_shake(5.0, 0.5)
 	
 	# ── Loot & completion ──
-	InventoryManager.add_item("soul_of_inconstance", 1)
+	_grant_loot_to_killer("soul_of_inconstance", 1)
 	_queue_loot("soul_of_inconstance", 1)
 	
 	var mgr := get_tree().get_first_node_in_group("objective_manager")
@@ -506,6 +506,13 @@ func _die() -> void:
 		mgr.on_boss_defeated()
 	
 	GameManager.complete_game()
+	# Broadcast the win to all clients (the killer's own copy also gets it via
+	# the normal _sync_enemy_died path, but the shared game_completed flag and
+	# completion toast must reach every peer).
+	if NetworkManager.is_network_active() and multiplayer.is_server():
+		var world := get_tree().get_first_node_in_group("world")
+		if world and world.has_method("_receive_game_completed"):
+			world.rpc("_receive_game_completed")
 	
 	ToastNotification.show_toast("💀 " + display_name + " defeated! +1000 XP", ToastNotification.ToastType.SUCCESS, 5.0)
 	await get_tree().create_timer(0.5).timeout
