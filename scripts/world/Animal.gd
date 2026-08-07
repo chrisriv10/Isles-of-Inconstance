@@ -429,7 +429,12 @@ func _sync_animal_damage(aid: int, hp: int, dmg: int, crit: bool, pos: Vector2, 
 		EffectSpawner.spawn_particles(pos, Color(1.0, 0.4, 0.0), 6, 10.0)
 
 ## Host → all clients: signal that this animal has died and distribute loot.
-func _sync_animal_died(aid: int, loot: Array[Dictionary] = []) -> void:
+## NOTE: loot is an untyped Array (not Array[Dictionary]) because it arrives via
+## the World animal-RPC relay (_apply_animal_relay -> callv), where the network
+## serialization turns the argument into a plain Array[Variant]. A typed
+## Array[Dictionary] param rejects that conversion ("Cannot convert argument 2
+## from Array to Array"), which silently drops the death on remote copies.
+func _sync_animal_died(aid: int, loot: Array = []) -> void:
 	if not _is_remote or animal_id != aid:
 		return
 	for drop in loot:
