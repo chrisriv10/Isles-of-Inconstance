@@ -721,10 +721,6 @@ func _physics_process(delta: float) -> void:
 	# Process revive hold (hold E to revive)
 	if _revive_target:
 		_process_revive(delta)
-	
-	# Update revive progress UI for downed player
-	if _is_downed:
-		_update_revive_progress(delta)
 
 	# ── Post-move guard ──
 	# On expedition island, snap back if standing on water or edge tile.
@@ -1471,8 +1467,8 @@ func remove_downed_state() -> void:
 
 func _show_downed_ui() -> void:
 	# Idempotent: clear any existing downed-UI stack first so repeat calls
-	# (e.g. _cancel_revive re-showing right before revive completes) never stack
-	# a second DownedLabel. Otherwise _hide_downed_ui only frees the first of
+	# (e.g. _show_downed_ui being called twice in one frame) never stack a
+	# second DownedLabel. Otherwise _hide_downed_ui only frees the first of
 	# several labels, leaving a ghost "DOWNED" text after a revive.
 	_hide_downed_ui()
 	# Create a "DOWNED" label above player
@@ -1493,8 +1489,8 @@ func _show_downed_ui() -> void:
 	add_child(downed_label)
 	
 	# Bleedout bar — drains as the player bleeds out toward auto-respawn.
-	# Positioned just below the revive-progress bar and near the head so it's
-	# clearly visible when knocked (was previously up at y=-62, too high to see).
+	# Positioned just above the downed label and near the head so it's clearly
+	# visible when knocked (was previously up at y=-62, too high to see).
 	var bo_bg := ColorRect.new()
 	bo_bg.name = "BleedoutBarBG"
 	bo_bg.size = Vector2(80, 6)
@@ -1509,28 +1505,13 @@ func _show_downed_ui() -> void:
 	bo_fill.color = Color(1.0, 0.3, 0.3, 1.0)
 	add_child(bo_fill)
 
-	# Revive progress bar
-	var bg := ColorRect.new()
-	bg.name = "ReviveProgressBG"
-	bg.size = Vector2(80, 6)
-	bg.position = Vector2(-40, -30)
-	bg.color = Color(0.1, 0.1, 0.1, 0.8)
-	add_child(bg)
-	
-	var fill := ColorRect.new()
-	fill.name = "ReviveProgressFill"
-	fill.size = Vector2(0, 6)
-	fill.position = Vector2(-40, -30)
-	fill.color = Color(0.2, 1.0, 0.3, 1.0)
-	add_child(fill)
-
 func _hide_downed_ui() -> void:
 	# Free EVERY downed-UI child (not just the first). Godot's queue_free() is
 	# deferred, so a label queued for removal is still in the tree for the rest
 	# of the frame — get_node_or_null("DownedLabel") would return that stale one
 	# and leave any newer duplicate behind, causing a ghost "DOWNED" text after
 	# a revive. Iterating all children frees every stacked copy.
-	const DOWNED_UI_NAMES := ["DownedLabel", "ReviveProgressBG", "ReviveProgressFill", "BleedoutBarBG", "BleedoutBarFill"]
+	const DOWNED_UI_NAMES := ["DownedLabel", "BleedoutBarBG", "BleedoutBarFill"]
 	for child in get_children():
 		if child.name in DOWNED_UI_NAMES:
 			child.queue_free()
@@ -1583,15 +1564,6 @@ func clear_downed_state() -> void:
 	# Notify remote peers so their copy clears the downed state
 	if NetworkManager.is_network_active():
 		rpc("_sync_downed_state", false)
-
-## Update revive progress when holding E near a downed teammate.
-func _update_revive_progress(delta: float) -> void:
-	if not _is_downed:
-		return
-	
-	var fill := get_node_or_null("ReviveProgressFill")
-	if fill:
-		fill.size.x = 80.0 * (_revive_progress / 3.0)
 
 ## Updates the bleedout bar fill from a remaining-fraction (1.0 = just downed,
 ## 0.0 = about to bleed out / auto-respawn). No-op when the bar isn't present.
@@ -1710,13 +1682,10 @@ func _process_revive(delta: float) -> void:
 	_revive_progress += delta
 	_revive_target._revive_progress = _revive_progress
 	
-	# Update progress bars
+	# Update revive progress bar
 	var fill := get_node_or_null("ReviveUI_Fill")
 	if fill:
 		fill.size.x = 120.0 * (_revive_progress / 3.0)
-	var target_fill := _revive_target.get_node_or_null("ReviveProgressFill")
-	if target_fill:
-		target_fill.size.x = 80.0 * (_revive_progress / 3.0)
 	
 	if _revive_progress >= 3.0:
 		# Revive complete! Route through the TARGET node so the RPC lands on
@@ -1729,20 +1698,16 @@ func _process_revive(delta: float) -> void:
 		# so _sync_downed_state(false) will clear the DOWNED label/bleedout bar.
 		_cancel_revive(false)
 
-func _cancel_revive(reshow: bool = true) -> void:
+func _cancel_revive(_reshow: bool = true) -> void:
 	if _revive_target and is_instance_valid(_revive_target):
 		_revive_target._revive_progress = 0.0
-		# reshow=true on a genuine cancel: reset + redraw the downed target's
-		# UI (the revive-progress bar was partially filled). On revive COMPLETION
-		# we pass false so we never re-create the DOWNED label/bleedout bar —
-		# the target is being revived and _sync_downed_state(false) clears them.
-		# Guard on _is_downed too: if the target already recovered (e.g. it bled
-		# out and auto-respawned, or another peer revived it) while this reviver
-		# was mid-hold, re-showing the UI would leave a ghost DOWNED label + bleedout
-		# bar on a standing player (their tint was already reset by the false sync).
-		if reshow and _revive_target._is_downed:
-			_revive_target._hide_downed_ui()
-			_revive_target._show_downed_ui()
+		# NOTE: we deliberately do NOT re-create the downed target's UI here.
+		# A genuine cancel only needs to clear the partially-filled revive bar;
+		# the DOWNED label + bleedout bar are already present (the target is
+		# still downed). Re-showing them here was the source of a ghost DOWNED
+		# label: if this ran after the target recovered (bleed-out respawn or a
+		# teammate's revive cleared it via _sync_downed_state(false)), it would
+		# re-add the label + bleedout bar on a standing player.
 		_revive_target = null
 	_hide_revive_ui()
 	_revive_progress = 0.0
