@@ -843,6 +843,12 @@ func _on_exit_to_menu() -> void:
 		was_in_mine = world_boot.get("current_mine_room") != null
 		if world_boot.has_method("emergency_exit_mine"):
 			world_boot.emergency_exit_mine()
+		# Destroy the expedition island if we were on one, so no stale island
+		# node persists into a later multiplayer rejoin (a stale island freezes
+		# the player at the overworld spawn: _clamp_to_walkable treats them as
+		# being on the island and blocks all movement).
+		if world_boot.has_method("emergency_exit_island"):
+			world_boot.emergency_exit_island()
 	
 	# If the player was in the mine, teleport them to the overworld spawn
 	# so the save records a sensible position.

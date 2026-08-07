@@ -3719,6 +3719,43 @@ func emergency_exit_mine() -> void:
 		local_player.set_physics_process(true)
 
 
+## Tear down the local expedition island without the normal exit flow (used when
+## leaving to the main menu). Mirrors _do_exit_island's cleanup so no stale
+## island node lingers: a stale island that stays in the "expedition_island"
+## group makes _get_expedition_island() return it after a multiplayer REJOIN,
+## and once the player is put back at the overworld spawn it computes the
+## player's cell relative to the island origin (way out of bounds) and
+## is_water_tile() returns true for every cell -> all movement is blocked.
+func emergency_exit_island() -> void:
+	var outside_pos: Vector2 = _island_outside_pos
+	if _current_island and is_instance_valid(_current_island):
+		_current_island.queue_free()
+	_current_island = null
+	_island_outside_pos = Vector2.ZERO
+	GameManager.inside_interior = false
+	GameManager.inside_island_seed = 0
+	GameManager.near_campfire = false
+	AudioManager.resume_ambient_music()
+
+	var local_player: Node = null
+	for p in get_tree().get_nodes_in_group("player"):
+		if is_instance_valid(p) and _is_local_player(p):
+			local_player = p
+			break
+	if local_player:
+		if local_player is CharacterBody2D:
+			local_player.velocity = Vector2.ZERO
+		# Restore the overworld position recorded when the island was entered
+		# so the player isn't left at the island void (which would be read as
+		# water by the overworld walkability check).
+		if outside_pos != Vector2.ZERO:
+			local_player.global_position = outside_pos
+		local_player.z_index = 1
+		local_player.visible = true
+		local_player.set_process(true)
+		local_player.set_physics_process(true)
+
+
 ## Host: remove a peer from the shared-mine session when they disconnect.
 ## The disconnected peer's own copy is cleaned up on their side.
 func mine_peer_disconnected(peer_id: int) -> void:
