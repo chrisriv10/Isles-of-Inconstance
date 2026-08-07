@@ -1813,7 +1813,7 @@ func _summon_boss(bait_item_id: String) -> void:
 				spawner.spawn_creative_boss(boss, boss_scene.resource_path, spawn_pos)
 				# Dramatic summoning effects (delegates to boss-specific visuals)
 				boss._summon_spawn_effect()
-				ToastNotification.show_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+				GameManager.broadcast_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
 				return
 			# Fall through to local spawn if no spawner exists
 		else:
@@ -1832,7 +1832,7 @@ func _summon_boss(bait_item_id: String) -> void:
 	# Dramatic summoning effects (delegates to boss-specific visuals)
 	boss._summon_spawn_effect()
 	
-	ToastNotification.show_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+	GameManager.broadcast_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
 
 
 ## Searches all crops for one whose seed_item_id matches the given item.

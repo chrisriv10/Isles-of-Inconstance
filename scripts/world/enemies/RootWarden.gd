@@ -53,8 +53,8 @@ func _summon_spawn_effect() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.55, 0.2, 0.7), 30, 40.0)
 	EffectSpawner.spawn_particles(global_position, Color(0.3, 0.15, 0.05), 20, 35.0)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
-	ToastNotification.show_toast("⚔ The Root Warden rises from the earth!", ToastNotification.ToastType.ERROR, 3.0)
-	ToastNotification.show_toast("💀 A Spirit Harvest boss has appeared!", ToastNotification.ToastType.WARNING, 4.0)
+	GameManager.broadcast_toast("⚔ The Root Warden rises from the earth!", ToastNotification.ToastType.ERROR, 3.0)
+	GameManager.broadcast_toast("💀 A Spirit Harvest boss has appeared!", ToastNotification.ToastType.WARNING, 4.0)
 	# First-time boss encounter dialogue
 	GameManager.try_show_dialogue(
 		GameManager.DIALOGUE_FIRST_BOSS_ENCOUNTER + "_root_warden",

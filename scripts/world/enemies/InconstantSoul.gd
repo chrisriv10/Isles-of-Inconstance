@@ -58,8 +58,8 @@ func _summon_spawn_effect() -> void:
 	EffectSpawner.spawn_particles(global_position, Color(0.5, 0.15, 0.7), 30, 45.0)
 	EffectSpawner.spawn_particles(global_position, Color(0.85, 0.7, 0.2), 20, 40.0)
 	AudioManager.play(AudioManager.Sound.BOSS_ROAR)
-	ToastNotification.show_toast("⚔ THE INCONSTANT SOUL AWAKENS!", ToastNotification.ToastType.ERROR, 4.0)
-	ToastNotification.show_toast("💀 The final boss of the Spirit Harvest has appeared!", ToastNotification.ToastType.ERROR, 4.5)
+	GameManager.broadcast_toast("⚔ THE INCONSTANT SOUL AWAKENS!", ToastNotification.ToastType.ERROR, 4.0)
+	GameManager.broadcast_toast("💀 The final boss of the Spirit Harvest has appeared!", ToastNotification.ToastType.ERROR, 4.5)
 	# First-time boss encounter dialogue
 	GameManager.try_show_dialogue(
 		GameManager.DIALOGUE_FIRST_BOSS_ENCOUNTER + "_inconstant_soul",
