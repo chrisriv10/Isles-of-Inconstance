@@ -5329,21 +5329,24 @@ func get_enemy_spawner():
 func notify_cell_object_removed(world_pos: Vector2) -> void:
 	var cell := world_to_cell(world_pos)
 	var node := _find_removable_object_at_cell(cell)
+	var recipe := _capture_object_recipe(node)
 	_removed_cell_objects[cell] = {
-		"recipe": _capture_object_recipe(node),
+		"recipe": recipe,
 		"day_removed": GameManager.current_day,
 	}
 	if NetworkManager.is_network_active():
-		rpc("_sync_remove_cell_object", cell)
+		rpc("_sync_remove_cell_object", cell, recipe)
 
 
-## Received by all peers to remove a world object at the given cell.
+## Received by all peers to remove a world object at the given cell. The recipe
+## was captured ONCE by the acting peer and broadcast, so every peer records
+## identical respawn data (a peer re-capturing from its own node copy could
+## diverge if its local properties differ or the node is already freed).
 @rpc("any_peer", "call_local")
-func _sync_remove_cell_object(cell: Vector2i) -> void:
-	var node := _find_removable_object_at_cell(cell)
+func _sync_remove_cell_object(cell: Vector2i, recipe: Dictionary) -> void:
 	if not _removed_cell_objects.has(cell):
 		_removed_cell_objects[cell] = {
-			"recipe": _capture_object_recipe(node),
+			"recipe": recipe,
 			"day_removed": GameManager.current_day,
 		}
 	_remove_object_at_cell(cell)
@@ -5669,9 +5672,17 @@ var _pending_mine_state_chunks_total: int = 0
 func _server_request_world_state() -> void:
 	if not multiplayer.is_server():
 		return
+	# Removed objects carry their respawn recipe + day so a late joiner not only
+	# removes the matching node but also records identical respawn data (so a
+	# later respawn RPC, a host handoff, or its own save stays consistent).
 	var removed: Array = []
 	for cell in _removed_cell_objects.keys():
-		removed.append([cell.x, cell.y])
+		var entry: Dictionary = _removed_cell_objects[cell]
+		removed.append({
+			"x": cell.x, "y": cell.y,
+			"day": int(entry.get("day_removed", GameManager.current_day)),
+			"recipe": entry.get("recipe", {}),
+		})
 	var harvested_bushes: Array = []
 	for child in objects_root.get_children():
 		if child is Bush and is_instance_valid(child) and child.get("_harvested"):
@@ -5781,7 +5792,17 @@ func _apply_world_state_snapshot(data: Dictionary) -> void:
 	var animals: Array = data.get("animals", [])
 	var chest_versions: Dictionary = data.get("chest_versions", {})
 	for entry in removed:
-		_remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
+		if entry is Dictionary and entry.has("x") and entry.has("y"):
+			var rcell := Vector2i(int(entry["x"]), int(entry["y"]))
+			# Record the removal so this joiner's _removed_cell_objects matches
+			# the host (respawn data, host handoff, and save consistency).
+			_removed_cell_objects[rcell] = {
+				"recipe": entry.get("recipe", {}),
+				"day_removed": int(entry.get("day", GameManager.current_day)),
+			}
+			_remove_object_at_cell(rcell)
+		elif entry is Array and entry.size() >= 2:
+			_remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
 	for entry in harvested_bushes:
 		var cell := Vector2i(int(entry[0]), int(entry[1]))
 		for child in objects_root.get_children():

@@ -59,6 +59,33 @@ func test_removed_objects_respawn_format_roundtrip() -> void:
 			"resource recipe item_id round-trips")
 
 
+func test_removed_objects_snapshot_format_roundtrip() -> void:
+	print("-- test_removed_objects_snapshot_format_roundtrip --")
+	# The late-joiner world-state snapshot serializes removed objects using the
+	# SAME dict format as the save (cell + day + recipe) so a joining client
+	# records identical respawn data as the host. Verify it survives the
+	# var_to_bytes/bytes_to_var round-trip the snapshot chunks use.
+	var removed: Array = [
+		{"x": 12, "y": -4, "day": 7, "recipe": {"type": "tree", "cherry": true, "fruit_item_id": "cherry", "sprite_seed": 42}},
+		{"x": 0, "y": 0, "day": 2, "recipe": {"type": "bush", "regrow_days": 3}},
+	]
+	# var_to_bytes/bytes_to_var round-trip (what _send_world_state_chunks uses).
+	var restored: Variant = bytes_to_var(var_to_bytes(removed))
+	_check(restored is Array and (restored as Array).size() == 2,
+		"snapshot removed entries survive var_to_bytes round-trip")
+	if restored is Array:
+		var first: Dictionary = (restored as Array)[0]
+		_check(int(first.get("x", -1)) == 12 and int(first.get("y", -1)) == -4,
+			"snapshot removed cell coordinates round-trip")
+		_check(int(first.get("day", -1)) == 7, "snapshot removed day round-trips")
+		var recipe: Dictionary = first.get("recipe", {})
+		_check(str(recipe.get("type", "")) == "tree" and bool(recipe.get("cherry", false)),
+			"snapshot removed recipe round-trips")
+		var bush_recipe: Dictionary = (restored as Array)[1].get("recipe", {})
+		_check(str(bush_recipe.get("type", "")) == "bush",
+			"snapshot bush recipe type round-trips")
+
+
 func test_animal_data_roundtrip() -> void:
 	print("-- test_animal_data_roundtrip --")
 	# get_network_data() dicts save the full animal state.
@@ -138,6 +165,7 @@ func test_new_persistence_keys_roundtrip() -> void:
 func run_all() -> void:
 	test_removed_objects_roundtrip()
 	test_removed_objects_respawn_format_roundtrip()
+	test_removed_objects_snapshot_format_roundtrip()
 	test_animal_data_roundtrip()
 	test_new_persistence_keys_roundtrip()
 	print("== RESULT: %d passed, %d failed ==" % [_passes.size(), _fails.size()])
