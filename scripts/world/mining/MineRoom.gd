@@ -977,9 +977,28 @@ func _generate_descent_shaft() -> void:
 	label.z_index = 25
 	add_child(label)
 
-	# Dark hole below the shaft
-	var hole_img := Image.create(36, 16, false, Image.FORMAT_RGBA8)
-	hole_img.fill(Color(0.0, 0.0, 0.0, 0.85))
+	# Dark hole below the shaft — a soft, feathered elliptical pit rather than a
+	# hard-edged black rectangle. A plain filled rectangle (the old code) read as
+	# a glitchy floating "black box" under the ladder art; a radial falloff makes
+	# it read as a shadowy hole blending into the floor.
+	var hole_w := 44
+	var hole_h := 20
+	var hole_img := Image.create(hole_w, hole_h, false, Image.FORMAT_RGBA8)
+	hole_img.fill(Color(0.0, 0.0, 0.0, 0.0))
+	var hcx := (hole_w - 1) * 0.5
+	var hcy := (hole_h - 1) * 0.5
+	var hx := 1.0 / (hcx * hcx)
+	var hy := 1.0 / (hcy * hcy)
+	for py in range(hole_h):
+		for px in range(hole_w):
+			var dx: float = px - hcx
+			var dy: float = py - hcy
+			var nd := dx * dx * hx + dy * dy * hy  # 0 at center, 1 at ellipse edge
+			var a := 0.0
+			if nd < 1.0:
+				# Core is near-opaque; alpha falls off smoothly toward the edge.
+				a = pow(1.0 - nd, 1.6) * 0.9
+			hole_img.set_pixel(px, py, Color(0.0, 0.0, 0.0, a))
 	var hole_sprite := Sprite2D.new()
 	hole_sprite.texture = ImageTexture.create_from_image(hole_img)
 	hole_sprite.centered = true
