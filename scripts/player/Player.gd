@@ -1779,10 +1779,19 @@ func _summon_boss(bait_item_id: String) -> void:
 		if multiplayer.is_server():
 			var spawner := get_tree().get_first_node_in_group("enemy_spawner") as EnemySpawner
 			if spawner:
-				spawner.spawn_creative_boss(boss, boss_scene.resource_path, spawn_pos)
-				# Dramatic summoning effects (delegates to boss-specific visuals)
-				boss._summon_spawn_effect()
-				GameManager.broadcast_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+				# Only run the summon effect + success toast if the boss was
+				# actually added to the tree. A rejected summon (e.g. the host is
+				# inside an actual building) frees the boss and never adds it, so
+				# running the effect on it would crash and the toast would lie
+				# about a boss that never appeared.
+				if spawner.spawn_creative_boss(boss, boss_scene.resource_path, spawn_pos):
+					# Dramatic summoning effects (delegates to boss-specific visuals)
+					boss._summon_spawn_effect()
+					GameManager.broadcast_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+				else:
+					# Rejected summon (e.g. inside a building) — give the host's bait back.
+					InventoryManager.add_item(bait_item_id, 1)
+					ToastNotification.show_toast("The summon was rejected — %s returned to your inventory." % boss_name, ToastNotification.ToastType.INFO, 3.0)
 				return
 			# Fall through to local spawn if no spawner exists
 		else:

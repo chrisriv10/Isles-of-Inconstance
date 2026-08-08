@@ -346,11 +346,15 @@ func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float,
 	if not enemy:
 		return
 	# Only run the dramatic spawn effect if the boss was actually added to the
-	# tree. A rejected boss (e.g. inside a building) is freed and never enters
-	# the tree, so calling _summon_spawn_effect() on it would crash get_tree().
+	# tree. A rejected boss (e.g. the host is inside an actual building) is
+	# freed and never enters the tree, so calling _summon_spawn_effect() on it
+	# would crash get_tree(). Refund the summoning client's bait so a rejected
+	# summon doesn't permanently consume a crafted boss item.
 	if spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y)):
 		if enemy.has_method("_summon_spawn_effect"):
 			enemy._summon_spawn_effect()
+	else:
+		_refund_bait(sender, bait_item_id)
 
 
 ## Host: tell the summoning client to refund its bait because the host rejected
