@@ -3679,14 +3679,27 @@ func _server_request_mine_deposit_state() -> void:
 				"h": child.remaining_hits,
 				"g": child.get("_is_regenerating") == true,
 			})
-	# Backfill live mine-enemy HP too, so a late joiner doesn't get full-HP
-	# copies of enemies the host already damaged/killed (which would be
-	# unkillable blockers). Matched by deterministic enemy_id on the client.
+	# Backfill the full live mine-enemy snapshot so a late joiner matches the
+	# host's current mine: not just HP (so already-damaged enemies aren't
+	# unkillable full-HP blockers) but also TYPE and POSITION. The host's mine
+	# evolves over time — enemies get respawned with NEW enemy_ids past the
+	# client's deterministic initial set, and originals die. A pure HP backfill
+	# matched by id can't create those respawned enemies, so the late joiner
+	# would never see them. Each entry carries the type key (so a missing enemy
+	# can be re-created client-side) and position (so living enemies sit where
+	# the host has them, not at their stale spawn cell).
 	var enemy_entries: Array = []
 	for child in current_mine_room.get_children():
 		if is_instance_valid(child) and (child is CaveCrawler or child is StoneGolem or child is CaveBat):
+			var t: int = MineRoom.MINE_ENEMY_BAT
+			if child is CaveCrawler:
+				t = MineRoom.MINE_ENEMY_CRAWLER
+			elif child is StoneGolem:
+				t = MineRoom.MINE_ENEMY_GOLEM
 			enemy_entries.append({
 				"d": child.enemy_id,
+				"t": t,
+				"p": child.global_position,
 				"h": child.current_health,
 				"m": child.max_health,
 			})
@@ -3725,28 +3738,16 @@ func _receive_mine_deposit_state_chunk(chunk_index: int, total_chunks: int, chun
 
 
 ## Host → client: apply the host's ore-depletion snapshot to the matching
-## deposits in the local room (matched by deterministic deposit_id), and backfill
-## live mine-enemy HP so late joiners match the host's already-damaged enemies.
+## deposits in the local room (matched by deterministic deposit_id), and
+## reconcile the full live mine-enemy set so a late joiner matches the host's
+## current mine (not just HP of the deterministic initial set — also the
+## respawned enemies the client never generated, and removal of host-dead ones).
 @rpc("authority", "reliable")
 func _receive_mine_deposit_state(entries: Array, enemy_entries: Array = []) -> void:
 	if not current_mine_room or not is_instance_valid(current_mine_room):
 		return
-	# Backfill mine-enemy HP: match by deterministic enemy_id and clamp the
-	# client's full-HP copy down to the host's current health.
-	for e in enemy_entries:
-		var eid: int = int(e.get("d", -1))
-		if eid < 0:
-			continue
-		for child in current_mine_room.get_children():
-			if is_instance_valid(child) and "enemy_id" in child and child.enemy_id == eid:
-				var h: int = int(e.get("h", child.current_health))
-				var m: int = int(e.get("m", child.max_health))
-				if m > 0:
-					child.max_health = m
-				child.current_health = maxi(0, h)
-				if child.has_method("_update_health_bar"):
-					child._update_health_bar()
-				break
+	if current_mine_room.has_method("reconcile_enemies_from_host"):
+		current_mine_room.reconcile_enemies_from_host(enemy_entries)
 	for entry in entries:
 		var did: int = int(entry.get("d", -1))
 		if did < 0:

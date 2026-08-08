@@ -660,6 +660,72 @@ func _receive_mine_respawn(enemy_id: int, type_key: int, pos: Vector2, hp_mult: 
 	add_child(enemy)
 
 
+## Reconcile this peer's mine-enemy set against the host's authoritative snapshot
+## (a late joiner). The deterministic generation only produces the INITIAL enemy
+## set, but the host's mine evolves: originals get killed/damaged and NEW enemies
+## respawn with enemy_ids past the client's initial range. So beside matching HP
+## of shared enemies, we must (1) create any enemy the host has that we don't
+## (the respawned ones), (2) move living enemies to the host's current position,
+## and (3) remove ours that the host no longer has (they died host-side).
+func reconcile_enemies_from_host(enemy_entries: Array) -> void:
+	if enemy_entries.is_empty():
+		return
+	var host_ids: Dictionary = {}
+	for e in enemy_entries:
+		var eid: int = int(e.get("d", -1))
+		if eid < 0:
+			continue
+		host_ids[eid] = true
+		var h: int = int(e.get("h", 0))
+		var m: int = int(e.get("m", 1))
+		var pos: Vector2 = e.get("p", Vector2.ZERO)
+		var child: Node = _find_enemy_by_id(eid)
+		if child:
+			# Shared enemy — sync HP/position so it matches the host.
+			if m > 0:
+				child.max_health = m
+			child.current_health = maxi(0, h)
+			if pos != Vector2.ZERO:
+				child.position = pos
+			if child.has_method("_update_health_bar"):
+				child._update_health_bar()
+		else:
+			# Respawned enemy the client never generated — create a remote copy.
+			var t: int = int(e.get("t", MINE_ENEMY_CRAWLER))
+			var enemy: Node2D
+			if t == MINE_ENEMY_GOLEM:
+				enemy = STONE_GOLEM_SCENE.instantiate()
+			elif t == MINE_ENEMY_BAT:
+				enemy = CAVE_BAT_SCENE.instantiate()
+			else:
+				enemy = CAVE_CRAWLER_SCENE.instantiate()
+			enemy.enemy_id = eid
+			enemy.name = "MineEnemy_%d" % eid
+			enemy.z_index = 10
+			if pos != Vector2.ZERO:
+				enemy.position = pos
+			if m > 0:
+				enemy.max_health = m
+			enemy.current_health = maxi(0, h)
+			enemy._is_remote = true
+			add_child(enemy)
+	# Remove this peer's enemies the host no longer lists (they died host-side).
+	for child in get_children():
+		if is_instance_valid(child) and "enemy_id" in child \
+				and (child is CaveCrawler or child is StoneGolem or child is CaveBat):
+			if not host_ids.has(int(child.enemy_id)):
+				child.queue_free()
+
+
+func _find_enemy_by_id(eid: int) -> Node:
+	for child in get_children():
+		if is_instance_valid(child) and "enemy_id" in child \
+				and (child is CaveCrawler or child is StoneGolem or child is CaveBat) \
+				and int(child.enemy_id) == eid:
+			return child
+	return null
+
+
 ## Generate the exit area in the central chamber
 func _generate_exit_area() -> void:
 	if generator == null or generator.chamber_centers.is_empty():
