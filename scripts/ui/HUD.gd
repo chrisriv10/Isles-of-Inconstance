@@ -2155,6 +2155,11 @@ func _refresh_buff_position() -> void:
 	_buff_container.position = Vector2(12.0, y + 22.0)
 
 
+func _process(_delta: float) -> void:
+	# Tick the buff countdown display so remaining-time text updates live.
+	_periodic_buff_refresh(_delta)
+
+
 func _periodic_buff_refresh(delta: float) -> void:
 	# Periodically refresh buff display to update remaining time
 	if not _buff_container or not _buff_container.visible:

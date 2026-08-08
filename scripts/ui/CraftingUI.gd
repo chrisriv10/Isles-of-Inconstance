@@ -1071,7 +1071,7 @@ func _build_default_recipes() -> void:
 			"name": "Chocolate Fondue",
 			"id": "chocolate_fondue",
 			"amt": 2,
-			"ings": [{"item_id": "chocolate_chunk", "amount": 2}, {"item_id": "berry", "amount": 1}]
+			"ings": [{"item_id": "chocolate_chunk", "amount": 2}, {"item_id": "sugar_crystal", "amount": 1}]
 		},
 		{
 			"name": "Candied Cactus",

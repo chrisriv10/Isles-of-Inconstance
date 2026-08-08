@@ -2352,6 +2352,140 @@ func _sell_crops_at_restaurant() -> void:
 		return restaurant.sell_crops(item_id, count, 0)
 	)
 
+## Show a choice popup for sharing a rare ingredient with the chef to unlock a recipe.
+func _share_ingredient_at_restaurant() -> void:
+	var restaurant: RestaurantSystem = get_tree().get_first_node_in_group("restaurant_system") as RestaurantSystem
+	if not restaurant:
+		ToastNotification.show_toast("The chef isn't here right now...", ToastNotification.ToastType.INFO, 2.5)
+		return
+
+	# Current daily special, shown as flavor context.
+	var special := restaurant.get_daily_special()
+	var special_name: String = special.get("name", "?")
+
+	# List every rare ingredient the player is carrying that hasn't been shared yet.
+	var unlocks: Dictionary = RestaurantSystem.RECIPE_UNLOCKS
+	var available: Array[Dictionary] = []
+	for ingredient_id: String in unlocks.keys():
+		if restaurant.is_recipe_unlocked(ingredient_id):
+			continue  # already learned this recipe
+		var count: int = InventoryManager.get_count(ingredient_id)
+		if count <= 0:
+			continue  # not carrying it
+		var item_data := DataManager.get_item(ingredient_id)
+		var display_name: String = ingredient_id
+		if item_data and not item_data.display_name.is_empty():
+			display_name = item_data.display_name
+		available.append({"id": ingredient_id, "name": display_name, "count": count})
+
+	if available.is_empty():
+		ToastNotification.show_toast("No rare ingredients to share. Keep an eye out for exotic crops and mushrooms!", ToastNotification.ToastType.INFO, 3.0)
+		return
+
+	_show_share_ingredient_popup("Share Ingredient with Chef — Today's special: %s" % special_name, available,
+		func(ingredient_id: String) -> void:
+			var result := restaurant.try_unlock_recipe(ingredient_id)
+			if result.get("success", false):
+				InventoryManager.remove_item(ingredient_id, 1)
+				ToastNotification.show_toast(str(result.get("message", "Recipe learned!")), ToastNotification.ToastType.SUCCESS, 4.0)
+			else:
+				ToastNotification.show_toast(str(result.get("message", "The chef doesn't want this right now.")), ToastNotification.ToastType.INFO, 3.0)
+	)
+
+## Show a popup listing rare ingredients to share with the chef (consumes one).
+func _show_share_ingredient_popup(title: String, items: Array, share_callback: Callable) -> void:
+	var popup := CanvasLayer.new()
+	popup.layer = 10
+	popup.name = "ShareIngredientPopup"
+	add_child(popup)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.0, 0.0, 0.0, 0.55)
+	dim.anchors_preset = Control.PRESET_FULL_RECT
+	dim.mouse_filter = Control.MOUSE_FILTER_PASS
+	popup.add_child(dim)
+
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", LIGHT_WOOD)
+	panel.position = Vector2(120, 100)
+	panel.size = Vector2(340, 260)
+	popup.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.custom_minimum_size = Vector2(320, 220)
+	panel.add_child(margin)
+
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 6)
+	margin.add_child(layout)
+
+	var title_label := Label.new()
+	title_label.text = title
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_label.add_theme_font_size_override("font_size", 13)
+	title_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	layout.add_child(title_label)
+
+	var hint_label := Label.new()
+	hint_label.text = "Share a rare ingredient to teach the chef a new recipe."
+	hint_label.add_theme_font_size_override("font_size", 10)
+	hint_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	layout.add_child(hint_label)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(scroll)
+
+	var item_list := VBoxContainer.new()
+	item_list.add_theme_constant_override("separation", 4)
+	scroll.add_child(item_list)
+
+	var close_popup := func() -> void:
+		if is_instance_valid(popup):
+			popup.queue_free()
+
+	for entry: Dictionary in items:
+		var row := HBoxContainer.new()
+		var name_label := Label.new()
+		name_label.text = "%s x%d" % [entry["name"], entry["count"]]
+		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.7))
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_label)
+
+		var share_btn := Button.new()
+		share_btn.text = "Share"
+		share_btn.add_theme_font_size_override("font_size", 10)
+		var item_id: String = entry["id"]
+		share_btn.pressed.connect(func() -> void:
+			share_callback.call(item_id)
+			close_popup.call()
+		)
+		row.add_child(share_btn)
+		item_list.add_child(row)
+
+	var close_btn := Button.new()
+	close_btn.text = "Close [Esc]"
+	close_btn.add_theme_font_size_override("font_size", 10)
+	close_btn.pressed.connect(close_popup)
+	layout.add_child(close_btn)
+
+	var input_catcher := Control.new()
+	input_catcher.mouse_filter = Control.MOUSE_FILTER_PASS
+	input_catcher.anchors_preset = Control.PRESET_FULL_RECT
+	input_catcher.focus_mode = Control.FOCUS_ALL
+	popup.add_child(input_catcher)
+	input_catcher.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode == KEY_ESCAPE:
+				close_popup.call()
+				get_viewport().set_input_as_handled()
+	)
+
 ## Show a generic sell-choice popup.
 ## title: title text shown at the top
 ## items: Array[{"id","name","count","price"}]
@@ -2487,6 +2621,30 @@ func _add_restaurant_counter(pos: Vector2) -> Interactable:
 	add_child(interactable)
 	return interactable
 
+func _add_ingredient_board(pos: Vector2) -> Interactable:
+	## Creates an ingredient board near the chef that lets the player share a
+	## rare ingredient to teach a new recipe.
+	var interactable := Interactable.new()
+	interactable.collision_layer = 4
+	interactable.interaction_prompt = "Share fresh ingredients"
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(36, 20)
+	shape.shape = rect
+	interactable.add_child(shape)
+	interactable.position = pos
+
+	var sprite := Sprite2D.new()
+	sprite.texture = preload("res://assets/generated/interior_restaurant_counter_frame_0.png")
+	sprite.z_index = 2
+	interactable.add_child(sprite)
+
+	interactable.interacted.connect(func(_i: Node) -> void:
+		_share_ingredient_at_restaurant()
+	)
+	add_child(interactable)
+	return interactable
+
 func _generate_restaurant() -> void:
 	_room_width = 224
 	_room_height = 156
@@ -2504,6 +2662,8 @@ func _generate_restaurant() -> void:
 		"I could use some fresh ingredients from the garden.",
 		"A good meal brings the whole town together.",
 	])
+	# 🥘 Ingredient board — share a rare ingredient to teach Chef a new recipe
+	_add_ingredient_board(Vector2(32, 60))
 	# 🧑‍🍳 Serving counter (center-left) — sell crops here
 	_add_restaurant_counter(Vector2(80, 100))
 	# 🧑‍💼 Cashier NPC behind the counter

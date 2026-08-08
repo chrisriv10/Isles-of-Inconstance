@@ -247,6 +247,7 @@ func _get_controls_text() -> String:
 • [b]C[/b] — Open crafting menu
 • [b]K[/b] — Open cooking menu (near campfire/kitchen)
 • [b]V[/b] — Enter/exit build mode
+• [b]Right-click[/b] in build mode — Pick up placed building
 • [b]E[/b] — Interact / Harvest / Cast fishing line / Clear rubble
 • Hold [b]E[/b] — Eat food / Drink potions / Use mine entrances
 

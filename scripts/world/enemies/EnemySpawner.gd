@@ -353,6 +353,12 @@ func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float,
 	if spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y)):
 		if enemy.has_method("_summon_spawn_effect"):
 			enemy._summon_spawn_effect()
+		# A client initiated this summon, so the host's local path never ran
+		# _notify_boss_summoned(). Progress the objective here so the SUMMON_BOSS
+		# objective completes regardless of who did the summoning.
+		var om := get_tree().get_first_node_in_group("objective_manager")
+		if om and om.has_method("on_boss_summoned"):
+			om.on_boss_summoned()
 	else:
 		_refund_bait(sender, bait_item_id)
 

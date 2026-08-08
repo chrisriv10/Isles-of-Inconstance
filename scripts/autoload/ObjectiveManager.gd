@@ -81,6 +81,11 @@ enum ObjectiveType {
 	VISIT_ALL_ISLANDS,       # 64
 	# === Game completion capstone (v6) ===
 	COMPLETE_GAME,           # 65
+	# === Challenging objectives (v7) ===
+	SUMMON_BOSS,                      # 66
+	EXPERIENCE_ALL_SEASONS,           # 67
+	EXPERIENCE_ALL_WEATHER,           # 68
+	DISCOVER_ALL_RESTAURANT_RECIPES,  # 69
 }
 
 const OBJECTIVE_DEFS := {
@@ -157,6 +162,11 @@ const OBJECTIVE_DEFS := {
 	ObjectiveType.VISIT_ALL_ISLANDS: {"name": "True Adventurer", "desc": "Visit all 6 expedition islands", "icon": "🧭", "threshold": 6},
 	# === Game completion capstone (v6) ===
 	ObjectiveType.COMPLETE_GAME: {"name": "Conqueror of the Isles", "desc": "Defeat the Inconstant Soul, restore every town building, visit all expedition islands, and reach Farmer Level 50", "icon": "👑", "threshold": 4},
+	# === Challenging objectives (v7) ===
+	ObjectiveType.SUMMON_BOSS: {"name": "Boss Caller", "desc": "Summon a boss using crafted bait", "icon": "⚔️"},
+	ObjectiveType.EXPERIENCE_ALL_SEASONS: {"name": "Four Seasons", "desc": "Live through all 4 seasons", "icon": "☀️", "threshold": 4},
+	ObjectiveType.EXPERIENCE_ALL_WEATHER: {"name": "Weather Watcher", "desc": "Experience every weather type", "icon": "🌦️", "threshold": 4},
+	ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES: {"name": "Epicurean", "desc": "Discover all restaurant recipes", "icon": "🥘", "threshold": 5},
 }
 
 # ---------------------------------------------------------------------------
@@ -226,6 +236,7 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.DEFEAT_INCONSTANT_SOUL,
 			ObjectiveType.SURVIVE_PIRATE_RAID,
 			ObjectiveType.SURVIVE_BLOOD_MOON,
+			ObjectiveType.SUMMON_BOSS,
 		],
 	},
 	"exploration": {
@@ -237,6 +248,8 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.MINE_500_ORE,
 			ObjectiveType.REACH_DEPTH_3,
 			ObjectiveType.REACH_DEPTH_6,
+			ObjectiveType.EXPERIENCE_ALL_SEASONS,
+			ObjectiveType.EXPERIENCE_ALL_WEATHER,
 		],
 	},
 	"expedition": {
@@ -283,6 +296,7 @@ const OBJECTIVE_CATEGORIES := {
 			ObjectiveType.SELL_AT_RESTAURANT,
 			ObjectiveType.REACH_TOWN_LEVEL_3,
 			ObjectiveType.REACH_TOWN_LEVEL_5,
+			ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES,
 		],
 	},
 }
@@ -306,9 +320,10 @@ func _ready() -> void:
 	# calls ObjectiveManager.on_money_earned() directly for positive earnings.
 	# The old _on_money_changed() listener was removed because it was a no-op.
 	UpgradeManager.upgrade_purchased.connect(_on_upgrade_purchased)
-	
-	# Connect to pet unlock signal (deferred in case PetManager isn't ready)
+	# Season/weather are driven directly by GameManager (autoload), so we can
+	# subscribe here safely. Deferred to let the world systems initialize.
 	get_tree().create_timer(0.1).timeout.connect(_lazy_connect)
+	get_tree().create_timer(0.2).timeout.connect(_connect_ambient_objectives)
 
 
 ## Register a progress increment for an objective type.
@@ -373,6 +388,11 @@ func get_active_objective() -> Dictionary:
 			ObjectiveType.DEFEAT_ROOT_WARDEN, ObjectiveType.DEFEAT_HOLLOW_STAG,
 			ObjectiveType.DEFEAT_BLOOMING_WYRM, ObjectiveType.DEFEAT_INCONSTANT_SOUL,
 			ObjectiveType.SURVIVE_PIRATE_RAID,
+			# Challenging objectives — boss summon + season/weather/culinary
+			ObjectiveType.SUMMON_BOSS,
+			ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES,
+			ObjectiveType.EXPERIENCE_ALL_WEATHER,
+			ObjectiveType.EXPERIENCE_ALL_SEASONS,
 			# Capstone — game completion
 			ObjectiveType.COMPLETE_GAME,
 		]:
@@ -416,6 +436,19 @@ func _lazy_connect() -> void:
 	if lm and lm.has_signal("level_up"):
 		if not lm.level_up.is_connected(_on_player_level_up_obj):
 			lm.level_up.connect(_on_player_level_up_obj)
+
+
+## Connect to ambient cycle + culinary signals (season/weather/restaurant recipes).
+## These systems live on world nodes that may not exist at _ready(), so defer.
+func _connect_ambient_objectives() -> void:
+	if GameManager and not GameManager.season_changed.is_connected(_on_obj_season_changed):
+		GameManager.season_changed.connect(_on_obj_season_changed)
+	if GameManager.weather_system and not GameManager.weather_system.weather_changed.is_connected(_on_obj_weather_changed):
+		GameManager.weather_system.weather_changed.connect(_on_obj_weather_changed)
+	var rs := get_tree().get_first_node_in_group("restaurant_system")
+	if rs and rs.has_signal("recipe_discovered"):
+		if not rs.recipe_discovered.is_connected(_on_obj_restaurant_recipe):
+			rs.recipe_discovered.connect(_on_obj_restaurant_recipe)
 
 
 func _on_pet_unlocked(_pet_id: String) -> void:
@@ -663,6 +696,15 @@ var _caught_fish: Dictionary = {}  # fish_item_id -> true
 ## Set of expedition island types the player has visited (for VISIT_ALL_ISLANDS).
 var _visited_islands: Dictionary = {}  # island_type -> true
 
+## Set of seasons the player has experienced (for EXPERIENCE_ALL_SEASONS).
+var _seen_seasons: Dictionary = {}  # season -> true
+
+## Set of weather types the player has experienced (for EXPERIENCE_ALL_WEATHER).
+var _seen_weather: Dictionary = {}  # weather -> true
+
+## Set of restaurant recipe names the player has unlocked (for DISCOVER_ALL_RESTAURANT_RECIPES).
+var _discovered_restaurant_recipes: Dictionary = {}  # recipe_name -> true
+
 ## Called when the player catches any fish (regular or legendary).
 func on_fish_caught(fish_id: String) -> void:
 	track_progress(ObjectiveType.CATCH_FIRST_FISH)
@@ -724,6 +766,39 @@ func on_expedition_visited(island_type: int) -> void:
 	_update_game_completion_progress()
 	objectives_updated.emit()
 
+# ---------------------------------------------------------------------------
+# New objective hooks (v7) — challenging objectives
+# ---------------------------------------------------------------------------
+
+## Called when the player summons a boss using crafted bait.
+func on_boss_summoned() -> void:
+	track_progress(ObjectiveType.SUMMON_BOSS)
+
+
+## Called when the season changes. Tracks the set of seasons experienced.
+func _on_obj_season_changed(season: int, _season_name: String) -> void:
+	if not _seen_seasons.has(season):
+		_seen_seasons[season] = true
+		_progress[ObjectiveType.EXPERIENCE_ALL_SEASONS] = _seen_seasons.size()
+		_check_completion(ObjectiveType.EXPERIENCE_ALL_SEASONS)
+
+
+## Called when the weather changes. Tracks the set of weather types experienced.
+func _on_obj_weather_changed(weather: int) -> void:
+	if not _seen_weather.has(weather):
+		_seen_weather[weather] = true
+		_progress[ObjectiveType.EXPERIENCE_ALL_WEATHER] = _seen_weather.size()
+		_check_completion(ObjectiveType.EXPERIENCE_ALL_WEATHER)
+
+
+## Called when a restaurant recipe is discovered. Tracks the set unlocked.
+func _on_obj_restaurant_recipe(recipe_name: String) -> void:
+	if not _discovered_restaurant_recipes.has(recipe_name):
+		_discovered_restaurant_recipes[recipe_name] = true
+		_progress[ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES] = _discovered_restaurant_recipes.size()
+		_check_completion(ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES)
+
+
 ## Helper: check a single objective for completion without the additive track_progress.
 func _check_completion(type: int) -> void:
 	if _completed.has(type):
@@ -766,6 +841,9 @@ func serialize() -> Dictionary:
 		"total_earned": _total_earned,
 		"caught_fish": _caught_fish.duplicate(),
 		"visited_islands": _visited_islands.duplicate(),
+		"seen_seasons": _seen_seasons.duplicate(),
+		"seen_weather": _seen_weather.duplicate(),
+		"discovered_restaurant_recipes": _discovered_restaurant_recipes.duplicate(),
 	}
 
 
@@ -780,12 +858,24 @@ func deserialize(data: Dictionary) -> void:
 		_caught_fish = data["caught_fish"].duplicate()
 	if data.has("visited_islands"):
 		_visited_islands = data["visited_islands"].duplicate()
+	if data.has("seen_seasons"):
+		_seen_seasons = data["seen_seasons"].duplicate()
+	if data.has("seen_weather"):
+		_seen_weather = data["seen_weather"].duplicate()
+	if data.has("discovered_restaurant_recipes"):
+		_discovered_restaurant_recipes = data["discovered_restaurant_recipes"].duplicate()
 
 	# Recompute collection-type objective progress from their persisted sets
 	if not _completed.has(ObjectiveType.VISIT_ALL_ISLANDS):
 		_progress[ObjectiveType.VISIT_ALL_ISLANDS] = _visited_islands.size()
 	if not _completed.has(ObjectiveType.CATCH_ALL_FISH):
 		_progress[ObjectiveType.CATCH_ALL_FISH] = _caught_fish.size()
+	if not _completed.has(ObjectiveType.EXPERIENCE_ALL_SEASONS):
+		_progress[ObjectiveType.EXPERIENCE_ALL_SEASONS] = _seen_seasons.size()
+	if not _completed.has(ObjectiveType.EXPERIENCE_ALL_WEATHER):
+		_progress[ObjectiveType.EXPERIENCE_ALL_WEATHER] = _seen_weather.size()
+	if not _completed.has(ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES):
+		_progress[ObjectiveType.DISCOVER_ALL_RESTAURANT_RECIPES] = _discovered_restaurant_recipes.size()
 
 	# Recompute the game-completion capstone from the four pillar objectives
 	# so loaded saves reflect the correct capstone progress immediately.

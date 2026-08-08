@@ -446,10 +446,13 @@ func _create_building_node(building_data: Dictionary, world_ref: Node) -> void:
 	# Interior buildings get a blocker sized to match visible sprite content (not
 	# the full tile footprint), shrunk slightly inside the visible edges so the
 	# player can walk right up to the building wall without feeling invisible
-	# padding. Fences (wood, stone) block the player, but gates do not — the
-	# player should be able to walk through gates as intended openings.
+	# padding. Fences (wood, stone) block the player with a full-tile blocker on
+	# collision layer 8 (the player collides with layer 8 outside). Gates block
+	# animals (layer 16, which Animal._is_blocked_by_building queries) but NOT
+	# the player, whose collision_mask is 8 — so players can pass through gates.
+	var is_gate: bool = b_type == BuildingType.GATE
 	var should_add_blocker: bool = b_has_interior or \
-		b_type == BuildingType.FENCE or b_type == BuildingType.STONE_FENCE
+		b_type == BuildingType.FENCE or b_type == BuildingType.STONE_FENCE or is_gate
 	if should_add_blocker:
 		var blocker := StaticBody2D.new()
 		blocker.name = "BuildingCollision"
@@ -474,7 +477,9 @@ func _create_building_node(building_data: Dictionary, world_ref: Node) -> void:
 			block_shape.shape.size = Vector2(16.0, 16.0)
 		
 		blocker.add_child(block_shape)
-		blocker.collision_layer = 8  # Building collision layer (player collides with this outside)
+		# Gates block animals on layer 16 (bit 5); everything else blocks players
+		# on layer 8. The player's collision_mask is 8, so they walk through gates.
+		blocker.collision_layer = 16 if is_gate else 8
 		blocker.collision_mask = 0
 		node.add_child(blocker)
 	

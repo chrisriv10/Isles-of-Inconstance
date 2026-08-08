@@ -4262,6 +4262,10 @@ func generate_procedural_crops(seed: int) -> void:
 	# Generate Inconstant Fruits (legendary one-of-a-kind consumables)
 	_generate_inconstant_fruits(rng)
 
+	# Register the 5 rare chef-ingredient crops (seeds dropped rarely while
+	# farming or granted as quest rewards).
+	_register_rare_crops()
+
 	# Assign icons to any items that were created during crop generation
 	# (yield items, mutation seed items) which weren't covered by the
 	# earlier _assign_missing_item_icons() call in _register_default_items().
@@ -4279,3 +4283,87 @@ func _generate_inconstant_fruits(rng: RandomNumberGenerator) -> void:
 			continue  # Soul Fruit is never buyable/sellable
 		fruit.buy_price = 10000  # High price — 10K coins
 		fruit.sell_price = 50000  # Can still sell for a fortune
+
+
+## Registers the 5 rare "chef ingredient" crops and their seeds/yields/meals.
+## These ultra-rare crops feed the restaurant "share ingredient" feature: each
+## yield item is a rare ingredient that Chef Marco can use to teach a new
+## recipe. Their seeds are NOT sold in the shop (kept undiscovered) and are
+## obtained only rarely — via the farming rare-seed drop or as quest rewards.
+func _register_rare_crops() -> void:
+	# [crop_id, display, days, regrow_days, needs_water, color, rarity,
+	#  yield_price, seed_price, description]
+	var rare_defs := [
+		["giant_mushroom", "Giant Mushroom", 7, 0, true, Color(0.78, 0.2, 0.12), "Epic", 80, 22, "An enormous, rare mushroom prized by chefs."],
+		["golden_pumpkin", "Golden Pumpkin", 9, 0, false, Color(0.92, 0.7, 0.15), "Legendary", 120, 28, "A shimmering pumpkin blessed with golden light."],
+		["ancient_fruit", "Ancient Fruit", 10, 0, false, Color(0.15, 0.65, 0.55), "Legendary", 160, 30, "A fruit grown from seeds older than memory."],
+		["fairy_rose", "Fairy Rose", 8, 4, true, Color(0.95, 0.45, 0.8), "Epic", 110, 26, "A delicate enchanted rose that hums softly."],
+		["void_berry", "Void Berry", 11, 0, false, Color(0.45, 0.2, 0.6), "Legendary", 200, 34, "A dark berry steeped in shadowy energies."],
+	]
+	for def in rare_defs:
+		var crop_id: String = def[0]
+		var display: String = def[1]
+		var days: int = def[2]
+		var regrow: int = def[3]
+		var needs_water: bool = def[4]
+		var col: Color = def[5]
+		var rarity: String = def[6]
+		var yield_price: int = def[7]
+		var seed_price: int = def[8]
+		var desc: String = def[9]
+
+		var crop := CropData.new()
+		crop.id = crop_id
+		crop.display_name = display
+		crop.seed_item_id = crop_id + "_seed"
+		crop.yield_item_id = crop_id
+		crop.yield_amount = 1
+		crop.days_to_grow = days
+		crop.regrows = regrow > 0
+		crop.regrow_days = regrow
+		crop.requires_water = needs_water
+		crop.rarity = rarity
+		crop.size_trait = "large"
+		crop.modulate_color = col
+		crop.growth_stage_textures = CropSpriteUtils.generate_crop_textures(display, col, hash(crop_id + "_crop"))
+
+		var yield_item := ItemData.new()
+		yield_item.id = crop_id
+		yield_item.display_name = display
+		yield_item.category = "crop"
+		yield_item.stack_size = 99
+		yield_item.sell_price = yield_price
+		yield_item.buy_price = 0  # rare — not purchasable
+		yield_item.description = desc
+
+		var seed_item := ItemData.new()
+		seed_item.id = crop_id + "_seed"
+		seed_item.display_name = display + " Seed"
+		seed_item.category = "seed"
+		seed_item.stack_size = 99
+		seed_item.sell_price = seed_price
+		seed_item.buy_price = 0  # rare — not sold in shop
+		seed_item.description = "An ultra-rare seed. Plant on tilled soil."
+
+		register_crop(crop)
+		register_item(yield_item)
+		register_item(seed_item)
+
+	# Meal items produced by the recipes these ingredients unlock. The chef
+	# teaches them once the matching ingredient is shared at the restaurant.
+	var meal_defs := [
+		["mushroom_risotto", "Mushroom Risotto", 90, "Creamy risotto made with an enormous mushroom."],
+		["ancient_wine", "Ancient Fruit Wine", 180, "A wine that tastes of forgotten ages."],
+		["fairy_tea", "Fairy Tea", 140, "A whimsical tea that sparkles with light."],
+		["void_cordial", "Void Cordial", 220, "A shadowed cordial that warms the soul."],
+	]
+	for mdef in meal_defs:
+		var meal_item := ItemData.new()
+		meal_item.id = mdef[0]
+		meal_item.display_name = mdef[1]
+		meal_item.category = "meal"
+		meal_item.stack_size = 99
+		meal_item.sell_price = mdef[2]
+		meal_item.buy_price = 0
+		meal_item.description = mdef[3]
+		register_item(meal_item)

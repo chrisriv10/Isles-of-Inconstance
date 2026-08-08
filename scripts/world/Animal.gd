@@ -2800,7 +2800,9 @@ func _is_blocked_by_building(pos: Vector2) -> bool:
 	var query := PhysicsShapeQueryParameters2D.new()
 	query.shape = shape_node.shape
 	query.transform = Transform2D(0.0, pos)
-	query.collision_mask = 8  # building/shop/fence blocker layer
+	# Layer 8 = building/shop blocker; layer 16 = gate blocker (animals can't pass
+	# gates, but players can). Both stop animals.
+	query.collision_mask = 8 | 16
 	return not get_world_2d().direct_space_state.intersect_shape(query, 1).is_empty()
 
 

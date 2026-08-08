@@ -158,6 +158,34 @@ static func get_quest_defs() -> Dictionary:
 		"prerequisite_ids": [],
 		"min_town_level": 2,
 	},
+	"chef_gourmet_harvest": {
+		"id": "chef_gourmet_harvest",
+		"giver_role": TownResidentNPC.Role.CHEF,
+		"title": "A Gourmet's Bounty",
+		"description": "I've been wanting to grow something truly special. Bring me mushrooms and I'll share the secret to rare seeds.",
+		"req_type": RequirementType.COLLECT_ITEMS,
+		"requirements": [{"id": "mushroom", "count": 25}],
+		"reward_items": [{"id": "giant_mushroom_seed", "count": 1}],
+		"reward_gold": 150,
+		"reward_reputation": 15,
+		"reward_xp": 60,
+		"prerequisite_ids": [],
+		"min_town_level": 1,
+	},
+	"chef_secret_spice": {
+		"id": "chef_secret_spice",
+		"giver_role": TownResidentNPC.Role.CHEF,
+		"title": "The Secret Spice",
+		"description": "There's a legendary golden harvest the town elders whisper about. Show me you know berries and I'll point you to the seed.",
+		"req_type": RequirementType.COLLECT_ITEMS,
+		"requirements": [{"id": "berry", "count": 20}],
+		"reward_items": [{"id": "golden_pumpkin_seed", "count": 1}],
+		"reward_gold": 150,
+		"reward_reputation": 15,
+		"reward_xp": 60,
+		"prerequisite_ids": ["chef_gourmet_harvest"],
+		"min_town_level": 1,
+	},
 
 	# ── INNKEEPER quests ───────────────────────────────────────────────────
 	"innkeeper_wood": {
@@ -1065,7 +1093,7 @@ func accept_quest(quest_id: String) -> bool:
 
 	quest_accepted.emit(quest_id, qdef.get("title", ""))
 	quests_updated.emit()
-	ToastNotification.show_toast("📜 Quest accepted: %s" % qdef.get("title", ""), ToastNotification.ToastType.INFO, 4.0)
+	ToastNotification.show_toast("📜 Quest accepted: %s — Press O to view progress" % qdef.get("title", ""), ToastNotification.ToastType.INFO, 4.0)
 	return true
 
 

@@ -71,8 +71,8 @@ func _setup_web_mp_dialog() -> void:
 	_web_mp_dialog.title = "Multiplayer Not Available"
 	_web_mp_dialog.dialog_text = (
 		"Online multiplayer is only available in the desktop version. "
-		+ "Please install the desktop version to play with friends — "
-		+ "the browser version is single-player only."
+		+ "Please install the desktop version to play with friends."
+		+ "The browser version is single-player only."
 	)
 	_web_mp_dialog.ok_button_text = "OK"
 	# Add a "Download Desktop Version" button that opens the placeholder URL.
@@ -85,6 +85,10 @@ func _setup_web_mp_dialog() -> void:
 	var canvas: CanvasLayer = get_node_or_null("CanvasLayer") as CanvasLayer
 	if canvas:
 		canvas.add_child(_web_mp_dialog)
+
+	# Apply the shared golden-wood dialog styling (must run after add_child so
+	# the AcceptDialog's buttons exist) to match the rest of the game's popups.
+	DialogStyler.style_dialog(_web_mp_dialog)
 
 
 ## Opens the desktop download page (placeholder URL) from the web warning dialog.

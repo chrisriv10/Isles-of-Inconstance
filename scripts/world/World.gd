@@ -2931,7 +2931,7 @@ func enter_build_mode() -> bool:
 		build_item_id = hotbar_item_id
 		build_type = BUILD_ITEM_TO_TYPE[hotbar_item_id]
 		build_mode_active = true
-		ToastNotification.show_toast("Build mode [V]: point at a tile and press [E] to place", ToastNotification.ToastType.INFO, 3.5)
+		ToastNotification.show_toast("Build mode [V]: point at a tile and press [E] to place. [Right-click] picks up placed buildings", ToastNotification.ToastType.INFO, 4.0)
 		_show_hud_hint("Build mode active — move cursor and press E to place")
 		return true
 
@@ -2941,7 +2941,7 @@ func enter_build_mode() -> bool:
 			build_item_id = item_id
 			build_type = BUILD_ITEM_TO_TYPE[item_id]
 			build_mode_active = true
-			ToastNotification.show_toast("Build mode [V]: point at a tile and press [E] to place", ToastNotification.ToastType.INFO, 3.5)
+			ToastNotification.show_toast("Build mode [V]: point at a tile and press [E] to place. [Right-click] picks up placed buildings", ToastNotification.ToastType.INFO, 4.0)
 			_show_hud_hint("Build mode active — move cursor and press E to place")
 			return true
 	

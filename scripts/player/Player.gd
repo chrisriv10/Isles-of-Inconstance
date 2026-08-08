@@ -1796,6 +1796,7 @@ func _summon_boss(bait_item_id: String) -> void:
 					# Dramatic summoning effects (delegates to boss-specific visuals)
 					boss._summon_spawn_effect()
 					GameManager.broadcast_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+					_notify_boss_summoned()
 				else:
 					# Rejected summon (e.g. inside a building) — give the host's bait back.
 					InventoryManager.add_item(bait_item_id, 1)
@@ -1819,6 +1820,15 @@ func _summon_boss(bait_item_id: String) -> void:
 	boss._summon_spawn_effect()
 	
 	GameManager.broadcast_toast("The %s has been summoned!" % boss_name, ToastNotification.ToastType.WARNING, 3.0)
+
+	_notify_boss_summoned()
+
+
+## Notify the objective manager that a boss was successfully summoned.
+func _notify_boss_summoned() -> void:
+	var om := get_tree().get_first_node_in_group("objective_manager")
+	if om and om.has_method("on_boss_summoned"):
+		om.on_boss_summoned()
 
 
 ## Searches all crops for one whose seed_item_id matches the given item.

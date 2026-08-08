@@ -1468,6 +1468,8 @@ func _on_network_peer_disconnected(peer_id: int) -> void:
 			world.mine_peer_disconnected(peer_id)
 		if world and world.has_method("island_peer_disconnected"):
 			world.island_peer_disconnected(peer_id)
+		if world and world.has_method("building_peer_disconnected"):
+			world.building_peer_disconnected(peer_id)
 		broadcast_toast("%s left the farm." % name, ToastNotification.ToastType.INFO, 3.0)
 
 

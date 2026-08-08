@@ -57,3 +57,18 @@ func test_cooking_recipe_ingredients_exist() -> void:
 			if ing_id in GENERIC_INGREDIENT_IDS:
 				continue
 			assert(_item_exists(ing_id), "Recipe '%s' references missing ingredient: %s" % [recipe_id, ing_id])
+
+func test_crafting_recipe_ingredients_exist() -> void:
+	if not _data_loaded():
+		return  # smoke-pass shell: DataManager items not built yet
+	var ui := CraftingUI.new()
+	ui._build_default_recipes()
+	ui._build_alchemy_recipes()
+	var recipes: Array = ui.get_recipes()
+	assert(recipes.size() > 0, "no crafting recipes")
+	for r in recipes:
+		for ing: Dictionary in r.ingredients:
+			var ing_id: String = ing.get("item_id", "")
+			if ing_id in GENERIC_INGREDIENT_IDS or ing_id == "":
+				continue
+			assert(_item_exists(ing_id), "Crafting recipe '%s' references missing ingredient: %s" % [r.result_item_id, ing_id])

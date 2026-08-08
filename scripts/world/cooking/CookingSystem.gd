@@ -28,7 +28,7 @@ func _init() -> void:
 func _register_default_recipes() -> void:
 	# Basic meals
 	_add_recipe("grilled_vegetables", "Grilled Vegetables", "A healthy mix of grilled garden vegetables.", 
-		{"crop": 3}, 15, "energy", 4.0, 0.3, "meal")
+		{"crop": 2, "wood": 1}, 15, "energy", 4.0, 0.3, "meal")
 	_add_recipe("vegetable_soup", "Vegetable Soup", "A warm and hearty vegetable soup.", 
 		{"crop": 4, "wood": 1}, 25, "energy", 6.0, 0.5, "meal")
 	_add_recipe("garden_salad", "Garden Salad", "Fresh garden greens with a light dressing.", 
@@ -36,27 +36,38 @@ func _register_default_recipes() -> void:
 	_add_recipe("roasted_roots", "Roasted Roots", "Slow-roasted root vegetables.", 
 		{"crop": 3, "wood": 2}, 20, "energy", 5.0, 0.4, "meal")
 	_add_recipe("fruit_compote", "Fruit Compote", "Sweet stewed fruits.", 
-		{"crop": 3}, 18, "energy", 4.0, 0.35, "dessert")
+		{"crop": 2, "berry": 1}, 18, "energy", 4.0, 0.35, "dessert")
 	_add_recipe("berry_juice", "Berry Juice", "Refreshing juice from wild berries.", 
-		{"crop": 2}, 10, "speed", 2.0, 0.25, "drink")
+		{"berry": 2}, 10, "speed", 2.0, 0.25, "drink")
 	_add_recipe("hearty_stew", "Hearty Stew", "A filling stew with meat and vegetables.", 
 		{"crop": 5, "wood": 3}, 45, "health", 8.0, 0.6, "meal")
 	_add_recipe("growth_tea", "Growth Tea", "A herbal tea that helps crops grow faster.", 
-		{"crop": 3}, 30, "growth", 6.0, 1.5, "drink")
+		{"crop": 2, "vine": 1}, 30, "growth", 6.0, 1.5, "drink")
 	_add_recipe("lucky_salad", "Lucky Salad", "A salad said to bring good fortune.", 
 		{"crop": 4}, 35, "luck", 4.0, 0.3, "snack")
 	_add_recipe("farmers_breakfast", "Farmer's Breakfast", "A hearty breakfast to start the day.", 
 		{"crop": 4, "wood": 1}, 30, "energy", 8.0, 0.8, "meal")
 	_add_recipe("golden_soup", "Golden Soup", "A luxurious soup with rare ingredients.", 
 		{"crop": 6}, 60, "luck", 8.0, 0.5, "meal")
+	# Rare chef recipes — unlocked by sharing a rare ingredient at Chef Marco.
+	# Kept OUT of discovered_recipes at start; the player earns them via the
+	# restaurant's "share ingredient" interaction.
+	_add_recipe("mushroom_risotto", "Mushroom Risotto", "Creamy risotto made with an enormous mushroom.",
+		{"giant_mushroom": 1, "crop": 2, "milk": 1}, 90, "luck", 6.0, 0.35, "meal")
+	_add_recipe("ancient_wine", "Ancient Fruit Wine", "A wine that tastes of forgotten ages.",
+		{"ancient_fruit": 1}, 180, "luck", 8.0, 0.6, "drink")
+	_add_recipe("fairy_tea", "Fairy Tea", "A whimsical tea that sparkles with light.",
+		{"fairy_rose": 1, "crop": 1}, 140, "growth", 6.0, 1.8, "drink")
+	_add_recipe("void_cordial", "Void Cordial", "A shadowed cordial that warms the soul.",
+		{"void_berry": 1, "ice_crystal": 1}, 220, "health", 8.0, 0.8, "drink")
 	_add_recipe("herbal_tea", "Herbal Tea", "Soothing tea made from aromatic herbs.", 
-		{"crop": 2}, 15, "growth", 3.0, 1.2, "drink")
+		{"crop": 1, "vine": 1}, 15, "growth", 3.0, 1.2, "drink")
 	_add_recipe("stuffed_vegetables", "Stuffed Vegetables", "Vegetables stuffed with seasoned grains.", 
 		{"crop": 4, "wood": 2}, 35, "health", 6.0, 0.5, "meal")
 	_add_recipe("candied_fruit", "Candied Fruit", "Fruit preserved in sweet syrup.", 
-		{"crop": 3}, 22, "energy", 5.0, 0.4, "dessert")
+		{"crop": 2, "sugar_crystal": 1}, 22, "energy", 5.0, 0.4, "dessert")
 	_add_recipe("mushroom_stew", "Mushroom Stew", "Earthy mushroom stew.", 
-		{"crop": 3, "wood": 2}, 28, "health", 5.0, 0.45, "meal")
+		{"mushroom": 2, "crop": 1, "wood": 1}, 28, "health", 5.0, 0.45, "meal")
 	
 	# --- (Boss Drop, Fruit & Berry, and Fish recipes removed — their result items don't exist yet) ---
 	
@@ -167,6 +178,16 @@ func get_all_recipes() -> Array:
 func get_meal(recipe_id: String) -> MealData:
 	var meal: MealData = recipes.get(recipe_id)
 	return meal
+
+## Unlock a recipe so it can be cooked. Called by the restaurant system when
+## Chef Marco is taught a new dish by sharing a rare ingredient.
+func unlock_recipe(recipe_id: String) -> void:
+	if not recipes.has(recipe_id):
+		push_warning("CookingSystem.unlock_recipe: unknown recipe '%s'" % recipe_id)
+		return
+	if not discovered_recipes.has(recipe_id):
+		discovered_recipes[recipe_id] = true
+		recipe_discovered.emit(recipe_id)
 
 func serialize() -> Dictionary:
 	return {
