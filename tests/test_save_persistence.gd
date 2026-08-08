@@ -77,9 +77,43 @@ func test_animal_data_roundtrip() -> void:
 		_check(float(body_c.get("r", 0.0)) == 1.0, "animal color dict round-trips")
 
 
+func test_new_persistence_keys_roundtrip() -> void:
+	print("-- test_new_persistence_keys_roundtrip --")
+	# World map explored dict of "x,y" -> true (JSON-safe).
+	var explored := {"5,10": true, "-2,3": true, "0,0": true}
+	var explored_parsed: Dictionary = JSON.parse_string(JSON.stringify(explored))
+	_check(explored_parsed.size() == 3, "world_map_explored dict round-trips")
+	_check(bool(explored_parsed.get("5,10", false)) == true, "world_map_explored cell round-trips")
+
+	# game_completed bool.
+	var completed_parsed: bool = JSON.parse_string(JSON.stringify(true))
+	_check(completed_parsed == true, "game_completed bool round-trips")
+
+	# barn_stall_data dict (key -> data).
+	var barn_stall := {"0": {"1": 3}, "1": {"2": 5}}
+	var barn_parsed: Dictionary = JSON.parse_string(JSON.stringify(barn_stall))
+	_check(barn_parsed.size() == 2, "barn_stall_data dict round-trips")
+	var stall0: Dictionary = barn_parsed.get("0", {})
+	_check(int(stall0.get("1", -1)) == 3, "barn_stall_data inner value round-trips")
+
+	# Restaurant serialize (daily special + recipes array).
+	var restaurant := {"daily_special_crop": "tomato", "daily_special_bonus": 2.0, "recipes_unlocked": ["mushroom_risotto"]}
+	var rest_parsed: Dictionary = JSON.parse_string(JSON.stringify(restaurant))
+	_check(str(rest_parsed.get("daily_special_crop", "")) == "tomato", "restaurant daily_special round-trips")
+	var recipes: Array = rest_parsed.get("recipes_unlocked", [])
+	_check(recipes.size() == 1 and str(recipes[0]) == "mushroom_risotto", "restaurant recipes round-trip")
+
+	# Library serialize (locked tabs array).
+	var library := {"locked_tabs": ["animals", "biomes"]}
+	var lib_parsed: Dictionary = JSON.parse_string(JSON.stringify(library))
+	var tabs: Array = lib_parsed.get("locked_tabs", [])
+	_check(tabs.size() == 2 and str(tabs[0]) == "animals", "library locked_tabs round-trip")
+
+
 func run_all() -> void:
 	test_removed_objects_roundtrip()
 	test_animal_data_roundtrip()
+	test_new_persistence_keys_roundtrip()
 	print("== RESULT: %d passed, %d failed ==" % [_passes.size(), _fails.size()])
 	if _fails.is_empty():
 		print("TEST-PASS")

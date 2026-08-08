@@ -166,6 +166,23 @@ func get_locked_tabs() -> Array[String]:
 func is_completed(topic_type: String, topic_id: String) -> bool:
 	return false  # Placeholder — track in serialization if needed
 
+## Serialize library research progress (which encyclopedia tabs remain locked)
+## so paid unlocks carry across a reload. EncyclopediaUI mirrors this set via
+## get_locked_tabs(), so restoring here refreshes the encyclopedia too.
+func serialize() -> Dictionary:
+	return {
+		"locked_tabs": _locked_encyclopedia_tabs.duplicate(),
+	}
+
+
+func deserialize(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	var tabs: Array = data.get("locked_tabs", [])
+	_locked_encyclopedia_tabs.clear()
+	for t in tabs:
+		_locked_encyclopedia_tabs.append(str(t))
+
 ## Open the library research UI — shows available research topics the player
 ## can pay coins to unlock (encyclopedia tabs, map fog, crop mutations).
 func open_ui() -> void:

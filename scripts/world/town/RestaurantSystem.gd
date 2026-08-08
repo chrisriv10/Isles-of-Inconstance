@@ -221,3 +221,25 @@ func is_recipe_unlocked(ingredient_id: String) -> bool:
 
 func get_unlocked_recipes() -> Array[String]:
 	return _recipes_unlocked.duplicate()
+
+
+## Serialize the town-economy state (unlocked recipes + daily special) for the
+## save system. Mirrors the fields _broadcast_state/_sync_restaurant_state carry
+## for multiplayer, so a reload restores the same state the host would sync.
+func serialize() -> Dictionary:
+	return {
+		"daily_special_crop": _daily_special_crop,
+		"daily_special_bonus": _daily_special_bonus,
+		"recipes_unlocked": _recipes_unlocked.duplicate(),
+	}
+
+
+func deserialize(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	_daily_special_crop = str(data.get("daily_special_crop", _daily_special_crop))
+	_daily_special_bonus = float(data.get("daily_special_bonus", _daily_special_bonus))
+	var recipes: Array = data.get("recipes_unlocked", [])
+	_recipes_unlocked.clear()
+	for r in recipes:
+		_recipes_unlocked.append(str(r))

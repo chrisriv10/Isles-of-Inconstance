@@ -143,6 +143,11 @@ func _collect_player_progression_data() -> Dictionary:
 	if obj_mgr and obj_mgr.has_method("serialize"):
 		data["objectives"] = obj_mgr.serialize()
 	data["seen_dialogues"] = GameManager.seen_dialogues.duplicate()
+	# Personal world-map fog-of-war so a returning co-op player keeps their own
+	# exploration (the map is per-player, not host-shared).
+	var world_map := get_tree().get_first_node_in_group("world_map")
+	if world_map and "explored" in world_map:
+		data["world_map_explored"] = world_map.explored.duplicate()
 	return data
 
 ## Load all game state from the currently selected slot.
@@ -317,6 +322,12 @@ func _apply_player_progression(save_data: Dictionary) -> void:
 	# Player dialogue seen flags (so first-time dialogue doesn't replay)
 	if save_data.has("seen_dialogues"):
 		GameManager.seen_dialogues = (save_data["seen_dialogues"] as Dictionary).duplicate()
+
+	# Personal world-map fog-of-war (returning co-op player keeps their map).
+	if save_data.has("world_map_explored"):
+		var world_map := get_tree().get_first_node_in_group("world_map")
+		if world_map and "explored" in world_map:
+			world_map.explored = (save_data["world_map_explored"] as Dictionary).duplicate()
 
 ## Check if ANY save slot has a save file.
 func has_save_file() -> bool:
@@ -552,6 +563,28 @@ func _collect_save_data() -> Dictionary:
 	# Player dialogue seen flags
 	save_data["seen_dialogues"] = GameManager.seen_dialogues.duplicate()
 	
+	# World map fog-of-war (explored cells) so exploration carries across reloads.
+	var world_map := get_tree().get_first_node_in_group("world_map")
+	if world_map and "explored" in world_map:
+		save_data["world_map_explored"] = world_map.explored.duplicate()
+	
+	# Endgame completion flag — documented to persist across sessions.
+	save_data["game_completed"] = GameManager.game_completed
+	
+	# Barn stall cooldowns (which stall occupied which animal on which day).
+	save_data["barn_stall_data"] = GameManager.barn_stall_data.duplicate()
+	
+	# Restaurant unlocked recipes + daily special (town economy progress).
+	var restaurant := get_tree().get_first_node_in_group("restaurant_system")
+	if restaurant and restaurant.has_method("serialize"):
+		save_data["restaurant"] = restaurant.serialize()
+	
+	# Library research: encyclopedia tabs unlocked via paid research. The
+	# library is the authoritative source that EncyclopediaUI mirrors.
+	var library := get_tree().get_first_node_in_group("library_system")
+	if library and library.has_method("serialize"):
+		save_data["library"] = library.serialize()
+	
 	return save_data
 
 ## Apply loaded save data to game state
@@ -594,6 +627,12 @@ func _apply_save_data(save_data: Dictionary) -> void:
 		# the world matches what was saved. _is_remote is set correctly inside.
 		if save_data.has("animals"):
 			world.recreate_animals_from_roster(save_data["animals"])
+	
+	# Restore world map fog-of-war (explored cells) after the world is ready.
+	if save_data.has("world_map_explored"):
+		var world_map := get_tree().get_first_node_in_group("world_map")
+		if world_map and "explored" in world_map:
+			world_map.explored = (save_data["world_map_explored"] as Dictionary).duplicate()
 	
 	# Player position
 	var player := get_tree().get_first_node_in_group("player")
@@ -788,6 +827,26 @@ func _apply_save_data(save_data: Dictionary) -> void:
 	# Player dialogue seen flags (restore so first-time dialogue doesn't replay)
 	if save_data.has("seen_dialogues"):
 		GameManager.seen_dialogues = (save_data["seen_dialogues"] as Dictionary).duplicate()
+	
+	# Endgame completion flag.
+	if save_data.has("game_completed"):
+		GameManager.game_completed = bool(save_data["game_completed"])
+	
+	# Barn stall cooldowns.
+	if save_data.has("barn_stall_data"):
+		GameManager.barn_stall_data = (save_data["barn_stall_data"] as Dictionary).duplicate()
+	
+	# Restaurant unlocked recipes + daily special.
+	if save_data.has("restaurant"):
+		var restaurant := get_tree().get_first_node_in_group("restaurant_system")
+		if restaurant and restaurant.has_method("deserialize"):
+			restaurant.deserialize(save_data["restaurant"])
+	
+	# Library research (unlocked encyclopedia tabs).
+	if save_data.has("library"):
+		var library := get_tree().get_first_node_in_group("library_system")
+		if library and library.has_method("deserialize"):
+			library.deserialize(save_data["library"])
 
 ## Migrate save data from older versions
 func _migrate_save(save_data: Dictionary, from_version: int) -> Dictionary:
