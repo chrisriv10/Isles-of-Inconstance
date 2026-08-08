@@ -3789,6 +3789,13 @@ func get_mine_ready_peer_ids() -> Array[int]:
 ## to menu while inside the mine.
 ## Does NOT move the player — the caller handles positioning.
 func emergency_exit_mine() -> void:
+	# A client tearing down its local mine room (death / emergency exit) must
+	# tell the host to drop it from the shared-mine session, or the host keeps
+	# sending node-path enemy RPCs to a peer whose MineEnemy nodes no longer
+	# exist -> the "Node not found: MineRoom/MineEnemy_N" flood. Idempotent, and
+	# skipped on the host itself (it is the server and tracks its own session).
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		rpc_id(1, "_server_leave_mine_session")
 	if current_mine_room and is_instance_valid(current_mine_room):
 		current_mine_room.queue_free()
 	current_mine_room = null
