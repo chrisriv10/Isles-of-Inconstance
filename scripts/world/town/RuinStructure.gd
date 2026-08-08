@@ -114,12 +114,14 @@ func _on_body_entered(body: Node) -> void:
 		if name_label:
 			name_label.visible = true
 		
-		# Show interaction prompt
-		var prompt: String = _get_prompt_text()
-		if not prompt.is_empty():
-			var hud := get_tree().get_first_node_in_group("hud")
-			if hud and hud.has_method("show_interaction_prompt"):
-				hud.show_interaction_prompt(prompt)
+		# Show interaction prompt (only if this ruin is the nearest in-range ruin,
+		# so a nearby still-RUBBLE neighbor doesn't crowd out a cleared ruin).
+		if _should_show_prompt():
+			var prompt: String = _get_prompt_text()
+			if not prompt.is_empty():
+				var hud := get_tree().get_first_node_in_group("hud")
+				if hud and hud.has_method("show_interaction_prompt"):
+					hud.show_interaction_prompt(prompt)
 
 func _on_body_exited(body: Node) -> void:
 	if body.is_in_group("player"):
@@ -131,13 +133,40 @@ func _on_body_exited(body: Node) -> void:
 		if hud and hud.has_method("hide_interaction_prompt"):
 			hud.hide_interaction_prompt()
 
+## True when THIS ruin should be the one driving the shared HUD prompt label.
+## The town district packs many ruins together, and every ruin whose
+## InteractionArea the player is inside writes to the same HUD prompt label
+## (last-write-wins). Without gating, a farther ruin that is still RUBBLE keeps
+## overwriting the "Press [R] to restore" prompt of the cleared ruin the player
+## just fixed. So we only show a prompt if this ruin is the NEAREST in-range
+## ruin to the player.
+func _should_show_prompt() -> bool:
+	if not _player_in_area:
+		return false
+	var tree := get_tree()
+	if not tree:
+		return false
+	var player := tree.get_first_node_in_group("player")
+	if not player:
+		return false
+	var nearest_dist: float = global_position.distance_squared_to(player.global_position)
+	for ruin in tree.get_nodes_in_group("ruin_structures"):
+		if ruin == self or not is_instance_valid(ruin):
+			continue
+		if not ruin._player_in_area:
+			continue
+		var d: float = ruin.global_position.distance_squared_to(player.global_position)
+		if d < nearest_dist:
+			return false  # another in-range ruin is closer; let it drive the prompt
+	return true
+
 ## Periodically re-asserts our interaction prompt while the player is in range.
 ## The shared HUD prompt label is also written by PlayerInteractor (nearby
 ## interactables) and the mine prompt timer, which can hide it after we showed
 ## it. Re-asserting every 0.15s keeps the rubble prompt visible until the player
 ## walks away, while still deferring to an active interactable prompt.
 func _on_prompt_reassert_tick() -> void:
-	if not _player_in_area:
+	if not _should_show_prompt():
 		return
 	var hud := get_tree().get_first_node_in_group("hud")
 	if not hud or not hud.has_method("show_interaction_prompt"):
@@ -158,7 +187,7 @@ func _get_prompt_text() -> String:
 		TownManager.RuinStatus.RUBBLE:
 			return "Hold [E] to Clear Rubble"
 		TownManager.RuinStatus.CLEARED, TownManager.RuinStatus.RESTORING:
-			return "Press [R] to contribute materials"
+			return "Press [R] to restore"
 		TownManager.RuinStatus.RESTORED, TownManager.RuinStatus.OCCUPIED:
 			# Buildings without interiors don't show an E prompt
 			if ruin_id == "well":
@@ -259,18 +288,15 @@ func _on_status_changed(p_ruin_id: String, status: int) -> void:
 	if ruin_id == "shed" and status >= TownManager.RuinStatus.RESTORED:
 		_ensure_hotel_logic()
 	# Refresh the prompt if the player is still nearby (e.g. after rubble
-	# clears, show "Press [R] to contribute materials" without needing to
-	# walk away and come back).
-	var interact_area := get_node_or_null("InteractionArea") as Area2D
-	if interact_area:
-		for body in interact_area.get_overlapping_bodies():
-			if body.is_in_group("player"):
-				var prompt: String = _get_prompt_text()
-				if not prompt.is_empty():
-					var hud := get_tree().get_first_node_in_group("hud")
-					if hud and hud.has_method("show_interaction_prompt"):
-						hud.show_interaction_prompt(prompt)
-				break
+	# clears, show "Press [R] to restore" without needing to walk away and
+	# come back). Gated by _should_show_prompt() so a farther still-RUBBLE
+	# neighbor can't overwrite this cleared ruin's prompt.
+	if _should_show_prompt():
+		var prompt: String = _get_prompt_text()
+		if not prompt.is_empty():
+			var hud := get_tree().get_first_node_in_group("hud")
+			if hud and hud.has_method("show_interaction_prompt"):
+				hud.show_interaction_prompt(prompt)
 
 ## When the Hotel (shed) is restored, attach a Hotel.gd logic node so it
 ## (a) registers with the "hotel_buildings" group for VisitorManager,

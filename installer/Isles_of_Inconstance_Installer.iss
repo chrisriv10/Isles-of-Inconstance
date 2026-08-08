@@ -3,7 +3,7 @@
 
 #define MyAppName "Isles of Inconstance"
 #define MyAppVersion "0.2.0"
-#define MyAppPublisher "Chris Riv"
+#define MyAppPublisher "Christopher Rivera"
 #define MyAppURL "https://github.com/chrisriv10/Isles-of-Inconstance"
 #define MyAppExeName "Isles of Inconstance.exe"
 
