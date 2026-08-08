@@ -3436,6 +3436,31 @@ func _retarget_mine_enemies_to_client(client_peer: int) -> void:
 			child.retarget_to_player(target)
 
 
+## Host: after the host's own player leaves the mine while clients remain
+## inside, point every enemy in the authoritative room at an in-room client's
+## remote copy so the AI keeps fighting them. Without this the enemies keep a
+## stale reference to the (now gone) host player and idle until their target
+## refreshes — which Player 2 sees as "enemies standing still".
+func _retarget_mine_enemies_to_remaining_clients() -> void:
+	if not current_mine_room or not is_instance_valid(current_mine_room):
+		return
+	var ready: Array[int] = get_mine_ready_peer_ids()
+	if ready.is_empty():
+		return
+	for pid in ready:
+		var target: Node2D = null
+		for p in get_tree().get_nodes_in_group("player"):
+			if is_instance_valid(p) and (p is Node2D) \
+					and p.get_multiplayer_authority() == pid:
+				target = p as Node2D
+				break
+		if target:
+			for child in current_mine_room.get_children():
+				if is_instance_valid(child) and child.has_method("retarget_to_player"):
+					child.retarget_to_player(target)
+			return
+
+
 ## Internal: actually create the mine room so THIS peer's player enters.
 ## The room is generated deterministically, so each peer's copy matches.
 ## Only the local player is moved (remote players enter on their own peers).
@@ -3865,7 +3890,7 @@ func emergency_exit_island() -> void:
 func mine_peer_disconnected(peer_id: int) -> void:
 	_mine_session_members.erase(peer_id)
 	_mine_session_room_ready.erase(peer_id)
-	if _mine_session_members.is_empty():
+	if not _mine_has_clients():
 		_mine_session_active = false
 		_mine_session_entrance = 1
 		_mine_session_depth = 1
@@ -3873,6 +3898,16 @@ func mine_peer_disconnected(peer_id: int) -> void:
 			current_mine_room.queue_free()
 			current_mine_room = null
 			_mine_current_depth = 0
+
+
+## True when any client is still inside the shared mine. The host's
+## authoritative MineRoom drives enemy AI for everyone inside, so it must be
+## retained as long as a client is in the mine — even after the host's own
+## player leaves. A client is "in the mine" if it is a session member or has a
+## built/ready room (_mine_session_members can be stale/empty in edge cases, so
+## the ready set is checked too).
+func _mine_has_clients() -> bool:
+	return not _mine_session_members.is_empty() or not _mine_session_room_ready.is_empty()
 
 
 func _on_exit_mine() -> void:
@@ -3899,7 +3934,7 @@ func _server_exit_mine() -> void:
 	
 	_mine_session_members.erase(sender)
 	_mine_session_room_ready.erase(sender)
-	if _mine_session_members.is_empty():
+	if not _mine_has_clients():
 		_mine_session_active = false
 		_mine_session_entrance = 1
 		_mine_session_depth = 1
@@ -3936,7 +3971,7 @@ func _server_leave_mine_session() -> void:
 	var sender: int = _sender_id()
 	_mine_session_members.erase(sender)
 	_mine_session_room_ready.erase(sender)
-	if _mine_session_members.is_empty():
+	if not _mine_has_clients():
 		_mine_session_active = false
 		_mine_session_entrance = 1
 		_mine_session_depth = 1
@@ -3961,10 +3996,16 @@ func _do_exit_mine() -> void:
 	# for any clients still inside, so it must persist while the session is
 	# active. (_mine_session_members is host-tracked; on a client it's always
 	# empty, so a client still frees its own local room copy.)
-	if _mine_session_members.is_empty():
+	if not _mine_has_clients():
 		current_mine_room.queue_free()
 		current_mine_room = null
 		_mine_current_depth = 0
+	else:
+		# A client is still in the mine and the host just left: aim every enemy
+		# in the host's authoritative room at the remaining in-room clients so
+		# they keep moving/attacking (instead of idling once the host's own
+		# player is out of the room and the enemies' old target goes stale).
+		_retarget_mine_enemies_to_remaining_clients()
 	GameManager.inside_interior = false
 	GameManager.inside_mine = false
 	AudioManager.resume_ambient_music()
