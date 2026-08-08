@@ -19,9 +19,8 @@ var _host_is_new: bool = false
 # the start of the first brand-new game in this app session.
 var _first_time_help_shown: bool = false
 
-## URL for the desktop version download. Placeholder — replace with the real
-## itch.io / hosting link when ready. Used by the web multiplayer warning dialog.
-const DESKTOP_DOWNLOAD_URL: String = "https://example.com/download"
+## URL for the desktop version download. Used by the web multiplayer warning dialog.
+const DESKTOP_DOWNLOAD_URL: String = "https://chrisriv10.itch.io/isles-of-inconstance"
 
 # Modal dialog shown on the web build when a player tries to host/join.
 var _web_mp_dialog: AcceptDialog = null
@@ -79,6 +78,9 @@ func _setup_web_mp_dialog() -> void:
 	# Add a "Download Desktop Version" button that opens the placeholder URL.
 	var download_btn: Button = _web_mp_dialog.add_button("Download Desktop Version")
 	download_btn.pressed.connect(_on_web_mp_download_pressed)
+	# Dismissing the warning (OK) always returns the menu to its base state so
+	# the user isn't left staring at a faded menu or an open sub-panel.
+	_web_mp_dialog.confirmed.connect(_on_web_mp_dialog_confirmed)
 
 	var canvas: CanvasLayer = get_node_or_null("CanvasLayer") as CanvasLayer
 	if canvas:
@@ -88,6 +90,22 @@ func _setup_web_mp_dialog() -> void:
 ## Opens the desktop download page (placeholder URL) from the web warning dialog.
 func _on_web_mp_download_pressed() -> void:
 	OS.shell_open(DESKTOP_DOWNLOAD_URL)
+
+
+## Shows the "Multiplayer Not Available" warning dialog (web build). Used by
+## the main menu buttons so the warning appears immediately on click instead of
+## after the user has opened a sub-panel or started a network action.
+func show_web_mp_warning() -> void:
+	if _web_mp_dialog:
+		_web_mp_dialog.popup_centered()
+
+
+## Called when the web multiplayer warning is dismissed (OK). Reset the main
+## menu to its base state so the user lands back on the plain menu rather than
+## a faded background or an open join-code/lobby panel.
+func _on_web_mp_dialog_confirmed() -> void:
+	if main_menu and main_menu.has_method("reset_visual_state"):
+		main_menu.reset_visual_state()
 
 
 ## Returns true if host/join may proceed, false if blocked. On the web build

@@ -269,8 +269,22 @@ func _on_new_game_pressed() -> void:
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
 	_fade_out_and_emit("new_game")
 
+## On the web build, multiplayer is desktop-only. Show the "Multiplayer Not
+## Available" warning and return true so the caller bails out before opening
+## any sub-panel / starting any network action. On desktop this does nothing.
+func _show_web_mp_warning() -> bool:
+	if not OS.has_feature("web"):
+		return false
+	var boot: Node = get_node_or_null("/root/Bootstrap")
+	if boot and boot.has_method("show_web_mp_warning"):
+		boot.show_web_mp_warning()
+	return true
+
+
 func _on_host_game_pressed() -> void:
 	print("MainMenu: Host Game clicked!")
+	if _show_web_mp_warning():
+		return
 	var p_name: String = name_input.text.strip_edges()
 	if p_name.is_empty():
 		p_name = "Farmer"
@@ -280,6 +294,8 @@ func _on_host_game_pressed() -> void:
 
 func _on_join_game_pressed() -> void:
 	print("MainMenu: Join Game clicked!")
+	if _show_web_mp_warning():
+		return
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
 	join_code_box.visible = not join_code_box.visible
 	if join_code_box.visible:
@@ -302,6 +318,8 @@ func _on_join_connect_pressed() -> void:
 ## Public Games clicked — open the lobby browser and start a search.
 func _on_public_games_pressed() -> void:
 	print("MainMenu: Public Games clicked!")
+	if _show_web_mp_warning():
+		return
 	AudioManager.play(AudioManager.Sound.UI_CLICK)
 	join_code_box.visible = false
 	public_games_panel.visible = true
