@@ -11,6 +11,18 @@
 
 # Archives / exports
 *.zip
+build/
+
+# Export/build logs
+*.log
+
+# Desktop build artifacts (Inno Setup installer sources)
+Isles of Inconstance.exe
+Isles of Inconstance.pck
+EOSSDK-Win64-Shipping.dll
+libeosg.windows.template_release.x86_64.dll
+xaudio2_9redist.dll
+Isles_of_Inconstance_Setup_v*.exe
 
 # OS/platform junk
 nul

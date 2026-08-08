@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Isles of Inconstance"
+config/version="0.2.0"
 run/main_scene="res://scenes/Bootstrap.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="uid://ci85835ou0xdf"
@@ -41,7 +42,6 @@ HLobbies="*res://addons/epic-online-services-godot/heos/hlobbies.gd"
 HP2P="*res://addons/epic-online-services-godot/heos/hp2p.gd"
 HSessions="*res://addons/epic-online-services-godot/heos/hsessions.gd"
 _fennara_game_capture="*res://addons/fennara/runtime/game_capture_helper.gd"
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [debug]
 
