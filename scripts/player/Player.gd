@@ -499,10 +499,18 @@ func _update_remote_health_bar() -> void:
 			add_child(pet)
 			if pet.has_method("setup") and pet.setup(active_pet_id, self):
 				_remote_pet_node = pet
+				# Apply the owner's pet name (custom rename if any) right after setup.
+				if pet.has_method("set_display_name"):
+					pet.set_display_name(stats.get("pet_name", ""))
 			else:
 				# setup failed → it already queue_free()d itself; don't store a
 				# doomed node or the next frame will recreate it and re-error.
 				_remote_pet_node = null
+		else:
+			# Pet already exists (same id). Keep its label in sync if the owner
+			# renamed it without changing the active pet.
+			if _remote_pet_node.has_method("set_display_name"):
+				_remote_pet_node.set_display_name(stats.get("pet_name", ""))
 
 
 func _apply_remote_armor(set_type: String) -> void:

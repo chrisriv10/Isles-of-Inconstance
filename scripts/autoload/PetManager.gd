@@ -128,6 +128,10 @@ func rename_pet(pet_id: String, new_name: String) -> String:
 		pet_names[pet_id] = trimmed
 	# Emit a name-changed signal so in-world pets and UI can refresh
 	pet_name_changed.emit(pet_id, get_pet_display_name(pet_id))
+	# Remote players only see the active pet, so broadcast its new name so their
+	# copy of the pet label updates (rate-limited by the stats sync cooldown).
+	if pet_id == active_pet_id:
+		GameManager._try_broadcast_player_stats()
 	return get_pet_display_name(pet_id)
 
 ## Get the display name for a pet (custom name if set, else default).

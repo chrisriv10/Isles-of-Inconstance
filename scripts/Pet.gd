@@ -11,6 +11,11 @@ enum PetState { FOLLOW, ATTACK, RETURN }
 var pet_id: String = ""
 var player_ref: Node2D = null
 
+## For remote pets only: the display name broadcast by the pet's owner. When set,
+## it overrides the default (and the observer's local PetManager) so a renamed pet
+## shows the correct name to other players. Empty = use default/local name.
+var display_name_override: String = ""
+
 var _pet_data: Dictionary = {}
 var _velocity := Vector2.ZERO
 var _state: int = PetState.FOLLOW
@@ -102,15 +107,28 @@ func setup(id: String, player: Node2D) -> bool:
 	return true
 
 
+## Set a display-name override (used for remote pets so they show the name the
+## owner chose). Empty clears the override and falls back to the default name.
+func set_display_name(name: String) -> void:
+	if name == display_name_override:
+		return
+	display_name_override = name
+	_update_name_label()
+
+
 func _update_name_label() -> void:
-	if PetManager.has_method("get_pet_display_name"):
+	if not display_name_override.is_empty():
+		label.text = display_name_override
+	elif PetManager.has_method("get_pet_display_name"):
 		label.text = PetManager.get_pet_display_name(pet_id)
 	else:
 		label.text = _pet_data.get("name", pet_id)
 
 
 func _on_pet_name_changed(changed_id: String, _display_name: String) -> void:
-	if changed_id == pet_id:
+	# Remote pets use their owner's broadcast name, so ignore the observer's own
+	# PetManager rename events (which only reflect the local player's pets).
+	if changed_id == pet_id and display_name_override.is_empty():
 		_update_name_label()
 
 
