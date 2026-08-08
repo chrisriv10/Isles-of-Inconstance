@@ -2531,6 +2531,28 @@ func spawn_starter_animals_near(world_pos: Vector2) -> void:
 			_broadcast_animal_spawn(animal)
 			placed += 1
 
+## Recreate the animal roster from serialized get_network_data() dicts.
+## Frees any current animals first so the roster is authoritative — used to
+## restore saved animals on single-player load (and the host, which loads the
+## save directly). _is_remote mirrors network reality: remote on clients (so
+## only the host's per-node RPCs update them), local otherwise (so restored
+## animals move, breed, and interact on the host/single-player).
+func recreate_animals_from_roster(roster: Array) -> void:
+	for existing in get_tree().get_nodes_in_group("animals"):
+		if is_instance_valid(existing):
+			existing.queue_free()
+	for entry in roster:
+		if not (entry is Dictionary):
+			continue
+		var animal_data: Dictionary = entry
+		var animal: Animal = ANIMAL_SCENE.instantiate()
+		var node_name: String = str(animal_data.get("node_name", ""))
+		if node_name != "":
+			animal.name = node_name
+		objects_root.add_child(animal)
+		animal.setup_from_network(animal_data)
+		animal._is_remote = NetworkManager.is_network_active() and not multiplayer.is_server()
+
 ## Periodic animal respawn check. Fires every ~60 seconds.
 ## Prefers spawning animals of types that are missing a breeding partner,
 ## so the player can eventually breed all species.
