@@ -3769,9 +3769,17 @@ func _receive_mine_deposit_state(entries: Array, enemy_entries: Array = []) -> v
 func get_mine_ready_peer_ids() -> Array[int]:
 	var ids: Array[int] = []
 	var self_id: int = _self_id()
+	# Only send to peers that are still connected. A peer whose "ready" entry was
+	# left behind (e.g. a hard disconnect that skipped the cleanup handler) would
+	# otherwise make mine enemies flood "Attempt to call RPC with unknown peer ID"
+	# every sync tick. get_peers() is authoritative on the host.
+	var connected: Array = []
+	if NetworkManager.is_network_active():
+		connected = multiplayer.get_peers()
 	for pid in _mine_session_room_ready:
 		if pid != self_id:
-			ids.append(pid)
+			if not NetworkManager.is_network_active() or connected.has(pid):
+				ids.append(pid)
 	ids.sort()
 	return ids
 
