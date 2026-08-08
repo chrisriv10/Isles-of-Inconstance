@@ -98,3 +98,18 @@ func test_chef_quests_reward_rare_seeds() -> void:
 		"res://scripts/autoload/QuestManager.gd",
 		'"id": "giant_mushroom_seed"'
 	), "Quest must reward a rare seed")
+
+func test_bespoke_meal_icons_resolve() -> void:
+	# Regenerated icon PNGs can sit in res://assets/generated/ before the editor's
+	# import pass picks them up. make_item_icon must decode them from disk so the
+	# hand-authored icons always show (this guards the chocolate_fondue and
+	# fairy_tea icons specifically, and any future regenerated icon).
+	assert(_file_contains(
+		"res://scripts/autoload/DataManager.gd",
+		"func _load_unimported_png"
+	), "DataManager must define the un-imported PNG fallback decoder")
+	for id in ["chocolate_fondue", "fairy_tea"]:
+		var icon: Texture2D = DataManager.make_item_icon("meal", id, "")
+		assert(icon != null, "Bespoke meal icon must resolve for %s" % id)
+		assert(icon.get_size() == Vector2(16, 16) or icon.get_size() == Vector2(32, 32),
+			"%s icon must be a normalized small size" % id)

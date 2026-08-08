@@ -2232,7 +2232,14 @@ static func make_item_icon(category: String, item_id: String, _display_name: Str
 			img.resize(16, 16, Image.INTERPOLATE_NEAREST)
 			tex = ImageTexture.create_from_image(img)
 		return tex
-	
+
+	# A pre-generated PNG exists on disk but hasn't been imported into the .godot
+	# cache yet (e.g. newly regenerated/renamed before the editor ran its import
+	# pass). Decode it directly so the hand-authored icon always shows.
+	var fallback_tex: Texture2D = _load_unimported_png(pregen_path)
+	if fallback_tex:
+		return fallback_tex
+
 	# Potions without a pre-gen icon get a tinted potion bottle
 	if category == "potion":
 		return _make_potion_icon(item_id)
@@ -2245,6 +2252,28 @@ static func make_item_icon(category: String, item_id: String, _display_name: Str
 	
 	# Standard items get a clean category-themed shape (or item-specific when available)
 	return _make_standard_icon(base_color, category, item_id)
+
+
+## Decode a pre-generated icon PNG straight from disk, bypassing the resource
+## import cache. Returns null if the file is missing or not a valid PNG. Icon
+## PNGs are tiny (≤ 32px), so the rare decode-on-load cost is negligible.
+static func _load_unimported_png(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path):
+		return null
+	var f := FileAccess.open(path, FileAccess.READ)
+	if not f:
+		return null
+	var bytes: PackedByteArray = f.get_buffer(f.get_length())
+	f.close()
+	if bytes.is_empty():
+		return null
+	var img := Image.new()
+	if img.load_png_from_buffer(bytes) != OK:
+		return null
+	# Match the imported path's normalization to 16×16.
+	if img.get_width() > 16 or img.get_height() > 16:
+		img.resize(16, 16, Image.INTERPOLATE_NEAREST)
+	return ImageTexture.create_from_image(img)
 
 
 ## Pre-generated potion bottle base icon (32×32).
