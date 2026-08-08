@@ -821,6 +821,15 @@ func deserialize(data: Dictionary) -> void:
 		if state:
 			state.status = rd.get("status", 0)
 			state.contributed = rd.get("contributed", {}).duplicate()
+	# Re-emit ruin_status_changed so RuinStructure sprites refresh from the
+	# loaded statuses. RuinStructure._update_visual() only runs when this
+	# signal fires; on save-load the ruins are created at RUBBLE and would
+	# otherwise stay on the rubble visual even though the town UI (which reads
+	# ruins directly) shows restored. Idempotent — clients that already refresh
+	# via _apply_remote_town_state simply re-run the same switch.
+	for rid: String in ruins:
+		var st: RuinState = ruins[rid]
+		ruin_status_changed.emit(rid, st.status)
 	
 	var resident_data: Dictionary = data.get("residents", {})
 	for rid: String in resident_data:
