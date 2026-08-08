@@ -224,7 +224,10 @@ func spawn_enemy_at(pos: Vector2, _type: String = "pirate") -> Enemy:
 ## full network sync — proper id/name so RPC routing matches on every peer, and
 ## a spawn broadcast so clients create a remote copy under the same node path.
 func spawn_creative_enemy(enemy: Enemy, pos: Vector2) -> void:
-	if GameManager.inside_interior:
+	# Use inside_building (not inside_interior): the player is "inside interior"
+	# in the mine too, but a mine is a valid combat zone and creative enemies
+	# must be spawnable there. inside_building is only true inside a real building.
+	if GameManager.inside_building:
 		enemy.queue_free()
 		return
 	enemy.global_position = pos
@@ -242,10 +245,17 @@ func spawn_creative_enemy(enemy: Enemy, pos: Vector2) -> void:
 
 ## Host: spawn a creative-panel boss (instantiated from a .tscn by the panel)
 ## with full network sync. scene_path is the .tscn the client will re-instantiate.
-func spawn_creative_boss(enemy: Enemy, scene_path: String, pos: Vector2) -> void:
-	if GameManager.inside_interior:
+## Returns true if the boss was actually spawned (added to the tree), false if
+## it was rejected (e.g. inside a building interior). Callers MUST check this
+## before running spawn effects — a rejected boss is queue_free()d and never
+## enters the tree, so calling get_tree() on it crashes.
+func spawn_creative_boss(enemy: Enemy, scene_path: String, pos: Vector2) -> bool:
+	# Use inside_building (not inside_interior): the player is "inside interior"
+	# in the mine too, but a mine is a valid combat zone and bosses must be
+	# summonable there. inside_building is only true inside an actual building.
+	if GameManager.inside_building:
 		enemy.queue_free()
-		return
+		return false
 	enemy.global_position = pos
 	enemy.enemy_id = _next_enemy_id
 	enemy.name = "Enemy_%d" % _next_enemy_id
@@ -255,6 +265,7 @@ func spawn_creative_boss(enemy: Enemy, scene_path: String, pos: Vector2) -> void
 		enemy.apply_difficulty_scaling()
 		rpc("_receive_spawn_boss", scene_path, pos.x, pos.y,
 			enemy.enemy_id, enemy.current_health, enemy.max_health)
+	return true
 
 
 ## Whitelist for creative-panel spawn requests: only the game's own enemy
@@ -334,9 +345,12 @@ func _server_request_summon_boss(scene_path: String, pos_x: float, pos_y: float,
 	var enemy: Enemy = boss_scene.instantiate()
 	if not enemy:
 		return
-	spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y))
-	if enemy.has_method("_summon_spawn_effect"):
-		enemy._summon_spawn_effect()
+	# Only run the dramatic spawn effect if the boss was actually added to the
+	# tree. A rejected boss (e.g. inside a building) is freed and never enters
+	# the tree, so calling _summon_spawn_effect() on it would crash get_tree().
+	if spawn_creative_boss(enemy, scene_path, Vector2(pos_x, pos_y)):
+		if enemy.has_method("_summon_spawn_effect"):
+			enemy._summon_spawn_effect()
 
 
 ## Host: tell the summoning client to refund its bait because the host rejected

@@ -1187,11 +1187,16 @@ func _spawn_boss(scene_path: String) -> void:
 				_show_feedback("No enemy spawner found!")
 			return
 		if spawner:
-			spawner.spawn_creative_boss(enemy, scene_path, pos)
-			# Trigger dramatic boss entrance effects
-			if enemy.has_method("_summon_spawn_effect"):
-				enemy._summon_spawn_effect()
-			_show_feedback("Spawned " + enemy.display_name + "!")
+			# Only trigger the dramatic boss entrance effects if the boss was
+			# actually added to the tree. A rejected boss (e.g. inside a building)
+			# is queue_free()d and never enters the tree, so calling
+			# _summon_spawn_effect() on it crashes get_tree().
+			if spawner.spawn_creative_boss(enemy, scene_path, pos):
+				if enemy.has_method("_summon_spawn_effect"):
+					enemy._summon_spawn_effect()
+				_show_feedback("Spawned " + enemy.display_name + "!")
+			else:
+				_show_feedback("Can't summon a boss here!")
 		else:
 			enemy.queue_free()
 			_show_feedback("No enemy spawner found!")

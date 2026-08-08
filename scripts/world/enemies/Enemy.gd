@@ -345,6 +345,8 @@ func _is_water_position(pos: Vector2) -> bool:
 
 ## Trigger screen shake on the player's camera.
 func _trigger_screen_shake(strength: float = 4.0, duration: float = 0.2) -> void:
+	if not is_inside_tree():
+		return
 	var player := get_tree().get_first_node_in_group("player")
 	if player and player.has_node("Camera2D"):
 		var cam: CameraController = player.get_node("Camera2D") as CameraController
@@ -354,6 +356,8 @@ func _trigger_screen_shake(strength: float = 4.0, duration: float = 0.2) -> void
 
 ## Trigger a full-screen flash overlay on the HUD.
 func _trigger_screen_flash(color: Color = Color(1.0, 1.0, 1.0, 0.3), duration: float = 0.8) -> void:
+	if not is_inside_tree():
+		return
 	var hud := get_tree().get_first_node_in_group("hud")
 	if not hud:
 		return
