@@ -539,11 +539,19 @@ func _collect_save_data() -> Dictionary:
 	
 	# Removed island objects (chopped trees, mined rocks, harvested bushes) so
 	# gathered resources stay gone after a single-player reload instead of
-	# respawning. Mirrors the multiplayer world-state snapshot serialization.
-	if world and world.has_method("_removed_cell_objects"):
+	# respawning immediately, and so their timed respawn (after
+	# WORLD_OBJECT_RESPAWN_DAYS of in-game time) survives a reload. Each entry
+	# carries the cell, the in-game day it was removed, and the respawn recipe.
+	# Mirrors the multiplayer world-state snapshot serialization.
+	if world and "_removed_cell_objects" in world:
 		var removed: Array = []
 		for cell in world._removed_cell_objects:
-			removed.append([cell.x, cell.y])
+			var entry: Dictionary = world._removed_cell_objects[cell]
+			removed.append({
+				"x": cell.x, "y": cell.y,
+				"day": int(entry.get("day_removed", GameManager.current_day)),
+				"recipe": entry.get("recipe", {}),
+			})
 		save_data["removed_objects"] = removed
 	
 	# Animal roster (positions, taming, names, colors) so livestock persists
@@ -614,13 +622,25 @@ func _apply_save_data(save_data: Dictionary) -> void:
 		if save_data.has("greenhouse_cells"):
 			world._greenhouse_cells = _deserialize_cell_array(save_data["greenhouse_cells"])
 		
-		# Restore removed island objects (gathered resources stay gone instead
-		# of respawning after a single-player reload). Runs after generate_world
-		# so the objects exist to be removed.
+		# Restore removed island objects (chopped trees, rocks, bushes) so they
+		# stay gone after a reload and respawn only after in-game time. Runs
+		# after generate_world so the objects exist to be removed. Each entry now
+		# carries the day it was removed + the respawn recipe; legacy saves use
+		# plain [x, y] arrays (no timed respawn / permanent removal).
 		if save_data.has("removed_objects"):
 			for entry in save_data["removed_objects"]:
-				if entry is Array and entry.size() >= 2:
+				if entry is Dictionary and entry.has("x") and entry.has("y"):
+					var cell := Vector2i(int(entry["x"]), int(entry["y"]))
+					world._removed_cell_objects[cell] = {
+						"recipe": entry.get("recipe", {}),
+						"day_removed": int(entry.get("day", GameManager.current_day)),
+					}
+					world._remove_object_at_cell(cell)
+				elif entry is Array and entry.size() >= 2:
 					world._remove_object_at_cell(Vector2i(int(entry[0]), int(entry[1])))
+			# If enough in-game days passed while away, objects respawn on load
+			# instead of staying gone forever.
+			world._process_respawns()
 		
 		# Rebuild the saved animal roster (positions, taming, names, colors),
 		# replacing the freshly-scattered wild animals from generate_world so

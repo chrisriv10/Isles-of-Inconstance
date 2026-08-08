@@ -47,7 +47,10 @@ var _generator: WorldGenerator
 var _soil_data: Dictionary = {}
 var _crop_nodes: Dictionary = {}
 var _sprinklers: Dictionary = {}  # cell -> {"active": true, "placed_day": int}
-var _removed_cell_objects: Dictionary = {}  # cell -> true: freed world objects (trees, rocks, flowers) for late-joiner snapshots
+var _removed_cell_objects: Dictionary = {}  # cell -> {"recipe": {...}, "day_removed": int}: freed world objects (trees, rocks, flowers). Keys are cells (used for late-joiner snapshots); values carry the respawn recipe + the in-game day it was removed.
+## How many in-game days a chopped/mined/harvested world object (tree, rock,
+## flower, bush, stump) stays gone before it respawns. Mirrors Bush.regrow_days.
+const WORLD_OBJECT_RESPAWN_DAYS: int = 3
 var _scarecrow_cells: Array[Vector2i] = []  # cells with scarecrows
 var _compost_bin_cells: Array[Vector2i] = []  # cells with compost bins
 var _greenhouse_cells: Array[Vector2i] = []  # cells with greenhouses
@@ -1460,6 +1463,8 @@ func _on_day_changed(_day: int) -> void:
 	# GameManager._receive_time_state.
 	if NetworkManager.is_network_active() and not multiplayer.is_server():
 		return
+	# Respawn world objects (trees/rocks/flowers) whose respawn day arrived.
+	_process_respawns()
 	# Grouped notification counters
 	var newly_mature_count: int = 0
 	var first_mature_name: String = ""
@@ -5317,21 +5322,30 @@ func get_enemy_spawner():
 # ── Multiplayer ────────────────────────────────────────────────────────
 
 ## Called by an interactable object before it removes itself (e.g. tree
-## chopped, rock mined). Broadcasts the cell to all clients so they can
-## remove the matching node on their end. The acting peer (host OR client)
-## broadcasts — each peer mutates its own copy of the world.
+## chopped, rock mined). Records the removal (single-player AND host) so the
+## object stays gone and can respawn after in-game time, then broadcasts the
+## cell to clients so they remove their matching copy. The acting peer (host
+## OR client) broadcasts — each peer mutates its own copy of the world.
 func notify_cell_object_removed(world_pos: Vector2) -> void:
-	if not NetworkManager.is_network_active():
-		return
 	var cell := world_to_cell(world_pos)
-	_removed_cell_objects[cell] = true
-	rpc("_sync_remove_cell_object", cell)
+	var node := _find_removable_object_at_cell(cell)
+	_removed_cell_objects[cell] = {
+		"recipe": _capture_object_recipe(node),
+		"day_removed": GameManager.current_day,
+	}
+	if NetworkManager.is_network_active():
+		rpc("_sync_remove_cell_object", cell)
 
 
 ## Received by all peers to remove a world object at the given cell.
 @rpc("any_peer", "call_local")
 func _sync_remove_cell_object(cell: Vector2i) -> void:
-	_removed_cell_objects[cell] = true
+	var node := _find_removable_object_at_cell(cell)
+	if not _removed_cell_objects.has(cell):
+		_removed_cell_objects[cell] = {
+			"recipe": _capture_object_recipe(node),
+			"day_removed": GameManager.current_day,
+		}
 	_remove_object_at_cell(cell)
 
 
@@ -5344,16 +5358,150 @@ func _is_removable_world_object(node: Node) -> bool:
 		or node is OreDeposit or node is Bush or node is FlowerPatch \
 		or node is LogStump or node is MushroomPatch
 
+## Returns the removable world-object node sitting at the given cell, or null.
+func _find_removable_object_at_cell(cell: Vector2i) -> Node:
+	for child in objects_root.get_children():
+		if child is Node2D and is_instance_valid(child):
+			if world_to_cell(child.global_position) == cell and _is_removable_world_object(child):
+				return child
+	return null
+
 ## Removes any harvestable/mineable nature-object node sitting at the given
 ## cell (trees, rocks/flower stumps, flowers, bushes, mushroom patches, ore).
 ## Used by both the live removal RPC and the late-joiner world-state snapshot.
 func _remove_object_at_cell(cell: Vector2i) -> void:
-	for child in objects_root.get_children():
-		if child is Node2D and is_instance_valid(child):
-			var child_cell := world_to_cell(child.global_position)
-			if child_cell == cell and _is_removable_world_object(child):
-				child.queue_free()
-				return
+	var node := _find_removable_object_at_cell(cell)
+	if node:
+		node.queue_free()
+
+
+## Captures enough info to recreate a removed world object later (which type it
+## was, plus key gameplay fields). Nature objects (bush/flower/mushroom/stump)
+## re-derive their visuals from the cell-seeded RNG, so only the type is needed.
+func _capture_object_recipe(node: Node) -> Dictionary:
+	var recipe := {"type": ""}
+	if node is TreeObject:
+		recipe["type"] = "tree"
+		recipe["cherry"] = bool((node as TreeObject)._is_cherry)
+		recipe["fruit_item_id"] = (node as TreeObject).fruit_item_id
+		recipe["sprite_seed"] = (node as TreeObject).sprite_seed
+	elif node is FruitTree:
+		recipe["type"] = "fruit_tree"
+		recipe["fruit_item_id"] = (node as FruitTree).fruit_item_id
+	elif node is ResourceNode:
+		var rn := node as ResourceNode
+		recipe["type"] = "resource"
+		recipe["item_id"] = rn.item_id
+		recipe["min_amount"] = rn.min_amount
+		recipe["max_amount"] = rn.max_amount
+		recipe["required_tool"] = rn.required_tool
+		recipe["interaction_prompt"] = rn.interaction_prompt
+		recipe["gather_time"] = rn.gather_time
+	elif node is Bush:
+		recipe["type"] = "bush"
+		recipe["regrow_days"] = (node as Bush).regrow_days
+	elif node is FlowerPatch:
+		recipe["type"] = "flower"
+	elif node is MushroomPatch:
+		recipe["type"] = "mushroom"
+	elif node is LogStump:
+		recipe["type"] = "stump"
+	elif node is OreDeposit:
+		recipe["type"] = "ore"
+	return recipe
+
+
+## Recreates a removed world object from a captured recipe at the given cell.
+## Returns the node, or null if the recipe was empty/unknown.
+func _spawn_object_from_recipe(recipe: Dictionary, cell: Vector2i) -> Node:
+	var type: String = recipe.get("type", "")
+	var node: Node = null
+	match type:
+		"tree":
+			node = TREE_SCENE.instantiate()
+			node.sprite_seed = int(recipe.get("sprite_seed", 0))
+			if bool(recipe.get("cherry", false)) and node.has_method("set_cherry"):
+				node.set_cherry()
+			node.fruit_item_id = str(recipe.get("fruit_item_id", ""))
+		"fruit_tree":
+			node = FRUIT_TREE_SCENE.instantiate()
+			node.fruit_item_id = str(recipe.get("fruit_item_id", "berry"))
+		"resource":
+			node = RESOURCE_NODE_SCENE.instantiate()
+			node.item_id = str(recipe.get("item_id", "stone"))
+			node.min_amount = int(recipe.get("min_amount", 1))
+			node.max_amount = int(recipe.get("max_amount", 3))
+			node.gather_time = float(recipe.get("gather_time", 1.5))
+			var rt: int = int(recipe.get("required_tool", -1))
+			if rt >= 0:
+				node.required_tool = rt
+			if recipe.has("interaction_prompt"):
+				node.interaction_prompt = str(recipe.get("interaction_prompt"))
+		"bush":
+			node = BUSH_SCENE.instantiate()
+			node.regrow_days = int(recipe.get("regrow_days", 3))
+		"flower":
+			node = FLOWER_SCENE.instantiate()
+		"mushroom":
+			node = MUSHROOM_SCENE.instantiate()
+		"stump":
+			var script := load(LOG_STUMP_SCENE_PATH) as GDScript
+			if script:
+				node = Area2D.new()
+				node.set_script(script)
+		"ore":
+			node = RESOURCE_NODE_SCENE.instantiate()
+			node.item_id = str(recipe.get("item_id", "iron_ore"))
+			node.min_amount = int(recipe.get("min_amount", 1))
+			node.max_amount = int(recipe.get("max_amount", 2))
+			node.required_tool = Player.Tool.PICKAXE
+	if node:
+		objects_root.add_child(node)
+		node.global_position = cell_to_world(cell)
+	return node
+
+
+## Respawns any removed world object whose respawn day has arrived, provided
+## the cell is free (no crop planted). Host/single-player authoritative.
+func _process_respawns() -> void:
+	if NetworkManager.is_network_active() and not multiplayer.is_server():
+		return
+	var to_respawn: Array[Vector2i] = []
+	for cell in _removed_cell_objects.keys():
+		var entry: Dictionary = _removed_cell_objects[cell]
+		var day_removed: int = int(entry.get("day_removed", GameManager.current_day))
+		if GameManager.current_day - day_removed >= WORLD_OBJECT_RESPAWN_DAYS:
+			to_respawn.append(cell)
+	for cell in to_respawn:
+		_respawn_object_at_cell(cell)
+
+
+## Respawns a single removed object at its cell (skips if a crop is planted).
+func _respawn_object_at_cell(cell: Vector2i) -> void:
+	if not _removed_cell_objects.has(cell):
+		return
+	# Never respawn on top of a planted crop — the farm is the player's.
+	if _crop_nodes.has(cell):
+		_removed_cell_objects[cell] = {
+			"recipe": _removed_cell_objects[cell].get("recipe", {}),
+			"day_removed": GameManager.current_day,
+		}
+		return
+	var entry: Dictionary = _removed_cell_objects[cell]
+	var recipe: Dictionary = entry.get("recipe", {})
+	var node := _spawn_object_from_recipe(recipe, cell)
+	_removed_cell_objects.erase(cell)
+	if node and NetworkManager.is_network_active():
+		rpc("_sync_respawn_object", cell, recipe)
+
+
+## Received by clients to spawn a respawned world object at the given cell.
+@rpc("any_peer", "call_local")
+func _sync_respawn_object(cell: Vector2i, recipe: Dictionary) -> void:
+	if _find_removable_object_at_cell(cell):
+		return
+	_spawn_object_from_recipe(recipe, cell)
+	_removed_cell_objects.erase(cell)
 
 
 ## Called by a Bush node after successful harvest. Broadcasts the cell

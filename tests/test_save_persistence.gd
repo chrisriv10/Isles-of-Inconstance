@@ -19,7 +19,7 @@ func _check(cond: bool, msg: String) -> void:
 
 func test_removed_objects_roundtrip() -> void:
 	print("-- test_removed_objects_roundtrip --")
-	# Removed island objects save as a list of [x, y] arrays.
+	# Removed island objects save as a list of [x, y] arrays (legacy format).
 	var removed: Array = [[10, 20], [-3, 4]]
 	var removed_json := JSON.stringify(removed)
 	var removed_parsed: Variant = JSON.parse_string(removed_json)
@@ -32,6 +32,31 @@ func test_removed_objects_roundtrip() -> void:
 			"removed_objects cell [x,y] round-trips")
 		_check(int(arr[1][0]) == -3 and int(arr[1][1]) == 4,
 			"negative coordinates round-trip")
+
+
+func test_removed_objects_respawn_format_roundtrip() -> void:
+	print("-- test_removed_objects_respawn_format_roundtrip --")
+	# New format: each removed object carries the cell, the in-game day it was
+	# removed, and the respawn recipe (so it stays gone across a reload and
+	# respawns only after WORLD_OBJECT_RESPAWN_DAYS of in-game time).
+	var removed: Array = [
+		{"x": 5, "y": 8, "day": 3, "recipe": {"type": "tree", "cherry": false, "fruit_item_id": "", "sprite_seed": 123}},
+		{"x": -2, "y": 4, "day": 1, "recipe": {"type": "resource", "item_id": "iron_ore", "min_amount": 1, "max_amount": 2}},
+	]
+	var parsed: Variant = JSON.parse_string(JSON.stringify(removed))
+	_check(parsed is Array and (parsed as Array).size() == 2,
+		"new removed_objects entries round-trip")
+	if parsed is Array:
+		var first: Dictionary = (parsed as Array)[0]
+		_check(int(first.get("x", -1)) == 5 and int(first.get("y", -1)) == 8,
+			"new removed_objects cell coordinates round-trip")
+		_check(int(first.get("day", -1)) == 3, "day_removed round-trips")
+		var recipe: Dictionary = first.get("recipe", {})
+		_check(str(recipe.get("type", "")) == "tree", "respawn recipe type round-trips")
+		_check(int(recipe.get("sprite_seed", -1)) == 123, "respawn recipe fields round-trip")
+		var ore_recipe: Dictionary = (parsed as Array)[1].get("recipe", {})
+		_check(str(ore_recipe.get("item_id", "")) == "iron_ore",
+			"resource recipe item_id round-trips")
 
 
 func test_animal_data_roundtrip() -> void:
@@ -112,6 +137,7 @@ func test_new_persistence_keys_roundtrip() -> void:
 
 func run_all() -> void:
 	test_removed_objects_roundtrip()
+	test_removed_objects_respawn_format_roundtrip()
 	test_animal_data_roundtrip()
 	test_new_persistence_keys_roundtrip()
 	print("== RESULT: %d passed, %d failed ==" % [_passes.size(), _fails.size()])
