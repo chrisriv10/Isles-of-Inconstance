@@ -44,7 +44,9 @@ func _load_sprite() -> void:
 		tex = load("res://assets/sprites/player.png")
 	sprite.texture = tex
 	sprite.centered = true
-	sprite.scale = Vector2(0.25, 0.25)
+	# Sprite is 128x128 — scale to ~45px wide (~35%) for an imposing boss
+	# presence (was 25% / 32px, too small to read as a boss).
+	sprite.scale = Vector2(0.35, 0.35)
 
 
 func _summon_spawn_effect() -> void:

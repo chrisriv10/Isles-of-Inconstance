@@ -473,6 +473,12 @@ func _on_quit() -> void:
 ## inventory.
 func grant_starter_inventory() -> void:
 	InventoryManager.clear()
+	# Spirit Harvest: grant 3 Soulberry seeds so the Root Warden boss bait is
+	# reachable from the very start. Granted BEFORE the procedural-crop check so
+	# it can never be skipped: host and joining clients (Main reroutes them
+	# through this same function) always receive an identical, synced grant.
+	InventoryManager.add_item("soulberry_seed", 3)
+
 	var starter_crops: Array[CropData] = DataManager.get_procedural_crops()
 	if starter_crops.is_empty():
 		return

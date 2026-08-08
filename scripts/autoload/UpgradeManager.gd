@@ -92,12 +92,14 @@ func _apply_effects(upgrade: Upgrade) -> void:
 func get_tool_area_cells(center: Vector2i) -> Array[Vector2i]:
 	var tier := get_level(Upgrade.TOOLS)
 	var size: int
+	# Each Tool Forge level widens the hoe/watering-can area by one tile per
+	# side, so EVERY level grants a benefit (previously Lv1 was identical to 0).
 	match tier:
-		0: size = 1   # 1 × 1  (single tile)
-		1: size = 1   # 1 × 1
-		2: size = 2   # 2 × 2
-		3: size = 3   # 3 × 3
-		4: size = 4   # 4 × 4
+		0: size = 1   # 1 × 1   (single tile)
+		1: size = 2   # 2 × 2   (4 tiles)
+		2: size = 3   # 3 × 3   (9 tiles)
+		3: size = 4   # 4 × 4   (16 tiles)
+		4: size = 5   # 5 × 5   (25 tiles)
 		_: size = 1
 	var cells: Array[Vector2i] = []
 	var half := (size - 1) / 2

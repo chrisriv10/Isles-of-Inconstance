@@ -51,6 +51,7 @@ var _categories: Array[Dictionary] = [
 	{"key": "alchemy", "icon": "⚗", "label": "Alchemy"},
 	{"key": "decorations", "icon": "✨", "label": "Decor"},
 	{"key": "consumables", "icon": "🍬", "label": "Consumables"},
+	{"key": "boss_items", "icon": "🐉", "label": "Boss Items"},
 ]
 
 # Tab button references keyed by category key
@@ -1299,8 +1300,12 @@ func _assign_categories() -> void:
 		var id: String = r.result_item_id
 		var name: String = r.recipe_name
 
+		# Boss Items (spirit summons / boss bait) — own section
+		if id in ["soulberry_pie", "golden_hay_bale", "nectar_brew", "essence_of_inconstance"]:
+			r.category = "boss_items"
+
 		# Tools & Weapons
-		if id in ["pickaxe_tool", "copper_pickaxe", "iron_pickaxe", "gold_pickaxe", "diamond_pickaxe",
+		elif id in ["pickaxe_tool", "copper_pickaxe", "iron_pickaxe", "gold_pickaxe", "diamond_pickaxe",
 				  "mythril_pickaxe", "magma_pickaxe", "scythe_tool", "axe_tool", "sword_tool",
 				  "copper_sword", "iron_sword", "gold_sword", "diamond_sword", "mythril_sword",
 				  "fishing_rod", "bow", "antler_bow", "arrow", "lantern", "torch",

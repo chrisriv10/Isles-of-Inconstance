@@ -995,7 +995,7 @@ func _make_toggle_row(label_text: String, default_state: bool, callback: Callabl
 
 # Enemy types: [display_name, class_reference]
 const CREATURE_ENEMIES: Array[Dictionary] = [
-	{"name": "Casper (Ghost)",        "scene": "res://scripts/world/enemies/GhostEnemy.gd",     "color": Color(0.6, 0.8, 1.0)},
+	{"name": "Casper",                "scene": "res://scripts/world/enemies/GhostEnemy.gd",     "color": Color(0.6, 0.8, 1.0)},
 	{"name": "Sporeling",             "scene": "res://scripts/world/enemies/SporelingEnemy.gd", "color": Color(0.9, 0.5, 0.5)},
 	{"name": "Cinder Imp",            "scene": "res://scripts/world/enemies/CinderImp.gd",      "color": Color(1.0, 0.5, 0.1)},
 	{"name": "Shadow Hound",          "scene": "res://scripts/world/enemies/ShadowHound.gd",    "color": Color(0.4, 0.3, 0.5)},

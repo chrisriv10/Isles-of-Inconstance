@@ -27,11 +27,11 @@ var legendary_list: VBoxContainer
 ## Luxuries: expensive decorative items sold as coin sinks.
 ## Each entry: { "item_id": String, "price": int }
 var _luxury_items: Array = [
-	{"item_id": "decorative_fountain_kit", "price": 1500},
-	{"item_id": "decorative_statue_kit", "price": 2500},
-	{"item_id": "decorative_lantern_kit", "price": 800},
-	{"item_id": "decorative_bench_kit", "price": 500},
-	{"item_id": "decorative_sign_kit", "price": 300},
+	{"item_id": "decorative_fountain_kit", "price": 250},
+	{"item_id": "decorative_statue_kit", "price": 500},
+	{"item_id": "decorative_lantern_kit", "price": 120},
+	{"item_id": "decorative_bench_kit", "price": 80},
+	{"item_id": "decorative_sign_kit", "price": 50},
 ]
 var _luxury_header: Label
 var _luxury_list: VBoxContainer
@@ -168,7 +168,8 @@ func _refresh_legendary() -> void:
 			fruit_item.display_name,
 			"$%d" % fruit_item.buy_price,
 			"Buy",
-			func(): _buy_inconstant_fruit(fruit_item)
+			func(): _buy_inconstant_fruit(fruit_item),
+			DataManager.make_item_icon(fruit_item.category, fruit_item.id, fruit_item.display_name)
 		))
 		# Show a hint about the power
 		var power_name: String = fruit_item.get_meta("power_name", "?")
@@ -195,13 +196,28 @@ func _buy_inconstant_fruit(fruit_item: ItemData) -> void:
 # Seeds
 # ---------------------------------------------------------------------------
 
+const RARITY_NUM_TIERS := 5
+
+const RARITY_SUB_NAMES := ["Common", "Uncommon", "Rare", "Epic", "Legendary"]
+
+const RARITY_SUB_COLORS := [
+	Color(0.6, 0.85, 0.6),   # Common  - green
+	Color(0.55, 0.8, 1.0),   # Uncommon - blue
+	Color(0.45, 0.55, 1.0),  # Rare    - indigo
+	Color(0.9, 0.5, 1.0),    # Epic    - purple
+	Color(1.0, 0.75, 0.25),  # Legendary - gold
+]
+
 func _refresh_seeds() -> void:
 	_clear(seeds_list)
 	var max_tier := UpgradeManager.get_max_purchasable_rarity_tier()
 	var crops: Array[CropData] = DataManager.get_discovered_crops()
 	crops.sort_custom(func(a, b): return a.display_name < b.display_name)
 
-	var shown := false
+	# Group discovered, purchasable seeds by rarity tier.
+	var tiers: Array = []
+	for i in RARITY_NUM_TIERS:
+		tiers.append([])
 	for crop in crops:
 		if crop.seed_item_id == "":
 			continue
@@ -209,17 +225,36 @@ func _refresh_seeds() -> void:
 		if not seed_item or seed_item.buy_price <= 0:
 			continue
 		var rarity_tier: int = crop.genetics.rarity_tier if crop.genetics else 0
-		if rarity_tier > max_tier:
-			continue
-		shown = true
-		seeds_list.add_child(_build_row(
-			"%s Seed (%s)" % [crop.display_name, crop.rarity],
-			"$%d" % seed_item.buy_price,
-			"Buy",
-			func(): _buy_seed(seed_item)
-		))
+		rarity_tier = clampi(rarity_tier, 0, RARITY_NUM_TIERS - 1)
+		tiers[rarity_tier].append([crop, seed_item])
 
-	if not shown:
+	var any_shown := false
+	var locked_hinted := false
+	for t in RARITY_NUM_TIERS:
+		if t <= max_tier:
+			if tiers[t].is_empty():
+				continue
+			any_shown = true
+			seeds_list.add_child(_sub_header(RARITY_SUB_NAMES[t] + " Seeds", RARITY_SUB_COLORS[t]))
+			for pair in tiers[t]:
+				var crop: CropData = pair[0]
+				var seed_item: ItemData = pair[1]
+				seeds_list.add_child(_build_row(
+					crop.display_name + " Seed",
+					"$%d" % seed_item.buy_price,
+					"Buy",
+					func(): _buy_seed(seed_item),
+					_seed_icon(seed_item)
+				))
+		elif not locked_hinted:
+			# Show ONE greyed-out "next unlock" so raising the Seed Vault (all
+			# the way to the last level) visibly grants a new rarity tier.
+			locked_hinted = true
+			var locked := _hint_label("🔒 %s seeds locked — upgrade Seed Vault to Lv %d" % [RARITY_SUB_NAMES[t], t])
+			locked.modulate = Color(0.6, 0.6, 0.6, 1.0)
+			seeds_list.add_child(locked)
+
+	if not any_shown and not locked_hinted:
 		seeds_list.add_child(_hint_label(
 			"Grow and harvest a crop to unlock it here." if crops.is_empty()
 			else "Buy Seed Vault Access below to unlock rarer seeds."
@@ -250,11 +285,13 @@ func _refresh_pets() -> void:
 		if PetManager.has_pet(pet_id):
 			continue  # already owned
 		shown = true
+		var egg_icon: Texture2D = egg.icon if egg.icon else DataManager.make_item_icon(egg.category, egg.id, egg.display_name)
 		pets_list.add_child(_build_row(
 			egg.display_name,
 			"$%d" % egg.buy_price,
 			"Buy",
-			func(): _buy_pet_egg(egg)
+			func(): _buy_pet_egg(egg),
+			egg_icon
 		))
 	if not shown:
 		pets_list.add_child(_hint_label("All pets have been adopted! Check your pet menu."))
@@ -280,7 +317,7 @@ func _refresh_upgrades() -> void:
 		var name_text := "%s (Lv %d/%d)" % [UpgradeManager.get_upgrade_name(upgrade), level, UpgradeManager.MAX_LEVEL]
 		var cost_text := "MAXED" if maxed else "$%d" % UpgradeManager.get_cost(upgrade)
 
-		var row := _build_row(name_text, cost_text, "Buy", func(): _buy_upgrade(upgrade))
+		var row := _build_row(name_text, cost_text, "Buy", func(): _buy_upgrade(upgrade), _upgrade_icon(upgrade))
 		var button := row.get_child(row.get_child_count() - 1)
 		if button is Button:
 			button.disabled = maxed
@@ -351,7 +388,8 @@ func _refresh_expedition_items() -> void:
 			"%s (x%d)" % [item_name, stock],
 			"$%d" % price,
 			"Buy",
-			func(): _buy_expedition_item(item_id, price)
+			func(): _buy_expedition_item(item_id, price),
+			DataManager.make_item_icon(item_def.category if item_def else "misc", item_id, item_name)
 		))
 
 func _buy_expedition_item(item_id: String, price: int) -> void:
@@ -400,7 +438,8 @@ func _refresh_luxury() -> void:
 			item_name,
 			"$%d" % price,
 			"Buy",
-			func(): _buy_luxury(item_id, price)
+			func(): _buy_luxury(item_id, price),
+			DataManager.make_item_icon(item_def.category if item_def else "misc", item_id, item_name)
 		))
 	_luxury_header.visible = shown
 	_luxury_list.visible = shown
@@ -420,8 +459,17 @@ func _buy_luxury(item_id: String, price: int) -> void:
 # Row helper
 # ---------------------------------------------------------------------------
 
-func _build_row(left_text: String, price_text: String, button_text: String, on_pressed: Callable) -> HBoxContainer:
+func _build_row(left_text: String, price_text: String, button_text: String, on_pressed: Callable, icon: Texture2D = null) -> HBoxContainer:
 	var row := HBoxContainer.new()
+
+	if icon:
+		var texrect := TextureRect.new()
+		texrect.texture = icon
+		texrect.custom_minimum_size = Vector2(20, 20)
+		texrect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		texrect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		texrect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(texrect)
 
 	var label := Label.new()
 	label.text = left_text
@@ -449,3 +497,41 @@ func _hint_label(text: String) -> Label:
 	label.modulate = Color(1.0, 1.0, 1.0, 0.7)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	return label
+
+## A colored sub-section header used to group shop items into categories
+## (e.g. "Rare Seeds" under the Seeds list).
+func _sub_header(text: String, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+## Load a bespoke icon PNG, falling back to a direct disk decode for assets
+## that haven't been imported into the editor cache yet.
+static func _load_icon(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if ResourceLoader.exists(path):
+		return load(path)
+	return DataManager._load_unimported_png(path)
+
+## Icon for a seed row: use the seed's own generated icon, else a procedural one.
+func _seed_icon(seed_item: ItemData) -> Texture2D:
+	if seed_item.icon:
+		return seed_item.icon
+	return DataManager.make_item_icon("seed", seed_item.id, seed_item.display_name)
+
+## Bespoke icon for each upgrade level listing (upgrades aren't items, so they
+## get hand-made pixel icons rather than a procedural item icon).
+static func _upgrade_icon(upgrade: int) -> Texture2D:
+	var slug: String
+	match upgrade:
+		UpgradeManager.Upgrade.INVENTORY: slug = "satchel"
+		UpgradeManager.Upgrade.TOOLS: slug = "tool_forge"
+		UpgradeManager.Upgrade.FARMING_SPEED: slug = "green_thumb"
+		UpgradeManager.Upgrade.RARE_SEEDS: slug = "seed_vault"
+		UpgradeManager.Upgrade.COMBAT: slug = "combat"
+		UpgradeManager.Upgrade.LUCK: slug = "luck"
+		_: return null
+	return _load_icon("res://assets/generated/icon_upgrade_" + slug + "_frame_0.png")

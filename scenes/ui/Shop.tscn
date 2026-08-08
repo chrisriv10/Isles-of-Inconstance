@@ -82,21 +82,21 @@ text = "Seeds"
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="UpgradesHeader" type="Label" parent="Panel/Margin/Layout/Scroll/Sections" unique_id=300202792]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
-theme_override_font_sizes/font_size = 18
-text = "Upgrades and Tools"
-
 [node name="PetsHeader" type="Label" parent="Panel/Margin/Layout/Scroll/Sections" unique_id=228402261]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_colors/font_color = Color(0.9, 0.65, 1, 1)
 theme_override_font_sizes/font_size = 18
 text = "Pets (Hatch from Egg)"
 
 [node name="PetsList" type="VBoxContainer" parent="Panel/Margin/Layout/Scroll/Sections" unique_id=491063259]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="UpgradesHeader" type="Label" parent="Panel/Margin/Layout/Scroll/Sections" unique_id=300202792]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "Upgrades and Tools"
 
 [node name="UpgradesList" type="VBoxContainer" parent="Panel/Margin/Layout/Scroll/Sections" unique_id=1069361355]
 unique_name_in_owner = true

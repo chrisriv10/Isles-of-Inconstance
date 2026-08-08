@@ -1220,6 +1220,10 @@ func _trigger_sprout_mutation(cell: Vector2i, crop_data) -> void:
 	# 10% chance for a random mutation on sprout regrow
 	if not crop_data or not _crop_nodes.has(cell):
 		return
+	# Boss-bait crops are quest/altar-critical: never re-roll their sprout into
+	# a random crop, or the player loses the material needed to summon a boss.
+	if crop_data.id in ["soulberry", "golden_wheat", "nectar_bloom"]:
+		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(world_seed) + ":sprout:" + str(cell.x) + "," + str(cell.y) + ":" + str(GameManager.current_day))
 	# Pick a random mutation from available ones

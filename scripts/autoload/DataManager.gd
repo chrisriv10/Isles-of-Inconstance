@@ -1695,6 +1695,17 @@ func _register_default_items() -> void:
 		drop_item.buy_price = 0
 		drop_item.description = bd.desc
 		register_item(drop_item)
+
+	# --- Spirit Harvest: Boss crops ---
+	# The 3 boss-bait crops are real growable crops. Their yield/seed items are
+	# registered above (BOSS_BAIT block); here we add their CropData so they can
+	# be tilled, grown and harvested like any other crop, and set their seed
+	# prices so the Shop lists them. Soulberry is handed out at game start
+	# (Root Warden); golden wheat & nectar bloom are gated behind an expensive
+	# buy plus a lucky rare-harvest drop, so they stay mid-game progression.
+	# No `genetics` is set, so shop rarity_tier == 0 and they are never hidden
+	# behind the "Seed Vault" upgrade.
+	_register_boss_crops()
 	
 	# --- Spirit Harvest: Boss rewards (permanent items) ---
 	var boss_rewards := [
@@ -4323,11 +4334,11 @@ func _register_rare_crops() -> void:
 	# [crop_id, display, days, regrow_days, needs_water, color, rarity,
 	#  yield_price, seed_price, description]
 	var rare_defs := [
-		["giant_mushroom", "Giant Mushroom", 7, 0, true, Color(0.78, 0.2, 0.12), "Epic", 80, 22, "An enormous, rare mushroom prized by chefs."],
-		["golden_pumpkin", "Golden Pumpkin", 9, 0, false, Color(0.92, 0.7, 0.15), "Legendary", 120, 28, "A shimmering pumpkin blessed with golden light."],
-		["ancient_fruit", "Ancient Fruit", 10, 0, false, Color(0.15, 0.65, 0.55), "Legendary", 160, 30, "A fruit grown from seeds older than memory."],
-		["fairy_rose", "Fairy Rose", 8, 4, true, Color(0.95, 0.45, 0.8), "Epic", 110, 26, "A delicate enchanted rose that hums softly."],
-		["void_berry", "Void Berry", 11, 0, false, Color(0.45, 0.2, 0.6), "Legendary", 200, 34, "A dark berry steeped in shadowy energies."],
+		["giant_mushroom", "Giant Mushroom", 7, 0, true, Color(0.78, 0.2, 0.12), "Epic", 80, 22, "An enormous, rare mushroom prized by chefs.", 120],
+		["golden_pumpkin", "Golden Pumpkin", 9, 0, false, Color(0.92, 0.7, 0.15), "Legendary", 120, 28, "A shimmering pumpkin blessed with golden light.", 220],
+		["ancient_fruit", "Ancient Fruit", 10, 0, false, Color(0.15, 0.65, 0.55), "Legendary", 160, 30, "A fruit grown from seeds older than memory.", 260],
+		["fairy_rose", "Fairy Rose", 8, 4, true, Color(0.95, 0.45, 0.8), "Epic", 110, 26, "A delicate enchanted rose that hums softly.", 180],
+		["void_berry", "Void Berry", 11, 0, false, Color(0.45, 0.2, 0.6), "Legendary", 200, 34, "A dark berry steeped in shadowy energies.", 300],
 	]
 	for def in rare_defs:
 		var crop_id: String = def[0]
@@ -4340,6 +4351,7 @@ func _register_rare_crops() -> void:
 		var yield_price: int = def[7]
 		var seed_price: int = def[8]
 		var desc: String = def[9]
+		var seed_buy_price: int = def[10] if def.size() > 10 else maxi(seed_price * 4, 80)
 
 		var crop := CropData.new()
 		crop.id = crop_id
@@ -4355,6 +4367,12 @@ func _register_rare_crops() -> void:
 		crop.size_trait = "large"
 		crop.modulate_color = col
 		crop.growth_stage_textures = CropSpriteUtils.generate_crop_textures(display, col, hash(crop_id + "_crop"))
+		# Give these a non-mutating genetics carrying the real rarity tier so the
+		# shop groups them under Epic/Legendary and the Seed Vault can gate them.
+		var genetics := CropGenetics.new()
+		genetics.rarity_tier = {"Common": 0, "Uncommon": 1, "Rare": 2, "Epic": 3, "Legendary": 4}.get(rarity, 0)
+		genetics.mutation_chance = 0.0
+		crop.genetics = genetics
 
 		var yield_item := ItemData.new()
 		yield_item.id = crop_id
@@ -4371,12 +4389,14 @@ func _register_rare_crops() -> void:
 		seed_item.category = "seed"
 		seed_item.stack_size = 99
 		seed_item.sell_price = seed_price
-		seed_item.buy_price = 0  # rare — not sold in shop
+		seed_item.buy_price = seed_buy_price  # gated in shop behind the Seed Vault tier
 		seed_item.description = "An ultra-rare seed. Plant on tilled soil."
 
 		register_crop(crop)
 		register_item(yield_item)
 		register_item(seed_item)
+		# Discover it so it appears in the shop, where the Seed Vault level gates it.
+		mark_discovered(crop.id)
 
 	# Meal items produced by the recipes these ingredients unlock. The chef
 	# teaches them once the matching ingredient is shared at the restaurant.
@@ -4396,3 +4416,56 @@ func _register_rare_crops() -> void:
 		meal_item.buy_price = 0
 		meal_item.description = mdef[3]
 		register_item(meal_item)
+
+## Registers the 3 boss-bait crops as growable crops (CropData) so the player
+## can till, plant and harvest them. Also sets each seed's shop buy_price so
+## they show up for purchase. Soulberry is handed out at game start (Root
+## Warden bait); golden wheat & nectar bloom are gated behind an expensive buy
+## plus the generic rare-harvest seed drop, so they stay mid-game progression.
+## No `genetics` is set, so shop rarity_tier == 0 and they are never hidden
+## behind the "Seed Vault" upgrade.
+func _register_boss_crops() -> void:
+	# [crop_id, display, days_to_grow, needs_water, color, rarity, seed_buy_price]
+	var boss_defs := [
+		["soulberry", "Soulberry", 6, true, Color(0.5, 0.15, 0.7), "Epic", 40],
+		["golden_wheat", "Golden Wheat", 6, true, Color(0.9, 0.72, 0.15), "Epic", 250],
+		["nectar_bloom", "Nectar Bloom", 6, true, Color(0.95, 0.4, 0.8), "Epic", 250],
+	]
+	for def in boss_defs:
+		var crop_id: String = def[0]
+		var display: String = def[1]
+		var days: int = def[2]
+		var needs_water: bool = def[3]
+		var col: Color = def[4]
+		var rarity: String = def[5]
+		var seed_buy: int = def[6]
+
+		var crop := CropData.new()
+		crop.id = crop_id
+		crop.display_name = display
+		crop.seed_item_id = crop_id + "_seed"
+		crop.yield_item_id = crop_id
+		crop.yield_amount = 1
+		crop.days_to_grow = days
+		crop.requires_water = needs_water
+		crop.rarity = rarity
+		crop.size_trait = "medium"
+		crop.modulate_color = col
+		crop.growth_stage_textures = CropSpriteUtils.generate_crop_textures(display, col, hash(crop_id + "_boss_crop"))
+		# Boss-bait crops must NOT mutate. If genetics were left null, Crop.setup()
+		# falls back to a default CropGenetics (6%/day mutation chance), so a
+		# planted Soulberry could mature into a "Crystal Soulberry" the summon
+		# altar won't accept. Lock a zero-chance line instead. Visuals are
+		# unaffected: texture color is baked in and genetics only drives scale.
+		var locked := CropGenetics.new()
+		locked.mutation_chance = 0.0
+		locked.size_factor = 1.0
+		crop.genetics = locked
+		register_crop(crop)
+		mark_discovered(crop_id)
+
+		# The seed items were already registered above; just unlock them for
+		# purchase at their intended price.
+		var seed_item: ItemData = get_item(crop_id + "_seed")
+		if seed_item and seed_item.buy_price <= 0:
+			seed_item.buy_price = seed_buy
