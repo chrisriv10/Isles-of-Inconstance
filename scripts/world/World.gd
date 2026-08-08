@@ -4331,6 +4331,8 @@ func _do_enter_island(seed: int, island_type: int) -> bool:
 	island.position = INTERIOR_VOID
 	_current_island = island
 	island.generate_with_seed(seed, island_type)
+	# Expedition islands each have their own background theme.
+	AudioManager.play_music(AudioManager.island_theme_for_type(island_type))
 
 	# A client that just built its island copy wants the objects other members
 	# of this island session already removed, so it matches the host's gathered
@@ -4594,6 +4596,8 @@ func _do_exit_island() -> void:
 	get_tree().create_timer(0.5).timeout.connect(func(): _island_exit_cooldown = false)
 
 	AudioManager.play(AudioManager.Sound.BOAT_TRAVEL)
+	# Leave the island theme — restore the overworld ambient.
+	AudioManager.resume_ambient_music(1.0)
 
 	# Destroy the island
 	_current_island.queue_free()

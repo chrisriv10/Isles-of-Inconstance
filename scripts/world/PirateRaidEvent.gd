@@ -267,6 +267,7 @@ func _start_raid() -> void:
 	
 	ToastNotification.show_toast("🏴‍☠️ PIRATES SPOTTED! Prepare for battle!", ToastNotification.ToastType.WARNING, 5.0)
 	raid_started.emit(max_waves)
+	AudioManager.play_music(AudioManager.Sound.PIRATE_RAID_THEME)
 	_broadcast_raid_state()
 	
 	# Show a random pirate taunt via floating text above the ship
@@ -308,6 +309,9 @@ func _remove_pirate_ship() -> void:
 		tween.tween_property(_pirate_ship_sprite, "modulate:a", 0.0, 0.5)
 		tween.tween_callback(_pirate_ship_sprite.queue_free)
 	_pirate_ship_sprite = null
+	# The ship being gone marks the raid over on every path (host victory, client
+	# victory/defeat) — return to the overworld/event ambient.
+	AudioManager.restore_ambient_if(AudioManager.Sound.PIRATE_RAID_THEME)
 	# The shared center berth is free again — let any displaced visitor ship
 	# slide back up to its original spot.
 	for ship in get_tree().get_nodes_in_group("visitor_ships"):
@@ -565,6 +569,7 @@ func _sync_raid_state(active: bool, wave: int, total_waves: int, victory: bool =
 	# HUD alerts ("RAID IN PROGRESS", "Wave N/M") show for everyone.
 	if not was_active:
 		raid_started.emit(total_waves)
+		AudioManager.play_music(AudioManager.Sound.PIRATE_RAID_THEME)
 	elif wave > was_wave:
 		raid_wave_spawned.emit(wave, total_waves)
 	if not _world_ref:

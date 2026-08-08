@@ -52,6 +52,12 @@ enum Sound {
 	CAVE_AMBIENCE, MAIN_MENU,
 	# Zone music themes (loop over ambient while in caves / boss fights / interiors)
 	CAVE_MUSIC, BOSS_MUSIC, INTERIOR_MUSIC,
+	# Expedition island themes (one per island type, same order as
+	# ExpeditionIsland.IslandType).
+	PLAINS_THEME, SNOWLAND_THEME, ICE_CREAM_LAND_THEME, DESERT_THEME,
+	VOLCANO_THEME, ETHEREAL_THEME,
+	# Event / UI themes (zone-style overrides).
+	PIRATE_RAID_THEME, BLOOD_MOON_THEME, SHOP_THEME,
 }
 
 var _sound_streams: Dictionary = {}
@@ -103,6 +109,15 @@ func _load_streams() -> void:
 		Sound.CAVE_MUSIC: "res://assets/audio/cave_music_theme.mp3",
 		Sound.BOSS_MUSIC: "res://assets/audio/boss_theme.mp3",
 		Sound.INTERIOR_MUSIC: "res://assets/audio/interior_music.mp3",
+		Sound.PLAINS_THEME: "res://assets/audio/plains_theme.mp3",
+		Sound.SNOWLAND_THEME: "res://assets/audio/snowland_theme.mp3",
+		Sound.ICE_CREAM_LAND_THEME: "res://assets/audio/icecreamland_theme.wav",
+		Sound.DESERT_THEME: "res://assets/audio/desert_theme.wav",
+		Sound.VOLCANO_THEME: "res://assets/audio/volcano_theme.mp3",
+		Sound.ETHEREAL_THEME: "res://assets/audio/ethereal_theme.wav",
+		Sound.PIRATE_RAID_THEME: "res://assets/audio/pirate_raid_theme.mp3",
+		Sound.BLOOD_MOON_THEME: "res://assets/audio/blood_moon_theme.mp3",
+		Sound.SHOP_THEME: "res://assets/audio/shop_theme.wav",
 	}
 
 	for sound_type in sound_config:
@@ -216,7 +231,12 @@ func _on_phase_changed(phase: int) -> void:
 ## True when the track is a zone override (replaces ambient while inside a
 ## cave, boss fight, or building interior).
 func _is_override_track(sound_type: Sound) -> bool:
-	return sound_type == Sound.CAVE_MUSIC or sound_type == Sound.BOSS_MUSIC or sound_type == Sound.INTERIOR_MUSIC
+	return sound_type == Sound.CAVE_MUSIC or sound_type == Sound.BOSS_MUSIC or sound_type == Sound.INTERIOR_MUSIC \
+		or sound_type == Sound.PLAINS_THEME or sound_type == Sound.SNOWLAND_THEME \
+		or sound_type == Sound.ICE_CREAM_LAND_THEME or sound_type == Sound.DESERT_THEME \
+		or sound_type == Sound.VOLCANO_THEME or sound_type == Sound.ETHEREAL_THEME \
+		or sound_type == Sound.PIRATE_RAID_THEME or sound_type == Sound.BLOOD_MOON_THEME \
+		or sound_type == Sound.SHOP_THEME
 
 ## Ambient theme for a day/night phase. Only the NIGHT phase uses the night
 ## theme (matching when the day/night overlay reaches full darkness); DAWN,
@@ -261,6 +281,26 @@ func resume_ambient_music(fade_seconds: float = 1.0) -> void:
 	var target: int = _base_music if _base_music >= 0 else _derive_ambient_from_phase()
 	_base_music = -1
 	play_music(target, fade_seconds)
+
+## Map an expedition island type to its background-music track. Order matches
+## ExpeditionIsland.IslandType (PLAIN=0, SNOWLAND=1, ICE_CREAM_LAND=2,
+## DESERT=3, VOLCANIC=4, ETHEREAL=5). Unknown types fall back to plains.
+static func island_theme_for_type(island_type: int) -> int:
+	match island_type:
+		1: return Sound.SNOWLAND_THEME
+		2: return Sound.ICE_CREAM_LAND_THEME
+		3: return Sound.DESERT_THEME
+		4: return Sound.VOLCANO_THEME
+		5: return Sound.ETHEREAL_THEME
+		_: return Sound.PLAINS_THEME  # 0 = PLAIN, plus any unknown fallback
+
+## Restore the ambient track, but ONLY if the given override is currently the
+## one playing. Guards against a newer override (an interior, cave, or another
+## event) being stomped when an older event (raid / blood-moon / shop / island)
+## ends mid-encounter.
+func restore_ambient_if(sound_type: Sound, fade_seconds: float = 0.8) -> void:
+	if _current_music == sound_type:
+		resume_ambient_music(fade_seconds)
 
 ## True while at least one boss node is alive in the scene. Used to keep the
 ## boss theme playing through respawns / zone exits during a live boss fight.

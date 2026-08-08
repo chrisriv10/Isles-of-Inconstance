@@ -68,6 +68,7 @@ func _start_blood_moon() -> void:
 	)
 	
 	blood_moon_started.emit()
+	AudioManager.play_music(AudioManager.Sound.BLOOD_MOON_THEME)
 	_broadcast_state()
 
 
@@ -88,6 +89,7 @@ func _end_blood_moon() -> void:
 	)
 	
 	blood_moon_ended.emit()
+	AudioManager.restore_ambient_if(AudioManager.Sound.BLOOD_MOON_THEME)
 	_broadcast_state()
 
 
@@ -131,6 +133,7 @@ func _sync_blood_moon(active: bool) -> void:
 			6.0
 		)
 		blood_moon_started.emit()
+		AudioManager.play_music(AudioManager.Sound.BLOOD_MOON_THEME)
 	else:
 		ToastNotification.show_toast(
 			"🌅 The blood moon fades...",
@@ -138,6 +141,7 @@ func _sync_blood_moon(active: bool) -> void:
 			4.0
 		)
 		blood_moon_ended.emit()
+		AudioManager.restore_ambient_if(AudioManager.Sound.BLOOD_MOON_THEME)
 
 
 ## Creative-panel trigger forwarded from a client.

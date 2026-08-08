@@ -82,6 +82,7 @@ func open_with_items(items: Array, title: String = "") -> void:
 func _open_common() -> void:
 	is_open = true
 	AudioManager.play(AudioManager.Sound.MENU_OPEN)
+	AudioManager.play_music(AudioManager.Sound.SHOP_THEME)
 	dim.visible = true
 	panel.visible = true
 	
@@ -93,6 +94,7 @@ func _open_common() -> void:
 func close() -> void:
 	is_open = false
 	AudioManager.play(AudioManager.Sound.MENU_CLOSE)
+	AudioManager.restore_ambient_if(AudioManager.Sound.SHOP_THEME)
 	
 	# Animate out before hiding
 	UITweenHelper.animate_close(panel, 0.2, 20.0, func(): 
