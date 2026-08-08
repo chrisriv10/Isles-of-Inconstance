@@ -3120,7 +3120,10 @@ func enter_building(interior: BuildingInterior) -> void:
 		return  # already inside
 	if _exit_cooldown:
 		return  # just exited, brief cooldown
-	if current_mine_room or _mine_exit_cooldown:
+	# Gate on the player's ACTUAL state, not current_mine_room. The host keeps a
+	# session-only mine room when a client is inside while the host stays on the
+	# surface; that room existing must NOT block the host from entering buildings.
+	if GameManager.inside_mine or _mine_exit_cooldown:
 		return  # don't enter building from inside a mine
 	
 	current_interior = interior
@@ -3260,7 +3263,11 @@ var _host_island_proxy_seed: int = 0
 func _on_mine_entrance_near(body: Node, entrance_node: Node2D) -> void:
 	if not body.is_in_group("player"):
 		return
-	if current_mine_room:
+	# Gate on the player's ACTUAL state, not current_mine_room. The host keeps a
+	# session-only room when a client is inside the mine while the host stays on
+	# the surface; current_mine_room being set must NOT block the host from
+	# approaching/entering other mines (or buildings).
+	if GameManager.inside_mine:
 		return
 	if _mine_exit_cooldown:
 		return
@@ -3283,7 +3290,8 @@ func _on_mine_entrance_left(body: Node) -> void:
 func can_enter_mine() -> bool:
 	if not _player_near_mine_entrance or not _player_mine_entrance_node:
 		return false
-	if current_mine_room:
+	# Gate on the player's actual state (see _on_mine_entrance_near note).
+	if GameManager.inside_mine:
 		return false
 	if _mine_exit_cooldown:
 		return false
@@ -3297,7 +3305,8 @@ func can_enter_mine() -> bool:
 func try_enter_mine() -> bool:
 	if not _player_near_mine_entrance or not _player_mine_entrance_node:
 		return false
-	if current_mine_room:
+	# Gate on the player's actual state (see _on_mine_entrance_near note).
+	if GameManager.inside_mine:
 		return false
 	if _mine_exit_cooldown:
 		return false
@@ -4049,16 +4058,26 @@ func _do_mine_descended(new_depth: int) -> void:
 	if om_mine and om_mine.has_method("on_reach_mine_depth"):
 		om_mine.on_reach_mine_depth(new_depth)
 	
-	# Move the local player to the new room's spawn — but only when this
-	# peer's own player is actually inside the mine. The host keeps a
-	# session-only room copy when a client is inside while the host stays on
-	# the surface, and its player must not be teleported.
-	if player and GameManager.inside_mine:
-		var spawn_pos := mine_generator.get_spawn_position(0)
-		player.global_position = MINE_VOID + spawn_pos
-		player.visible = true
-		player.set_process(true)
-		player.set_physics_process(true)
+	# Rebuild effects that only apply to THIS peer's own player actually being
+	# inside the mine. The host keeps a session-only room copy when a client is
+	# inside while the host stays on the surface; its player must not be moved,
+	# and its camera must NOT be clamped to the distant mine void (otherwise the
+	# host's camera snaps to the mine on a client's descent, the host "sees" the
+	# mine while their own character is off-screen at the surface — appearing
+	# 'teleported, frozen and invisible').
+	if GameManager.inside_mine:
+		if player:
+			var spawn_pos := mine_generator.get_spawn_position(0)
+			player.global_position = MINE_VOID + spawn_pos
+			player.visible = true
+			player.set_process(true)
+			player.set_physics_process(true)
+		# Re-apply camera limits for the new deeper room
+		_set_mine_camera_limits(64, 48)
+		# Fade transition
+		var hud := get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("fade_to_black"):
+			hud.fade_to_black(0.3)
 	
 	# Add new room at void position
 	call_deferred("_deferred_setup_mine_room", mine)
@@ -4067,14 +4086,6 @@ func _do_mine_descended(new_depth: int) -> void:
 	# ready-ack; clients re-ack once their rebuilt room is ready again.
 	if NetworkManager.is_network_active() and multiplayer.is_server():
 		_mine_session_room_ready.clear()
-	
-	# Re-apply camera limits for the new deeper room
-	_set_mine_camera_limits(64, 48)
-	
-	# Fade transition
-	var hud := get_tree().get_first_node_in_group("hud")
-	if hud and hud.has_method("fade_to_black"):
-		hud.fade_to_black(0.3)
 
 
 # ── Expedition Island System ──

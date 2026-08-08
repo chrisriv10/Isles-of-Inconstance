@@ -140,6 +140,13 @@ func _refresh_target_player() -> void:
 	if "_is_downed" in _player_ref and _player_ref._is_downed:
 		_player_ref = nearest
 		return
+	# Current target is no longer inside this room (e.g. a remote copy that
+	# left, or a stale target) — drop it for a valid in-room player so the
+	# enemy doesn't stay frozen chasing a phantom out-of-room copy.
+	if not _player_in_my_room(_player_ref):
+		if nearest:
+			_player_ref = nearest
+		return
 	var current_dist: float = global_position.distance_to(_player_ref.global_position)
 	var nearest_dist: float = global_position.distance_to(nearest.global_position)
 	if current_dist - nearest_dist > 40.0:
