@@ -1,16 +1,16 @@
-extends Node
+﻿extends Node
 
 ## Audio manager for sound effects and background music.
-## Loads audio files from res://assets/audio/ — if a file doesn't exist,
+## Loads audio files from res://assets/audio/ â€” if a file doesn't exist,
 ## the sound simply doesn't play (no procedural beeps).
 
-# ── SFX system ──
+# â”€â”€ SFX system â”€â”€
 
 var _audio_players: Array[AudioStreamPlayer] = []
 var _player_index: int = 0
 const MAX_PLAYERS: int = 32
 
-# ── Music system ──
+# â”€â”€ Music system â”€â”€
 
 var _music_player: AudioStreamPlayer = null
 var _current_music: int = -1
@@ -81,43 +81,43 @@ func _ready() -> void:
 	if gm_node and gm_node.has_signal("phase_changed"):
 		gm_node.phase_changed.connect(_on_phase_changed)
 
-## Load audio files from disk. No procedural fallback — missing files = silence.
+## Load audio files from disk. No procedural fallback â€” missing files = silence.
 func _load_streams() -> void:
 	var sound_config := {
 		Sound.TILL: "res://assets/audio/till.wav",
 		Sound.WATER: "res://assets/audio/water.wav",
 		Sound.PLANT: "res://assets/audio/plant.ogg",
-		Sound.UI_CLICK: "res://assets/audio/click.mp3",
+		Sound.UI_CLICK: "res://assets/audio/click.ogg",
 		Sound.UI_ERROR: "res://assets/audio/ui_error.wav",
-		Sound.HIT: "res://assets/audio/hit.mp3",
-		Sound.DOOR_OPEN: "res://assets/audio/door_open.mp3",
-		Sound.DOOR_CLOSE: "res://assets/audio/door_close.mp3",
-		Sound.ENEMY_DIE: "res://assets/audio/enemy_die.mp3",
-		Sound.BOSS_ROAR: "res://assets/audio/boss_roar.mp3",
-		Sound.BOSS_DIE: "res://assets/audio/boss_die.mp3",
-		Sound.LEVEL_UP: "res://assets/audio/level_up.mp3",
-		Sound.EAT: "res://assets/audio/eat.mp3",
+		Sound.HIT: "res://assets/audio/hit.ogg",
+		Sound.DOOR_OPEN: "res://assets/audio/door_open.ogg",
+		Sound.DOOR_CLOSE: "res://assets/audio/door_close.ogg",
+		Sound.ENEMY_DIE: "res://assets/audio/enemy_die.ogg",
+		Sound.BOSS_ROAR: "res://assets/audio/boss_roar.ogg",
+		Sound.BOSS_DIE: "res://assets/audio/boss_die.ogg",
+		Sound.LEVEL_UP: "res://assets/audio/level_up.ogg",
+		Sound.EAT: "res://assets/audio/eat.ogg",
 		Sound.CHEST_OPEN: "res://assets/audio/chest_open.wav",
 		Sound.CHEST_CLOSE: "res://assets/audio/chest_close.wav",
 		Sound.MENU_OPEN: "res://assets/audio/menu_open.wav",
 		Sound.MENU_CLOSE: "res://assets/audio/menu_close.wav",
-		Sound.EQUIP_ARMOR: "res://assets/audio/equip_armor.mp3",
-		Sound.AMBIENT_DAY: "res://assets/audio/day_ambience_theme.wav",
-		Sound.AMBIENT_NIGHT: "res://assets/audio/night_ambience_theme.mp3",
-		Sound.CAVE_AMBIENCE: "res://assets/audio/cave_ambience_effect.mp3",
-		Sound.MAIN_MENU: "res://assets/audio/main_menu_theme.mp3",
-		Sound.CAVE_MUSIC: "res://assets/audio/cave_music_theme.mp3",
-		Sound.BOSS_MUSIC: "res://assets/audio/boss_theme.mp3",
-		Sound.INTERIOR_MUSIC: "res://assets/audio/interior_music.mp3",
-		Sound.PLAINS_THEME: "res://assets/audio/plains_theme.mp3",
-		Sound.SNOWLAND_THEME: "res://assets/audio/snowland_theme.mp3",
-		Sound.ICE_CREAM_LAND_THEME: "res://assets/audio/icecreamland_theme.wav",
-		Sound.DESERT_THEME: "res://assets/audio/desert_theme.wav",
-		Sound.VOLCANO_THEME: "res://assets/audio/volcano_theme.mp3",
-		Sound.ETHEREAL_THEME: "res://assets/audio/ethereal_theme.wav",
-		Sound.PIRATE_RAID_THEME: "res://assets/audio/pirate_raid_theme.mp3",
-		Sound.BLOOD_MOON_THEME: "res://assets/audio/blood_moon_theme.mp3",
-		Sound.SHOP_THEME: "res://assets/audio/shop_theme.wav",
+		Sound.EQUIP_ARMOR: "res://assets/audio/equip_armor.ogg",
+		Sound.AMBIENT_DAY: "res://assets/audio/day_ambience_theme.ogg",
+		Sound.AMBIENT_NIGHT: "res://assets/audio/night_ambience_theme.ogg",
+		Sound.CAVE_AMBIENCE: "res://assets/audio/cave_ambience_effect.ogg",
+		Sound.MAIN_MENU: "res://assets/audio/main_menu_theme.ogg",
+		Sound.CAVE_MUSIC: "res://assets/audio/cave_music_theme.ogg",
+		Sound.BOSS_MUSIC: "res://assets/audio/boss_theme.ogg",
+		Sound.INTERIOR_MUSIC: "res://assets/audio/interior_music.ogg",
+		Sound.PLAINS_THEME: "res://assets/audio/plains_theme.ogg",
+		Sound.SNOWLAND_THEME: "res://assets/audio/snowland_theme.ogg",
+		Sound.ICE_CREAM_LAND_THEME: "res://assets/audio/icecreamland_theme.ogg",
+		Sound.DESERT_THEME: "res://assets/audio/desert_theme.ogg",
+		Sound.VOLCANO_THEME: "res://assets/audio/volcano_theme.ogg",
+		Sound.ETHEREAL_THEME: "res://assets/audio/ethereal_theme.ogg",
+		Sound.PIRATE_RAID_THEME: "res://assets/audio/pirate_raid_theme.ogg",
+		Sound.BLOOD_MOON_THEME: "res://assets/audio/blood_moon_theme.ogg",
+		Sound.SHOP_THEME: "res://assets/audio/shop_theme.ogg",
 	}
 
 	for sound_type in sound_config:
@@ -157,7 +157,7 @@ func play_music(sound_type: Sound, fade_seconds: float = 1.0) -> void:
 
 	# Zone overrides (cave/boss/interior) remember the ambient track that was
 	# playing so resume_ambient_music() can restore it. Nested overrides keep
-	# the existing base — an override never chains into _base_music.
+	# the existing base â€” an override never chains into _base_music.
 	if _is_override_track(sound_type):
 		if _base_music < 0:
 			if _current_music == Sound.AMBIENT_DAY or _current_music == Sound.AMBIENT_NIGHT:
@@ -174,7 +174,7 @@ func play_music(sound_type: Sound, fade_seconds: float = 1.0) -> void:
 	_current_music = sound_type
 
 	if not _music_player.playing:
-		# Nothing playing yet — just start
+		# Nothing playing yet â€” just start
 		_music_player.stream = stream
 		_music_player.volume_db = _music_volume
 		_music_player.play()
@@ -211,7 +211,7 @@ func stop_music(fade_seconds: float = 0.5) -> void:
 		_music_player.stop()
 	)
 
-## Respond to day/night phase changes — switch ambient music.
+## Respond to day/night phase changes â€” switch ambient music.
 func _on_phase_changed(phase: int) -> void:
 	# Always track the ambient theme matching this phase, so leaving a
 	# cave/boss/interior after a phase change restores the correct track.
@@ -251,8 +251,8 @@ func _derive_ambient_from_phase() -> int:
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
 		# Typed as Variant: during early worldgen "day_night" may not be a
-		# Node yet (or may be a Resource-style object) — a typed Node local
-		# would throw a RefCounted→Node assignment error.
+		# Node yet (or may be a Resource-style object) â€” a typed Node local
+		# would throw a RefCountedâ†’Node assignment error.
 		var day_night: Variant = gm.get("day_night")
 		if day_night != null:
 			var current_phase: Variant = day_night.get("current_phase")
@@ -264,7 +264,7 @@ func _derive_ambient_from_phase() -> int:
 ## back to the current phase if no base track was captured.
 func resume_ambient_music(fade_seconds: float = 1.0) -> void:
 	# Don't stomp a non-ambient, non-zone-override track that's already playing
-	# — e.g. the main-menu music while the world initializes behind the menu.
+	# â€” e.g. the main-menu music while the world initializes behind the menu.
 	# Zone overrides (cave/boss/interior) are still restored to ambient here.
 	if _current_music >= 0 \
 			and _current_music != Sound.AMBIENT_DAY \
@@ -272,7 +272,7 @@ func resume_ambient_music(fade_seconds: float = 1.0) -> void:
 			and not _is_override_track(_current_music):
 		_base_music = -1
 		return
-	# A boss that is still alive owns the soundtrack — never drop it to ambient
+	# A boss that is still alive owns the soundtrack â€” never drop it to ambient
 	# while respawning or leaving a zone during a live boss fight. (The dying
 	# boss is removed from the "bosses" group before this is called on a kill.)
 	if _is_boss_fight_active():
