@@ -1,6 +1,6 @@
 # 🌾 Isles of Inconstance
 
-**v0.2.0**
+**v0.2.1**
 
 A Stardew Valley and Minecraft inspired farming, survival, and crafting game built in **Godot 4.7**, featuring procedurally generated crops, a fully deterministic seeded world, co-op multiplayer, and a surprising amount of stuff to do.
 
